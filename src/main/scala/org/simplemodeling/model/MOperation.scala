@@ -7,9 +7,10 @@ package org.simplemodeling.model
  *  version Sep. 21, 2009
  *  version Nov. 12, 2012
  *  version Dec.  6, 2012
- * @version Aug.  8, 2019
+ *  version Aug.  8, 2019
+ *  version Dec. 14, 2019
+ * @version Apr. 25, 2020
  * @author  ASAMI, Tomoharu
  */
-abstract class MOperation(
-) extends MElement {
+trait MOperation extends MElement {
 }
