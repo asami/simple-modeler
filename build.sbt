@@ -39,7 +39,13 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % "test"
 libraryDependencies += "junit" % "junit" % "4.10" % "test"
 
 //
-publishTo := Some(Resolver.file("asamioffice", file("target/maven-repository")))
+val mavenrepo = settingKey[String]("mavenrepo")
+
+mavenrepo := sys.env.getOrElse("PUBLISH_MAVEN_REPO", default = "target/maven-repository")
+
+publishTo <<= mavenrepo { v: String =>
+  Some(Resolver.file("file", file(v)))
+}
 
 // Docker
 maintainer in Docker := "Duke"
