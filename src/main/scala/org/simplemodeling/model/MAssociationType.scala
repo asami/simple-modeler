@@ -11,11 +11,12 @@ import org.smartdox.Description
  *  version May. 25, 2020
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
- * @version Sep. 26, 2020
+ *  version Sep. 26, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MAssociationType(
-  designation: Designation,
+  override val designation: Designation,
   entityRef: MEntityRef
 ) extends MRelationshipType {
   val target = entityRef.target

@@ -13,13 +13,13 @@ import org.simplemodeling.model._
  *  version May. 17, 2020
  *  version Jun. 17, 2020
  *  version Jul. 25, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MRequirementTask(
-  designation: Designation,
+  description: Description,
   affiliation: MPackageRef,
-  description: Description = Description.empty,
   stereotypes: List[MStereotype] = Nil
 ) extends MTask {
   final def userRequirementUsecasesLiteral: Dox = {

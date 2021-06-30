@@ -13,11 +13,12 @@ import org.simplemodeling.parser.SimpleModelParser.CreateObjectCommand
  *  version May. 17, 2020
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
- * @version Nov. 18, 2020
+ *  version Nov. 18, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MDomainTrait(
-  description: Description,
+  override val description: Description,
   affiliation: MPackageRef,
   stereotypes: List[MStereotype],
   base: Option[MObjectRef],
@@ -28,7 +29,7 @@ case class MDomainTrait(
   operations: List[MOperation],
   stateMachines: List[MStateMachineRef]
 ) extends MTrait {
-  def designation: Designation = description.designation getOrElse Designation.empty
+  // def designation: Designation = description.designation
 }
 
 object MDomainTrait {

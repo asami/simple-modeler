@@ -15,7 +15,8 @@ import org.simplemodeling.parser.SimpleModelParser.CreateObjectCommand
  *  version May. 17, 2020
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
- * @version Nov. 18, 2020
+ *  version Nov. 18, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MDomainVoucher(
@@ -28,7 +29,7 @@ case class MDomainVoucher(
   attributes: List[MAttribute],
   operations: List[MOperation]
 ) extends MVoucher {
-  def designation: Designation = description.designation getOrElse Designation.empty
+  // def designation: Designation = description.designation
 }
 object MDomainVoucher {
   def apply(p: CreateObjectCommand): MDomainVoucher = {

@@ -16,11 +16,12 @@ import org.simplemodeling.model._
  *  version May. 17, 2020
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
- * @version Nov. 18, 2020
+ *  version Nov. 18, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MDomainEvent(
-  description: Description,
+  override val description: Description,
   affiliation: MPackageRef,
   stereotypes: List[MStereotype] = Nil,
   base: Option[MObjectRef],
@@ -31,5 +32,5 @@ case class MDomainEvent(
   operations: List[MOperation],
   stateMachines: List[MStateMachineRef]
 ) extends MDomainEntity {
-  def designation: Designation = description.designation getOrElse Designation.empty
+  // def designation: Designation = description.designation
 }

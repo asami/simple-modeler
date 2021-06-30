@@ -11,11 +11,12 @@ import org.simplemodeling.model._
  *  version Mar. 26, 2011
  *  version May. 10, 2020
  *  version Jun. 17, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MFlowStep(
-  designation: Designation,
+  override val designation: Designation,
   affiliation: MPackageRef
 ) extends MElement {
   def getAffiliation = Some(affiliation)

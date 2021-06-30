@@ -11,11 +11,12 @@ import org.goldenport.values.Designation
  * @since   Mar. 15, 2009
  *  version May. 10, 2020
  *  version Jun. 13, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MGuard(
-  designation: Designation,
+  override val designation: Designation,
   ownerStateMachine: MStateMachine
 ) extends MElement {
   def getAffiliation = None

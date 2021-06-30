@@ -25,11 +25,12 @@ import org.simplemodeling.parser.SimpleModelParser
  *  version Apr. 25, 2020
  *  version May. 16, 2020
  *  version Jun. 17, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MAttribute(
-  designation: Designation,
+  override val designation: Designation,
   attributeType: MAttributeType,
   multiplicity: MMultiplicity,
 //  label: Option[I18NString],

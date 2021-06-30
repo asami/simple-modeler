@@ -13,10 +13,24 @@ import org.goldenport.i18n.I18NString
  *  version Jan.  5, 2020
  *  version Mar.  3, 2020
  *  version Apr. 25, 2020
- * @version May. 10, 2020
+ *  version May. 10, 2020
+ * @version Jun. 28, 2021
  * @author  ASAMI, Tomoharu
  */
 trait MStateMachine extends MObject {
+  def base: Option[MObjectRef] = None
+  def traits: List[MTraitRef] = Nil
+  def powertypes: List[MPowertypeRef] = Nil
+  def attributes: List[MAttribute] = Nil
+  def associations: List[MAssociation] = Nil
+  def operations: List[MOperation] = Nil
+  def stateMachines: List[MStateMachineRef] = Nil
+  def ports: List[MPort] = Nil
+  def roles: List[MRoleRef] = Nil
+  def services: List[MServiceRef] = Nil
+  def rules: List[MRuleRef] = Nil
+  def vouchers: List[MVoucherRef] = Nil
+
   // val ownerObject: SMObject
   override def typeName: String = "state machine"
   val wholeStateMap = new LinkedHashMap[String, MState]

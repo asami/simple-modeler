@@ -12,11 +12,12 @@ import org.goldenport.values.Designation
  *  version May. 10, 2020
  *  version Jun. 16, 2020
  *  version Aug. 15, 2020
- * @version Oct.  4, 2020
+ *  version Oct.  4, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MFeature(
-  designation: Designation,
+  override val designation: Designation,
   owner: MElement,
   value: Dox,
   description: Description = Description.empty

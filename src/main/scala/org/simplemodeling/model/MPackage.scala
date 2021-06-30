@@ -14,11 +14,12 @@ import org.smartdox.Description
  *  version Jan.  4, 2020
  *  version May. 19, 2020
  *  version Jun. 13, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MPackage(
-  designation: Designation,
+  override val designation: Designation,
   affiliation: MPackageRef,
   elements: Vector[MElement],
   description: Description = Description.empty

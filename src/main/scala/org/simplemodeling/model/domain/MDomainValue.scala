@@ -16,7 +16,8 @@ import org.simplemodeling.parser.SimpleModelParser.CreateObjectCommand
  *  version Oct. 21, 2012
  *  version Jul. 24, 2020
  *  version Aug.  1, 2020
- * @version Nov. 18, 2020
+ *  version Nov. 18, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MDomainValue(
@@ -29,7 +30,7 @@ case class MDomainValue(
   attributes: List[MAttribute],
   operations: List[MOperation]
 ) extends MValue {
-  def designation: Designation = description.designation getOrElse Designation.empty
+  // def designation: Designation = description.designation
 }
 object MDomainValue {
   def apply(p: CreateObjectCommand): MDomainValue = {

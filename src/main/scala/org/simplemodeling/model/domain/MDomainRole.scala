@@ -15,11 +15,12 @@ import org.simplemodeling.model._
  *  version Oct. 21, 2012
  *  version May. 17, 2020
  *  version Jun. 17, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MDomainRole(
-  designation: Designation,
+  override val designation: Designation,
   affiliation: MPackageRef,
   stereotypes: List[MStereotype] = Nil,
   base: Option[MObjectRef],

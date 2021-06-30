@@ -9,11 +9,12 @@ import org.simplemodeling.model._
  * 
  * @since   Dec. 12, 2008
  *  version Jul. 27, 2020
- * @version Aug.  8, 2020
+ *  version Aug.  8, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MParameterStep(
-  designation: Designation,
+  override val designation: Designation,
   affiliation: MPackageRef
 ) extends MStep {
   def getAffiliation = Some(affiliation)

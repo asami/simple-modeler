@@ -12,11 +12,12 @@ import org.smartdox.Description
  *  version Mar. 18, 2009
  *  version May. 10, 2020
  *  version Jun. 17, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MTransition(
-  designation: Designation,
+  override val designation: Designation,
   ownerStateMachine: MStateMachine,
   description: Description = Description.empty
 ) extends MElement {

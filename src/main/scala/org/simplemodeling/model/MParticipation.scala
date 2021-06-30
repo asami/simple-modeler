@@ -13,11 +13,12 @@ import org.simplemodeling.model._
  *  version Dec. 15, 2012
  *  version Aug. 13, 2020
  *  version Sep. 22, 2020
- * @version Oct.  3, 2020
+ *  version Oct.  3, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MParticipation(
-  designation: Designation,
+  override val designation: Designation,
   description: Description = Description.empty
 ) extends MRelationship {
   def relationshipType = MRelationshipType(???, ???)

@@ -24,7 +24,8 @@ import org.simplemodeling.model.domain._
  *  version May. 10, 2020
  *  version Jun. 17, 2020
  *  version Nov. 19, 2020
- * @version Dec. 27, 2020
+ *  version Dec. 27, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class SimpleModelParser(config: SimpleModelParser.Config) {
@@ -346,7 +347,7 @@ object SimpleModelParser {
         content: Dox = EmptyDox
       ) {
         def r: Description = {
-          Description(designation, title, resume, content)
+          Description(designation getOrElse Designation.empty, title, resume, content)
         }
 
         def +(rhs: Dox) = {
@@ -399,7 +400,7 @@ object SimpleModelParser {
 
     private def _get_feature_table_in_section(p: Section): Option[Table] = {
       println(s"SimpleModelParser#Builder#_get_feature_table_in_section Secion: $p")
-      println(s"SimpleModelParser#Builder#_get_feature_table_in_section table: ${p.tableList}")
+      // println(s"SimpleModelParser#Builder#_get_feature_table_in_section table: ${p.tableList}")
       p.tableList match {
         case Nil => None
         case x :: Nil => Vector(x).find(config.isFeatureTable)

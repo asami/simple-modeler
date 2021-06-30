@@ -10,11 +10,12 @@ import org.simplemodeling.model._
  * @since   Dec.  5, 2008
  *  version Nov. 12, 2012
  *  version Jul. 27, 2020
- * @version Aug.  8, 2020
+ *  version Aug.  8, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MInvocationStep(
-  designation: Designation,
+  override val designation: Designation,
   affiliation: MPackageRef
 ) extends MStep {
   def getAffiliation = Some(affiliation)

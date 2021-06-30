@@ -18,11 +18,12 @@ import org.goldenport.values.Designation
  *  version Apr. 25, 2020
  *  version May.  6, 2020
  *  version Jun. 13, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MState(
-  designation: Designation,
+  override val designation: Designation,
   ownerStateMachine: MStateMachine,
   description: Description = Description.empty
 ) extends MElement {

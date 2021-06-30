@@ -8,13 +8,13 @@ import org.simplemodeling.model._
  * @since   May.  9, 2020
  *  version May. 17, 2020
  *  version Jun. 17, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MExperienceUsecase(
-  designation: Designation,
+  description: Description,
   affiliation: MPackageRef,
-  stereotypes: List[MStereotype] = Nil,
-  description: Description = Description.empty
+  stereotypes: List[MStereotype] = Nil
 ) extends MRequirementUsecase {
 }

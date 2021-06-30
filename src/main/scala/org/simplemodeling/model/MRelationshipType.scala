@@ -8,7 +8,8 @@ import org.goldenport.values.Designation
  *
  * @since   Nov. 22, 2008
  *  version Sep. 27, 2020
- * @version Oct.  4, 2020
+ *  version Oct.  4, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 trait MRelationshipType extends MElement {
@@ -19,13 +20,13 @@ trait MRelationshipType extends MElement {
 
 object MRelationshipType {
   case class Root(
-    designation: Designation
+    override val designation: Designation
   ) extends MRelationshipType {
     val target: MPointer = MPointer(name, "")
   }
 
   case class Instance(
-    designation: Designation,
+    override val designation: Designation,
     packageRef: MPackageRef
   ) extends MRelationshipType {
     val target: MPointer = MPointer(name, packageRef.targetName)

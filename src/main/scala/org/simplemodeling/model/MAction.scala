@@ -11,11 +11,12 @@ import org.smartdox.Description
  * @since   Mar. 15, 2009
  *  version May. 10, 2020
  *  version Jun. 17, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MAction(
-  designation: Designation,
+  override val designation: Designation,
   ownerStateMachine: MStateMachine,
   description: Description = Description.empty
 ) extends MElement {

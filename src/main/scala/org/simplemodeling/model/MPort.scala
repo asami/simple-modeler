@@ -11,11 +11,12 @@ import org.simplemodeling.model._
  * @since   Mar. 21, 2011
  *  version May. 10, 2020
  *  version Jun. 17, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MPort(
-  designation: Designation,
+  override val designation: Designation,
   affiliation: MPackageRef,
   inout: MPort.InOut = MPort.InputOutput,
   description: Description = Description.empty

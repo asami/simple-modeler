@@ -7,11 +7,12 @@ import org.simplemodeling.model._
  * Derived from ActionStep and SMActionStep.
  * 
  * @since   Dec.  5, 2008
- * @version Jul. 25, 2020
+ *  version Jul. 25, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MActionStep(
-  designation: Designation,
+  override val designation: Designation,
   affiliation: MPackageRef
 ) extends MStep {
   def getAffiliation = Some(affiliation)

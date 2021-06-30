@@ -8,11 +8,12 @@ import org.simplemodeling.model._
  * Derived from ExecutionStep and SMExecutionStep.
  * 
  * @since   Dec.  5, 2008
- * @version Jul. 27, 2020
+ *  version Jul. 27, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MExecutionStep(
-  designation: Designation,
+  override val designation: Designation,
   affiliation: MPackageRef
 ) extends MStep {
   def getAffiliation = Some(affiliation)

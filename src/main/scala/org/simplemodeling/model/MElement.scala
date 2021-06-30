@@ -22,13 +22,14 @@ import org.smartdox.Description
  *  version Apr. 25, 2020
  *  version May. 18, 2020
  *  version Jun. 13, 2020
- * @version Aug. 15, 2020
+ *  version Aug. 15, 2020
+ * @version Jun. 20, 2021
  * @author  ASAMI, Tomoharu
  */
 trait MElement extends Designation.Holder with Description.Holder with Showable {
-  def designation: Designation
+  override def designation: Designation
   def description: Description
-  final def resume: org.smartdox.Resume = description.resume
+  final override def resume: org.smartdox.Resume = description.resume
   def getAffiliation: Option[MPackageRef]
   def qualifiedName: String = getAffiliation.map(x =>
     if (x.isDefault)
