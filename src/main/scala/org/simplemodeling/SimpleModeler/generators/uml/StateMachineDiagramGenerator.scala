@@ -7,6 +7,7 @@ package org.simplemodeling.SimpleModeler.generators.uml
 // import org.simplemodeling.SimpleModeler.entity._
 
 import scala.collection.mutable.HashMap
+import org.goldenport.RAISE
 import org.goldenport.graphviz._
 import org.goldenport.bag.ChunkBag
 import org.simplemodeling.model._
@@ -17,7 +18,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  * @since   Jan. 28, 2009
  *  version Mar. 19, 2009
  *  version Sep. 18, 2012
- * @version May. 10, 2020
+ *  version May. 10, 2020
+ * @version Jul. 12, 2021
  * @author  ASAMI, Tomoharu
  */
 class StateMachineDiagramGenerator(
@@ -32,6 +34,14 @@ class StateMachineDiagramGenerator(
     make_statemachine_diagram_png(makeStateMachineDiagramDot(aStateMachine))
   }
 
+  final def makeStateMachineDiagramSvg(aStateMachine: MStateMachine): ChunkBag = {
+    make_statemachine_diagram_svg(makeStateMachineDiagramDot(aStateMachine))
+  }
+
+  final def makeStateMachineDiagramWebp(aStateMachine: MStateMachine): ChunkBag = {
+    make_statemachine_diagram_webp(makeStateMachineDiagramDot(aStateMachine))
+  }
+
 /*
   def stream2Bytes(in: java.io.InputStream) = { 2009-03-18
     val out = new java.io.ByteArrayOutputStream
@@ -39,13 +49,13 @@ class StateMachineDiagramGenerator(
       val buffer = new Array[byte](8192)
       var done = false
       while (!done) {
-	println("before read")
-	val size = in.read(buffer)
-	println("size = " + size)
-	if (size == -1) done = true
-	else {
-	  out.write(buffer, 0, size)
-	}
+        println("before read")
+        val size = in.read(buffer)
+        println("size = " + size)
+        if (size == -1) done = true
+        else {
+          out.write(buffer, 0, size)
+        }
       }
       out.flush()
       out.toByteArray()
@@ -57,6 +67,14 @@ class StateMachineDiagramGenerator(
 
   private def make_statemachine_diagram_png(text: String): ChunkBag = {
     make_diagram_png(text)
+  }
+
+  private def make_statemachine_diagram_svg(text: String): ChunkBag = {
+    make_diagram_svg(text)
+  }
+
+  private def make_statemachine_diagram_webp(text: String): ChunkBag = {
+    make_diagram_webp(text)
   }
 /*
   private def make_statemachine_diagram_png(text: StringContent): BinaryContent = {
@@ -102,25 +120,25 @@ class StateMachineDiagramGenerator(
 
     def get_state_id(aState: MState) = {
       if (aState.isComposite) {
-	stateIds(aState) + "_start"
+        stateIds(aState) + "_start"
       } else {
-	stateIds(aState)
+        stateIds(aState)
       }
     }
 
     def get_state_id_from(aState: MState) = {
       if (aState.isComposite) {
-	stateIds(aState) + "_end"
+        stateIds(aState) + "_end"
       } else {
-	stateIds(aState)
+        stateIds(aState)
       }
     }
 
     def get_state_id_to(aState: MState) = {
       if (aState.isComposite) {
-	stateIds(aState) + "_start"
+        stateIds(aState) + "_start"
       } else {
-	stateIds(aState)
+        stateIds(aState)
       }
     }
 
@@ -132,32 +150,32 @@ class StateMachineDiagramGenerator(
       val endId = aCompositeState.endId // XXX
       aCompositeState.addStart
       for (state <- subStates) {
-	if (state.isComposite) {
-	  val id = make_subgraph_id
-	  stateIds += (state -> id)
-	  val compositeState = aCompositeState.addCompositeState(state, id)
-	  build_composite_state(state, compositeState)
-	} else {
-	  val id = make_id
-	  stateIds += (state -> id)
-	  aCompositeState.addState(state, id)
-	}
+        if (state.isComposite) {
+          val id = make_subgraph_id
+          stateIds += (state -> id)
+          val compositeState = aCompositeState.addCompositeState(state, id)
+          build_composite_state(state, compositeState)
+        } else {
+          val id = make_id
+          stateIds += (state -> id)
+          aCompositeState.addState(state, id)
+        }
       }
       aCompositeState.addPseudoTransition(startId, get_state_id_to(subStates(0)))
       for (state <- subStates) {
-	if (state.isTerminal) {
-	  aCompositeState.addPseudoTransition(get_state_id_from(state), endId)
-	}
+        if (state.isTerminal) {
+          aCompositeState.addPseudoTransition(get_state_id_from(state), endId)
+        }
       }
       aCompositeState.addEnd
     }
 
     def build_composite_state_transitions(aState: MState) {
       for (state <- aState.subStates) {
-	for (transition <- state.transitions) {
-	  graph.addTransition(transition, get_state_id_from(transition.preState), get_state_id_to(transition.postState))
-	}
-	build_composite_state_transitions(state)
+        for (transition <- state.transitions) {
+          graph.addTransition(transition, get_state_id_from(transition.preState), get_state_id_to(transition.postState))
+        }
+        build_composite_state_transitions(state)
       }
     }
 
@@ -165,31 +183,38 @@ class StateMachineDiagramGenerator(
 //      println("makeStateMachineDiagramDot start") 2009-03-01
       graph.addStart("start")
       for (state <- aStateMachine.states) {
-	if (state.isComposite) {
-	  val id = make_subgraph_id
-	  stateIds += (state -> id)
-	  val compositeState = graph.addCompositeState(state, id)
-	  build_composite_state(state, compositeState)
-	} else {
-	  val id = make_id
-	  stateIds += (state -> id)
-	  graph.addState(state, id)
-	}
+        if (state.isComposite) {
+          val id = make_subgraph_id
+          stateIds += (state -> id)
+          val compositeState = graph.addCompositeState(state, id)
+          build_composite_state(state, compositeState)
+        } else {
+          val id = make_id
+          stateIds += (state -> id)
+          graph.addState(state, id)
+        }
       }
       if (counter > 1) {
-	graph.addPseudoTransition("start", "state1")
+        // graph.addPseudoTransition("start", "state1")
+        graph.graph.elements(1) match {
+          case m: GVNode => graph.addPseudoTransition("start", m.id)
+          case m: GVSubgraph => graph.addPseudoTransition("start", m.id, m.elements(0).id)
+          case m: GVGraph => RAISE.noReachDefect
+        }
       }
       for (transition <- aStateMachine.transitions) {
-	graph.addTransition(transition, get_state_id_from(transition.preState), get_state_id_to(transition.postState))
+        graph.addTransition(transition, get_state_id_from(transition.preState), get_state_id_to(transition.postState))
       }
       for (state <- aStateMachine.states if state.isComposite) {
-	build_composite_state_transitions(state)
+        build_composite_state_transitions(state)
       }
       for (state <- aStateMachine.states if state.isTerminal) {
-	graph.addPseudoTransition(get_state_id(state), "end")
+        graph.addPseudoTransition(get_state_id_from(state), "end")
       }
       graph.addEnd("end")
-      graphviz.toDotText
+      val r = graphviz.toDotText
+      println(r)
+      r
     } finally {
       // graphviz.close
 //      println("makeStateMachineDiagramDot end")
@@ -198,6 +223,8 @@ class StateMachineDiagramGenerator(
 }
 
 abstract class GraphBase {
+  protected def add_Edge(p: GVEdge): Unit
+
   protected final def is_cluster_start(id: String) = {
     id.startsWith("cluster_") && id.endsWith("_start")
   }
@@ -215,6 +242,22 @@ abstract class GraphBase {
     } else {
       error ("illigal id = " + id)
     }
+  }
+
+  final def addPseudoTransition(aSourceId: String, aTargetId: String) {
+    val edge = new GVEdge(aSourceId, "", aTargetId, "")
+    edge.arrowhead = "normal"
+    edge.arrowtail = "none"
+    edge.color = "#2b2b2b" // 蝋色 ろういろ
+    add_Edge(edge)
+  }
+
+  final def addPseudoTransition(aSourceId: String, aTargetId: String, ankderid: String) {
+    val edge = new GVEdge(aSourceId, "", aTargetId, "", Some(ankderid))
+    edge.arrowhead = "normal"
+    edge.arrowtail = "none"
+    edge.color = "#2b2b2b" // 蝋色 ろういろ
+    add_Edge(edge)
   }
 }
 
@@ -243,6 +286,8 @@ class GraphStateMachine(
   }
   graph.defaultEdgeAttributes.fontsize = "10"
   graph.defaultEdgeAttributes.fontcolor = "#192f60" // 紺青 こんじょう
+
+  protected def add_Edge(p: GVEdge) = graph.edges += p
 
   final def addStart(aId: String) {
     val node = new GVNode(aId)
@@ -289,17 +334,18 @@ class GraphStateMachine(
   }
 
   final def addTransition(aTransition: MTransition, aSourceId: String, aTargetId: String) {
-    def make_label = {
-      aTransition.guard match {
-	case MGuard.empty => aTransition.event.name 
-	case guard: MGuard => aTransition.event.name + "\\n" + "[" + guard.mark + "]"
-      }
-    }
+    def make_label: Option[String] =
+      aTransition.event.map(evt =>
+        aTransition.guard.map {
+          case MGuard.empty => evt.name
+          case guard: MGuard => evt.name + "\\n" + "[" + guard.mark + "]"
+        }.getOrElse(evt.name)
+      )
 
     val edge = new GVEdge(aSourceId, "", aTargetId, "")
     edge.arrowhead = "normal"
     edge.arrowtail = "none"
-    edge.label = make_label
+    make_label.foreach(x => edge.label = x)
     edge.labelfontcolor = "#640125" // 葡萄色 えびいろ
     edge.color = "#e2041b" // 猩々緋 しょうじょうひ
     if (is_cluster_end(aSourceId)) {
@@ -308,14 +354,6 @@ class GraphStateMachine(
     if (is_cluster_start(aTargetId)) {
       edge.lhead = get_cluster_name(aTargetId)
     }
-    graph.edges += edge
-  }
-
-  final def addPseudoTransition(aSourceId: String, aTargetId: String) {
-    val edge = new GVEdge(aSourceId, "", aTargetId, "")
-    edge.arrowhead = "normal"
-    edge.arrowtail = "none"
-    edge.color = "#2b2b2b" // 蝋色 ろういろ
     graph.edges += edge
   }
 }
@@ -327,6 +365,8 @@ class GraphCompositeState(
 ) extends GraphBase {
   final def startId = graph.id + "_start"
   final def endId = graph.id + "_end"
+
+  protected def add_Edge(p: GVEdge) = graph.edges += p
 
   final def addStart = {
     val node = new GVNode(startId)
@@ -373,17 +413,18 @@ class GraphCompositeState(
   }
 
   final def addTransition(aTransition: MTransition, aSourceId: String, aTargetId: String) {
-    def make_label = {
-      aTransition.guard match {
-	case MGuard.empty => aTransition.event.name 
-	case guard: MGuard => aTransition.event.name + "\\n" + "[" + guard.mark + "]"
-      }
-    }
+    def make_label: Option[String] =
+      aTransition.event.map(evt =>
+        aTransition.guard.map {
+          case MGuard.empty => evt.name
+          case guard: MGuard => evt.name + "\\n" + "[" + guard.mark + "]"
+        }.getOrElse(evt.name)
+      )
 
     val edge = new GVEdge(aSourceId, "", aTargetId, "")
     edge.arrowhead = "normal"
     edge.arrowtail = "none"
-    edge.label = make_label
+    make_label.foreach(x => edge.label = x)
     edge.labelfontcolor = "#640125" // 葡萄色 えびいろ
     edge.color = "#e2041b" // 猩々緋 しょうじょうひ
     if (is_cluster_end(aSourceId)) {
@@ -392,14 +433,6 @@ class GraphCompositeState(
     if (is_cluster_start(aTargetId)) {
       edge.lhead = get_cluster_name(aTargetId)
     }
-    graph.edges += edge
-  }
-
-  final def addPseudoTransition(aSourceId: String, aTargetId: String) {
-    val edge = new GVEdge(aSourceId, "", aTargetId, "")
-    edge.arrowhead = "normal"
-    edge.arrowtail = "none"
-    edge.color = "#2b2b2b" // 蝋色 ろういろ
     graph.edges += edge
   }
 }

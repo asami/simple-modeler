@@ -23,10 +23,11 @@ import org.smartdox.Description
  *  version May. 18, 2020
  *  version Jun. 13, 2020
  *  version Aug. 15, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Jul.  3, 2021
  * @author  ASAMI, Tomoharu
  */
-trait MElement extends Designation.Holder with Description.Holder with Showable {
+trait MElement extends Description.Holder with Showable {
   override def designation: Designation
   def description: Description
   final override def resume: org.smartdox.Resume = description.resume

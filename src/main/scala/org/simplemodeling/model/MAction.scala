@@ -12,13 +12,18 @@ import org.smartdox.Description
  *  version May. 10, 2020
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Jul.  9, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MAction(
-  override val designation: Designation,
-  ownerStateMachine: MStateMachine,
-  description: Description = Description.empty
+  description: Description,
+  ownerStateMachine: MStateMachine
 ) extends MElement {
   def getAffiliation = None
 }
+
+object MAction {
+  def apply(sm: MStateMachine, name: String): MAction = MAction(Description.name(name), sm)
+}
+

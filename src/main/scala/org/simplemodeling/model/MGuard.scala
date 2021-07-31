@@ -2,6 +2,7 @@ package org.simplemodeling.model
 
 import scala.collection.mutable.LinkedHashMap
 import org.smartdox.Description
+import org.goldenport.RAISE
 import org.goldenport.i18n.I18NString
 import org.goldenport.values.Designation
 
@@ -12,16 +13,16 @@ import org.goldenport.values.Designation
  *  version May. 10, 2020
  *  version Jun. 13, 2020
  *  version Aug.  1, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Jul.  9, 2021
  * @author  ASAMI, Tomoharu
  */
 case class MGuard(
-  override val designation: Designation,
-  ownerStateMachine: MStateMachine
+  ownerStateMachine: MStateMachine,
+  description: Description = Description.empty,
+  mark: String = "???"
 ) extends MElement {
   def getAffiliation = None
-  def description: Description = Description.empty
-  def mark: String = ???
 }
 
 object MGuard {

@@ -18,7 +18,8 @@ import org.simplemodeling.SimpleModeler.Context
  *  version Mar. 26, 2011
  *  version Sep. 18, 2012
  *  version Oct.  5, 2012
- * @version May. 19, 2020
+ *  version May. 19, 2020
+ * @version Jul. 12, 2021
  * @author  ASAMI, Tomoharu
  */
 abstract class DiagramGeneratorBase(
@@ -61,6 +62,18 @@ abstract class DiagramGeneratorBase(
   protected final def make_diagram_png(text: String, name: Option[String] = None): ChunkBag = {
     val layout = "dot"
     val cmd = s"dot -Tpng -K${layout} -q"
+    context.shellRunAsChunkBag(cmd, text, name)
+  }
+
+  protected final def make_diagram_svg(text: String, name: Option[String] = None): ChunkBag = {
+    val layout = "dot"
+    val cmd = s"dot -Tsvg -K${layout} -q"
+    context.shellRunAsChunkBag(cmd, text, name)
+  }
+
+  protected final def make_diagram_webp(text: String, name: Option[String] = None): ChunkBag = {
+    val layout = "dot"
+    val cmd = s"dot -Twebp -K${layout} -q"
     context.shellRunAsChunkBag(cmd, text, name)
   }
 }

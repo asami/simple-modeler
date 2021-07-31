@@ -1,9 +1,11 @@
 package org.simplemodeling.model
 
-import scala.collection.mutable.LinkedHashMap
 import org.smartdox.Description
+import org.goldenport.RAISE
 import org.goldenport.i18n.I18NString
+import org.goldenport.collection.VectorMap
 import org.goldenport.values.Designation
+import org.goldenport.values.PathName
 
 /*
  * Derived from SState and SMState.
@@ -19,18 +21,18 @@ import org.goldenport.values.Designation
  *  version May.  6, 2020
  *  version Jun. 13, 2020
  *  version Aug.  1, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Jul. 11, 2021
  * @author  ASAMI, Tomoharu
  */
-case class MState(
-  override val designation: Designation,
-  ownerStateMachine: MStateMachine,
-  description: Description = Description.empty
+class MState(
+  val description: Description,
+  val ownerStateMachine: MStateMachine
 ) extends MElement {
   def getAffiliation = None
 //   val transitions = dslState.transitions.map(new SMTransition(_, ownerStateMachine))
-  val transitions: List[MTransition] = ???
-  val subStateMap = new LinkedHashMap[String, MState]
+  var transitions: List[MTransition] = Nil
+  var subStateMap = VectorMap.empty[String, MState]
   lazy val subStates = subStateMap.values.toList
 //   for ((name, dslSubState) <- dslState.subStateMap) {
 //     val qName = dslSubState.qualifiedName
@@ -40,7 +42,7 @@ case class MState(
 //     subStateMap += (name -> state) // owner composition state
 //   }
 
-  val value: Either[String, Int] = ???
+  val value: Either[String, Int] = Right(0) // TODO
 
 //   val value: Either[String, Int] = {
 //     val v = dslState.value | name
@@ -60,13 +62,27 @@ case class MState(
 //     Some(dslState.qualifiedName)
 //   }
 
-  final def isTerminal = {
-    ??? // dslState.transitions.isEmpty
-  }
+  final def isTerminal = transitions.isEmpty || isComposite // TODO more precise
 
   final def isComposite = {
     !subStateMap.isEmpty
   }
+
+  // TODO path
+  def getSubStateRecursive(name: String): Option[MState] =
+    subStateMap.get(name) orElse _get_sub_state_recursive(PathName(name))
+
+  private def _get_sub_state_recursive(pn: PathName): Option[MState] = {
+    val x = pn.components match {
+      case Nil => None
+      case x :: Nil => None // already checked
+      case xs => pn.components.lastOption.flatMap(subStateMap.get)
+    }
+    x orElse  subStateMap.values.toStream.flatMap(_.getSubStateRecursive(name)).headOption
+  }
+
+  def getSubStateRecursive(pn: PathName): Option[MState] =
+    subStateMap.get(pn.v) orElse _get_sub_state_recursive(PathName(name))
 
 //   override def toString() = {
 //     "SMState(%s/%s/%s)".format(name, value, lifecycle)
@@ -96,4 +112,17 @@ case class MState(
 // 	 (guard, action) <- guardActions) yield (event, guard, action)
 //   }
 // */
+}
+
+object MState {
+  val initStateName = "init"
+  val finalStateName = "final"
+
+  def initState(sm: MStateMachine) = create(sm, initStateName)
+  def finalState(sm: MStateMachine) = create(sm, finalStateName)
+
+  def create(sm: MStateMachine, name: String): MState = {
+    val desc = Description.name(name)
+    new MState(desc, sm)
+  }
 }

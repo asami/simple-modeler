@@ -2,6 +2,7 @@ package org.simplemodeling.model
 
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap}
 import org.goldenport.i18n.I18NString
+import org.goldenport.collection.VectorMap
 
 /*
  * Derived from SStateMachine and SMStateMachine.
@@ -14,7 +15,8 @@ import org.goldenport.i18n.I18NString
  *  version Mar.  3, 2020
  *  version Apr. 25, 2020
  *  version May. 10, 2020
- * @version Jun. 28, 2021
+transition.event *  version Jun. 30, 2021
+transition.event * @version Jul.  9, 2021
  * @author  ASAMI, Tomoharu
  */
 trait MStateMachine extends MObject {
@@ -33,8 +35,8 @@ trait MStateMachine extends MObject {
 
   // val ownerObject: SMObject
   override def typeName: String = "state machine"
-  val wholeStateMap = new LinkedHashMap[String, MState]
-  val stateMap = new LinkedHashMap[String, MState]
+  // val wholeStateMap = new LinkedHashMap[String, MState]
+  def stateMap: VectorMap[String, MState]
   def states = stateMap.values.toList
 //   for ((name, dslState) <- dslStateMachine.stateMap) {
 //     val qName = dslState.qualifiedName
@@ -122,7 +124,7 @@ trait MStateMachine extends MObject {
     def build(state: MState) {
       for (transition <- state.transitions) {
 	if (!events.contains(transition.event)) {
-	  events += transition.event
+	  transition.event.foreach(x => events += x)
 	}
       }
       state.subStates.foreach(build)
