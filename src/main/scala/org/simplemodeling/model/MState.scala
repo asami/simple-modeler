@@ -22,18 +22,23 @@ import org.goldenport.values.PathName
  *  version Jun. 13, 2020
  *  version Aug.  1, 2020
  *  version Jun. 20, 2021
- * @version Jul. 11, 2021
+ *  version Jul. 11, 2021
+ * @version Aug.  2, 2021
  * @author  ASAMI, Tomoharu
  */
 class MState(
   val description: Description,
-  val ownerStateMachine: MStateMachine
+  val ownerStateMachine: MStateMachine,
+  val parentState: Option[MState] = None
 ) extends MElement {
   def getAffiliation = None
 //   val transitions = dslState.transitions.map(new SMTransition(_, ownerStateMachine))
   var transitions: List[MTransition] = Nil
   var subStateMap = VectorMap.empty[String, MState]
   lazy val subStates = subStateMap.values.toList
+
+  var historyState: Option[MState] = None
+
 //   for ((name, dslSubState) <- dslState.subStateMap) {
 //     val qName = dslSubState.qualifiedName
 //     val refinedDslSubState = SStateRepository.getState(qName)
@@ -84,6 +89,12 @@ class MState(
   def getSubStateRecursive(pn: PathName): Option[MState] =
     subStateMap.get(pn.v) orElse _get_sub_state_recursive(PathName(name))
 
+  def createHistoryState: MState = {
+    val hs = MState.historyState(ownerStateMachine, this)
+    historyState = Some(hs)
+    hs
+  }
+
 //   override def toString() = {
 //     "SMState(%s/%s/%s)".format(name, value, lifecycle)
 //   }
@@ -117,9 +128,14 @@ class MState(
 object MState {
   val initStateName = "init"
   val finalStateName = "final"
+  val historyStateName = "history"
 
   def initState(sm: MStateMachine) = create(sm, initStateName)
   def finalState(sm: MStateMachine) = create(sm, finalStateName)
+  def historyState(sm: MStateMachine, parent: MState) = {
+    val desc = Description.name(historyStateName)
+    new MState(desc, sm, Some(parent))
+  }
 
   def create(sm: MStateMachine, name: String): MState = {
     val desc = Description.name(name)

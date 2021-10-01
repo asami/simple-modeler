@@ -15,11 +15,14 @@ import org.simplemodeling.SimpleModeler.Context
 import org.simplemodeling.SimpleModeler.transformer.maker._
 
 /*
+ * https://www.colordic.org/w
+ * 
  * @since   Jan. 28, 2009
  *  version Mar. 19, 2009
  *  version Sep. 18, 2012
  *  version May. 10, 2020
- * @version Jul. 12, 2021
+ *  version Jul. 12, 2021
+ * @version Aug.  2, 2021
  * @author  ASAMI, Tomoharu
  */
 class StateMachineDiagramGenerator(
@@ -137,6 +140,8 @@ class StateMachineDiagramGenerator(
     def get_state_id_to(aState: MState) = {
       if (aState.isComposite) {
         stateIds(aState) + "_start"
+      } else if (aState.name == "history") {
+        s"${stateIds(aState.parentState.get)}_history"
       } else {
         stateIds(aState)
       }
@@ -144,11 +149,15 @@ class StateMachineDiagramGenerator(
 
     def build_composite_state(aState: MState, aCompositeState: GraphCompositeState) {
       require (aState.isComposite)
+      val usehistory = aState.historyState.isDefined
       val subStates = aState.subStates
       if (subStates.isEmpty) return
       val startId = aCompositeState.startId // XXX
       val endId = aCompositeState.endId // XXX
+      val historyId = aCompositeState.historyId // XXX
       aCompositeState.addStart
+      if (usehistory)
+        aCompositeState.addHistory
       for (state <- subStates) {
         if (state.isComposite) {
           val id = make_subgraph_id
@@ -162,6 +171,8 @@ class StateMachineDiagramGenerator(
         }
       }
       aCompositeState.addPseudoTransition(startId, get_state_id_to(subStates(0)))
+      if (usehistory)
+        aCompositeState.addPseudoTransition(historyId, get_state_id_to(subStates(0)))
       for (state <- subStates) {
         if (state.isTerminal) {
           aCompositeState.addPseudoTransition(get_state_id_from(state), endId)
@@ -198,7 +209,7 @@ class StateMachineDiagramGenerator(
         // graph.addPseudoTransition("start", "state1")
         graph.graph.elements(1) match {
           case m: GVNode => graph.addPseudoTransition("start", m.id)
-          case m: GVSubgraph => graph.addPseudoTransition("start", m.id, m.elements(0).id)
+          case m: GVSubgraph => graph.addPseudoTransition("start", m.id, s"${m.id}_start")
           case m: GVGraph => RAISE.noReachDefect
         }
       }
@@ -249,6 +260,7 @@ abstract class GraphBase {
     edge.arrowhead = "normal"
     edge.arrowtail = "none"
     edge.color = "#2b2b2b" // 蝋色 ろういろ
+    _composite_arrow(edge, aSourceId, aTargetId)
     add_Edge(edge)
   }
 
@@ -257,7 +269,17 @@ abstract class GraphBase {
     edge.arrowhead = "normal"
     edge.arrowtail = "none"
     edge.color = "#2b2b2b" // 蝋色 ろういろ
+    _composite_arrow(edge, aSourceId, ankderid)
     add_Edge(edge)
+  }
+
+  private def _composite_arrow(edge: GVEdge, aSourceId: String, aTargetId: String) {
+    if (is_cluster_end(aSourceId)) {
+      edge.ltail = get_cluster_name(aSourceId)
+    }
+    if (is_cluster_start(aTargetId)) {
+      edge.lhead = get_cluster_name(aTargetId)
+    }
   }
 }
 
@@ -365,6 +387,7 @@ class GraphCompositeState(
 ) extends GraphBase {
   final def startId = graph.id + "_start"
   final def endId = graph.id + "_end"
+  final def historyId = graph.id + "_history"
 
   protected def add_Edge(p: GVEdge) = graph.edges += p
 
@@ -388,6 +411,19 @@ class GraphCompositeState(
     node.fixedsize = "true"
     node.width = "0.25"
     node.fillcolor = "#0d0015" // 漆黒 しっこく
+    graph.elements += node
+    node
+  }
+
+  final def addHistory = {
+    val node = new GVNode(historyId)
+    node.label = " "
+    node.shape = "circle"
+    node.style = "filled"
+    node.fixedsize = "true"
+    node.width = "0.3"
+    node.label = "H"
+    node.fillcolor = "#89c3eb" // 勿忘草色 わすれなぐさいろ
     graph.elements += node
     node
   }
