@@ -22,7 +22,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version Sep. 18, 2012
  *  version May. 10, 2020
  *  version Jul. 12, 2021
- * @version Aug.  2, 2021
+ *  version Aug.  2, 2021
+ * @version Jan. 30, 2022
  * @author  ASAMI, Tomoharu
  */
 class StateMachineDiagramGenerator(
@@ -224,7 +225,7 @@ class StateMachineDiagramGenerator(
       }
       graph.addEnd("end")
       val r = graphviz.toDotText
-      println(r)
+//      println(r)
       r
     } finally {
       // graphviz.close
@@ -308,6 +309,9 @@ class GraphStateMachine(
   }
   graph.defaultEdgeAttributes.fontsize = "10"
   graph.defaultEdgeAttributes.fontcolor = "#192f60" // 紺青 こんじょう
+
+  if (true) // horizontal layout
+    graph.rankdir = Some("LR")
 
   protected def add_Edge(p: GVEdge) = graph.edges += p
 
