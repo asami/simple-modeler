@@ -8,7 +8,8 @@ import org.goldenport.tree._
  *  version May. 25, 2020
  *  version Jun.  6, 2020
  *  version Aug. 13, 2020
- * @version Sep. 21, 2020
+ *  version Sep. 21, 2020
+ * @version Sep. 26, 2023
  * @author  ASAMI, Tomoharu
  */
 case class SimpleModel(
@@ -17,7 +18,7 @@ case class SimpleModel(
   lazy val tree: Tree[MElement] = {
     val r = new PlainTree[MElement]()
     for (x <- elements) {
-      r.setContent(x.qualifiedName, x)
+      r.setContent(x.qualifiedPathName, x)
     }
     r
   }
@@ -39,7 +40,7 @@ case class SimpleModel(
 
   private def _build_package(pkg: MPackageRef, p: TreeNode[MElement]): MPackage = {
     val cpkg = pkg.child(p.name)
-    val xs = tree.root.children.map(_build(cpkg, _))
+    val xs = p.children.map(_build(cpkg, _))
     MPackage(p.name, pkg, xs)
   }
 

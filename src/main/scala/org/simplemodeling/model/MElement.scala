@@ -3,6 +3,7 @@ package org.simplemodeling.model
 import org.goldenport.extension.Showable
 import org.goldenport.i18n.I18NString
 import org.goldenport.values.Designation
+import org.goldenport.values.PathName
 import org.smartdox.Description
 
 /*
@@ -24,7 +25,8 @@ import org.smartdox.Description
  *  version Jun. 13, 2020
  *  version Aug. 15, 2020
  *  version Jun. 20, 2021
- * @version Jul.  3, 2021
+ *  version Jul.  3, 2021
+ * @version Sep. 25, 2023
  * @author  ASAMI, Tomoharu
  */
 trait MElement extends Description.Holder with Showable {
@@ -35,14 +37,19 @@ trait MElement extends Description.Holder with Showable {
   def qualifiedName: String = getAffiliation.map(x =>
     if (x.isDefault)
       name
-    else
-      s"${x.packageName}.${name}"
+    else (x.packageName, name) match {
+      case ("", "") => ""
+      case (p, "") => p
+      case ("", c) => c
+      case (p, c) => s"${p}.${c}"
+    }
   ).getOrElse(name)
+  def qualifiedPathName: PathName = PathName(qualifiedName, ".")
 
   def features: List[MFeature] = Nil
 
   def print = name
   def display = name
   def show = name
-  def embed = name
+  override def embed = name
 }

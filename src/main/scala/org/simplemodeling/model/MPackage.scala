@@ -15,7 +15,8 @@ import org.smartdox.Description
  *  version May. 19, 2020
  *  version Jun. 13, 2020
  *  version Aug.  1, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Sep. 26, 2023
  * @author  ASAMI, Tomoharu
  */
 case class MPackage(
@@ -28,12 +29,15 @@ case class MPackage(
 
   def getPackage(p: MPackageRef): Option[MPackage] = getPackage(p.pathName)
 
-  def getPackage(pathname: String): Option[MPackage] = getPackage(PathName(pathname))
+  def getPackage(pathname: String): Option[MPackage] = getPackage(PathName(pathname, "."))
 
   def getPackage(p: PathName): Option[MPackage] = p.headOption match {
     case Some(name) =>
       elements.find(_.name == name).flatMap {
-        case m: MPackage => m.getPackage(p.tail)
+        case m: MPackage => p.tailOption match {
+          case Some(s) => m.getPackage(s)
+          case None => Some(m)
+        }
         case m => RAISE.invalidArgumentFault(s"Not package: $name -> ${m.show}")
       }
     case None => Some(this)

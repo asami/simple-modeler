@@ -12,7 +12,8 @@ import org.goldenport.record.v2
  *  version Nov. 23, 2012
  *  version Aug.  7, 2019
  *  version Nov.  4, 2019
- * @version May. 10, 2020
+ *  version May. 10, 2020
+ * @version Sep. 24, 2023
  * @author  ASAMI, Tomoharu
  */
 trait MMultiplicity {
@@ -23,7 +24,9 @@ trait MMultiplicity {
 }
 
 object MMultiplicity {
-  def create(p: String): MMultiplicity = v2.Multiplicity.to(p) match {
+  def create(p: String): MMultiplicity = apply(v2.Multiplicity.to(p))
+
+  def apply(p: v2.Multiplicity): MMultiplicity = p match {
     case v2.MOne => MOne
     case v2.MZeroOne => MZeroOne
     case v2.MOneMore => MOneMore

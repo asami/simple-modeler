@@ -29,7 +29,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version Oct. 23, 2012
  *  version Nov. 30, 2012
  *  version Dec. 17, 2012
- * @version May. 24, 2020
+ *  version May. 24, 2020
+ * @version Sep. 17, 2023
  * @author  ASAMI, Tomoharu
  */
 class ClassDiagramGenerator(
@@ -47,6 +48,19 @@ class ClassDiagramGenerator(
   private def make_class_diagram_png(text: String): ChunkBag = {
     make_diagram_png(text, Some("ClassDiagram.png"))
   }
+
+  final def makeClassDiagramSvg(aPackage: MPackage, aTheme: Perspective): ChunkBag = {
+    make_class_diagram_svg(makeClassDiagramDot(aPackage, aTheme))
+  }
+
+  final def makeClassDiagramSvg(anObject: MObject, aTheme: Perspective): ChunkBag = {
+    make_class_diagram_svg(makeClassDiagramDot(anObject, aTheme))
+  }
+
+  private def make_class_diagram_svg(text: String): ChunkBag = {
+    make_diagram_svg(text, Some("ClassDiagram.svg"))
+  }
+
 /*
   private def make_class_diagram_png(text: StringContent): BinaryContent = {
     val layout = "dot"
