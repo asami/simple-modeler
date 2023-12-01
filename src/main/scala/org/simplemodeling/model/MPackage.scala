@@ -16,7 +16,8 @@ import org.smartdox.Description
  *  version Jun. 13, 2020
  *  version Aug.  1, 2020
  *  version Jun. 20, 2021
- * @version Sep. 26, 2023
+ *  version Sep. 26, 2023
+ * @version Oct. 12, 2023
  * @author  ASAMI, Tomoharu
  */
 case class MPackage(
@@ -49,6 +50,12 @@ case class MPackage(
     case m: MObject => m
     case m => RAISE.invalidArgumentFault(s"Not object: $name -> ${m.show}")
   }
+
+  def getPowertype(name: String): Option[MPowertype] = 
+    elements.find(_.name == name).map {
+      case m: MPowertype => m
+      case m => RAISE.invalidArgumentFault(s"Not powertype: $name -> ${m.show}")
+    }
 }
 
 object MPackage {

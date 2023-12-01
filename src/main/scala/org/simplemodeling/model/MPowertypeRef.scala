@@ -1,5 +1,6 @@
 package org.simplemodeling.model
 
+import org.goldenport.RAISE
 import org.goldenport.record.v3.{Table => _, _}
 
 /*
@@ -12,7 +13,8 @@ import org.goldenport.record.v3.{Table => _, _}
  *  since   Nov.  3, 2019
  *  version May.  9, 2020
  *  version Sep. 22, 2020
- * @version Oct.  3, 2020
+ *  version Oct.  3, 2020
+ * @version Oct. 12, 2023
  * @author  ASAMI, Tomoharu
  */
 case class MPowertypeRef(
@@ -23,7 +25,8 @@ case class MPowertypeRef(
   def relationshipType = MRelationshipType(powertypeName, packageRef)
   // def targetName: String = powertypeName
   // def targetPackageName: String = packageRef.packageName
-  def powertype(implicit sm: SimpleModel): MPowertype = ???
+  def powertype(implicit sm: SimpleModel): MPowertype = sm.getPowertype(this)
+    .getOrElse(RAISE.syntaxErrorFault(s"No powertype: $powertypeName"))
 }
 
 object MPowertypeRef {

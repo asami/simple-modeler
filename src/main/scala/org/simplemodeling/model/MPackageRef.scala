@@ -10,7 +10,8 @@ import org.goldenport.values.PathName
  *  version May. 18, 2020
  *  version Sep. 27, 2020
  *  version Oct.  4, 2020
- * @version Sep. 17, 2023
+ *  version Sep. 17, 2023
+ * @version Oct.  9, 2023
  * @author  ASAMI, Tomoharu
  */
 case class MPackageRef(
@@ -27,7 +28,7 @@ case class MPackageRef(
     else
       MPackageRef(s"${packageName}.${name}")
 
-  lazy val pathName: PathName = PathName.createAbsolute(packageName, ".")
+  lazy val pathName: PathName = PathName(packageName, ".")
 }
 
 object MPackageRef {

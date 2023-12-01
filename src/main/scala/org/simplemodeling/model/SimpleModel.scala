@@ -9,7 +9,8 @@ import org.goldenport.tree._
  *  version Jun.  6, 2020
  *  version Aug. 13, 2020
  *  version Sep. 21, 2020
- * @version Sep. 26, 2023
+ *  version Sep. 26, 2023
+ * @version Oct. 12, 2023
  * @author  ASAMI, Tomoharu
  */
 case class SimpleModel(
@@ -50,6 +51,9 @@ case class SimpleModel(
   def getEntity(p: MEntityRef): Option[MEntity] = getObject(p).collect {
     case m: MEntity => m
   }.orElse(RAISE.noReachDefect(s"SimpleModel#getEntity: ${p.pathName}"))
+  def getPowertype(p: MPowertypeRef): Option[MPowertype] =
+    getPackage(p.packageRef).flatMap(_.getPowertype(p.powertypeName))
+      .orElse(RAISE.noReachDefect(s"SimpleModel#getPowertype: ${p}"))
 
   def takeDerivedObjects(p: MObject): List[MObject] = {
     val qname = p.qualifiedName
