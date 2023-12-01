@@ -4,7 +4,7 @@ name := "simplemodeler"
 
 organization := "org.simplemodeling"
 
-version := "1.0.5"
+version := "1.0.6"
 
 scalaVersion := "2.10.3"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -15,11 +15,7 @@ scalacOptions += "-unchecked"
 
 scalacOptions += "-feature"
 
-resolvers += "GitHab releases 2020" at "https://raw.github.com/asami/maven-repository/2020/releases"
-
-resolvers += "GitHab releases 2021" at "https://raw.github.com/asami/maven-repository/2021/releases"
-
-resolvers += "GitHab releases" at "https://raw.github.com/asami/maven-repository/2022/releases"
+resolvers += "GitHab releases" at "https://raw.github.com/asami/maven-repository/2023/releases"
 
 resolvers += "Asami Maven Repository" at "http://www.asamioffice.com/maven"
 
@@ -28,14 +24,14 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 // resolvers += "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"
 
 // override goldenport-record
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "1.3.55"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "1.3.57"
 
-libraryDependencies += "org.goldenport" %% "goldenport-record" % "1.3.68"
+libraryDependencies += "org.goldenport" %% "goldenport-record" % "1.3.70"
 
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.35"
 libraryDependencies += "org.apache.commons" % "commons-lang3" % "3.13.0"
 
-libraryDependencies += "org.smartdox" %% "smartdox" % "1.3.9"
+libraryDependencies += "org.smartdox" %% "smartdox" % "1.3.10"
 
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3"
 
