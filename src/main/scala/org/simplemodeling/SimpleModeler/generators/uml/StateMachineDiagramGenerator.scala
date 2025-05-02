@@ -252,7 +252,7 @@ abstract class GraphBase {
     } else if (id.endsWith("_end")) {
       id.substring(0, id.length - "_end".length)
     } else {
-      error ("illigal id = " + id)
+      RAISE.noReachDefect("illigal id = " + id)
     }
   }
 

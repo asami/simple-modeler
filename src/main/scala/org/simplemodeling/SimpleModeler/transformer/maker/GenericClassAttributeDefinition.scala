@@ -6,6 +6,7 @@ import com.asamioffice.goldenport.text.UString.notNull
 // import org.simplemodeling.dsl._
 import java.text.SimpleDateFormat
 import java.util.TimeZone
+import org.goldenport.RAISE
 import org.simplemodeling.model._
 
 /* 
@@ -259,7 +260,7 @@ abstract class GenericClassAttributeDefinition(
 
   protected final def is_logical_operation: Boolean = {
     //    modelEntity.appEngine.logical_operation
-    error("not supported yet")
+    RAISE.unsupportedOperationFault
   }
 
   protected final def is_logical_operation(entityType: PEntityType) = {
@@ -322,7 +323,7 @@ abstract class GenericClassAttributeDefinition(
   // unused
   protected final def back_reference_var_name(): String = {
     //    back_reference_var_name(modelEntity, attr.modelAssociation)
-    error("not supported yet")
+    RAISE.notImplementedYetDefect("not supported yet")
   }
 
   // unused
