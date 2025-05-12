@@ -12,7 +12,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  * 
  * @since   Dec.  8, 2019
  *  version Dec.  8, 2019
- * @version May. 16, 2020
+ *  version May. 16, 2020
+ * @version May. 13, 2025
  * @author  ASAMI, Tomoharu
  */
 trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
@@ -43,5 +44,7 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
     ???
   }
 
-  protected def package_To_Pathname(p: MObject): String = ???
+  protected def package_To_Pathname(p: MObject): String = {
+    p.packageName.replace('.', '/')
+  }
 }

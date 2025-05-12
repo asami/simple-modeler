@@ -13,7 +13,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  * @since   Dec.  8, 2019
  *  version Dec. 15, 2019
  *  version Mar.  8, 2020
- * @version May.  4, 2020
+ *  version May.  4, 2020
+ * @version May. 13, 2025
  * @author  ASAMI, Tomoharu
  */
 trait ProgramRealmTransformerBase {
@@ -65,9 +66,8 @@ trait ProgramRealmTransformerBase {
    * Legacy
    */
   def transform(model: SimpleModel): TransformResult = {
-    // val realm = model.elements./:(Realm.Builder())(_build).build
-    // TransformResult(realm)
-    ???
+    val realm = model.elements./:(Realm.Builder())(_build).build
+    TransformResult(realm)
   }
 
   private def _build(b: Realm.Builder, p: MElement): Realm.Builder = {

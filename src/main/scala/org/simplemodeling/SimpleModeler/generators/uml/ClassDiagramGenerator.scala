@@ -12,6 +12,7 @@ package org.simplemodeling.SimpleModeler.generators.uml
 // import org.simplemodeling.dsl.SStep
 // import org.goldenport.Strings
 
+import scala.util.control.NonFatal
 import scala.collection.mutable.HashMap
 import org.goldenport.RAISE
 import org.goldenport.graphviz._
@@ -30,7 +31,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version Nov. 30, 2012
  *  version Dec. 17, 2012
  *  version May. 24, 2020
- * @version Sep. 17, 2023
+ *  version Sep. 17, 2023
+ * @version May.  5, 2025
  * @author  ASAMI, Tomoharu
  */
 class ClassDiagramGenerator(
@@ -123,7 +125,7 @@ class ClassDiagramGenerator(
             context.trace("No id = " + anObject.packageName + "/" + anObject.name)
             throw e
           }
-          case e => throw e
+          case NonFatal(e) => throw e
         }
       }
 
