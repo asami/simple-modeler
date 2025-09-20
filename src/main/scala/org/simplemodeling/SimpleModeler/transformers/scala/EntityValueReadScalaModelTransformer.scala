@@ -7,21 +7,21 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.
 import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
- * @since   Sep. 19, 2025
+ * @since   Sep. 20, 2025
  * @version Sep. 20, 2025
  * @author  ASAMI, Tomoharu
  */
-class EntityValueCreateScalaModelTransformer() extends ScalaModelTransformer() {
+class EntityValueReadScalaModelTransformer() extends ScalaModelTransformer() {
   def isDefinedAt(p: (MObject, Purpose)): Boolean =
     p match {
-      case (_: MEntity, Purpose.Create) => true
+      case (_: MEntity, Purpose.Read) => true
       case _ => false
     }
 
   def apply(p: (MObject, Purpose)): Consequence[Vector[SClassBase]] =
     p match {
-      case (m: MEntity, Purpose.Create) => _transform(m)
-      case _ => Consequence.noReachDefect(s"EntityValueCreateScalaModelTransformer#apply")
+      case (m: MEntity, Purpose.Read) => _transform(m)
+      case _ => Consequence.noReachDefect(s"EntityValueReadScalaModelTransformer#apply")
     }
 
   private def _transform(p: MEntity): Consequence[Vector[SClassBase]] = Consequence {
@@ -29,7 +29,7 @@ class EntityValueCreateScalaModelTransformer() extends ScalaModelTransformer() {
   }
 
   private def _to_scala(p: MEntity): SCaseClass = {
-    val core = to_scala_core_subpackage(p, "create")
+    val core = to_scala_core_subpackage(p, "read")
     SCaseClass(core)
   }
 }

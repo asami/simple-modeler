@@ -5,13 +5,14 @@ import org.goldenport.context.Showable
 import org.goldenport.datatype
 import org.goldenport.collection.VectorMap
 import org.goldenport.tree.Tree
+import org.goldenport.values.PathName
 import org.goldenport.record.v2.DataType
 import org.goldenport.util.StringUtils
 
 /*
  * @since   May. 13, 2025
  *  version May. 17, 2025
- * @version Sep. 17, 2025
+ * @version Sep. 20, 2025
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -32,7 +33,11 @@ case class SPackage(
 
 case class ParameterName(name: String) extends datatype.Name
 
-case class PackageName(name: String) extends datatype.Name
+case class PackageName(name: String) extends datatype.Name {
+  def moveToSubPackage(subpkg: String): PackageName = PackageName(s"$name.$subpkg")
+
+  def toPathName: PathName = PathName(name.replace('.', '/'))
+}
 
 case class ClassName(name: String) extends datatype.Name
 
@@ -136,6 +141,9 @@ case class ClassCore(
   receptionCompartment: ReceptionCompartment
 ) {
   import ClassCore._
+
+  def moveToSubPackage(subpkg: String): ClassCore =
+    copy(packageName = packageName.moveToSubPackage(subpkg))
 
   def importNames: Vector[TypeName.Plain] = {
     case class Z(

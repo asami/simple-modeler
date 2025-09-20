@@ -15,16 +15,21 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version Mar.  8, 2020
  *  version May.  4, 2020
  *  version May. 18, 2025
- * @version Sep. 17, 2025
+ * @version Sep. 21, 2025
  * @author  ASAMI, Tomoharu
  */
 trait ProgramRealmTransformerBase {
   def context: PContext
   def fileSuffix: String
 
+  /*
+   * Legacy
+   */
   def transform(model: PModel): TransformResult = {
-    val realm = model.root.elements.foldLeft(Realm.Builder())(_build(model)).build
-    TransformResult(realm)
+    val src = model.root.elements.foldLeft(Realm.Builder())(_build(model)).build
+    val realm = Realm.create()
+    val r = realm.merge(source_Main_Pathname, src)
+    TransformResult(r)
   }
 
   private def _build(model: PModel)(b: Realm.Builder, p: PElement): Realm.Builder =
@@ -63,12 +68,11 @@ trait ProgramRealmTransformerBase {
 
   protected def package_File_Pathname(p: PObject): PathName
 
-  /*
-   * Legacy
-   */
   def transform(model: SimpleModel): TransformResult = {
-    val realm = model.elements.foldLeft(Realm.Builder())(_build).build
-    TransformResult(realm)
+    val src = model.elements.foldLeft(Realm.Builder())(_build).build
+    val realm = Realm.create()
+    val r = realm.merge(source_Main_Pathname, src)
+    TransformResult(r)
   }
 
   private def _build(b: Realm.Builder, p: MElement): Realm.Builder = {
@@ -117,6 +121,8 @@ trait ProgramRealmTransformerBase {
   // protected final def make_entity(p: MEntity): String = make_Entity(p)
 
   // protected def make_Entity(p: MEntity): String
+
+  protected def source_Main_Pathname: String
 
   protected final def package_to_pathname(p: MObject): String = package_To_Pathname(p)
 

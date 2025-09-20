@@ -9,7 +9,7 @@ import Generator.{State => GState, _}
 /*
  * @since   May. 16, 2025
  *  version May. 19, 2025
- * @version Sep. 19, 2025
+ * @version Sep. 21, 2025
  * @author  ASAMI, Tomoharu
  */
 trait Scala3ClassGeneratorBase[T <: SClassBase] extends Generator[T, SourceArtifacts] {
@@ -33,7 +33,11 @@ trait Scala3ClassGeneratorBase[T <: SClassBase] extends Generator[T, SourceArtif
       _ <- separator
       _ <- section_object(ast)
       s <- build
-    } yield SourceArtifacts.create(???, s)
+    } yield {
+      val pkgpath = ast.packageName.toPathName
+      val path = s"${pkgpath}/${ast.className.name}.scala"
+      SourceArtifacts.create(path, s)
+    }
 
   protected def section_package(p: T): GenM[Unit] =
     for {

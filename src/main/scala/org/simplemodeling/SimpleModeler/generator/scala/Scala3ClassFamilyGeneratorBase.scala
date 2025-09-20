@@ -14,7 +14,7 @@ import Generator.{State => GState, _}
 
 /*
  * @since   Sep. 18, 2025
- * @version Sep. 19, 2025
+ * @version Sep. 20, 2025
  * @author  ASAMI, Tomoharu
  */
 trait Scala3ClassFamilyGeneratorBase[T <: MObject] extends SourceArtifactsGenerator[T] {
@@ -33,7 +33,7 @@ trait Scala3ClassFamilyGeneratorBase[T <: MObject] extends SourceArtifactsGenera
         case f if f.isDefinedAt(p, purpose) => f.apply(p, purpose)
       }
     } yield r
-    val a: Consequence[Vector[SClassBase]] = a0.sequence
+    val a: Consequence[Vector[SClassBase]] = a0.sequence.map(_.flatten)
 
     val r = for {
       xs <- a

@@ -19,7 +19,7 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version Apr. 25, 2020
  *  version May.  4, 2020
  *  version May. 18, 2025
- * @version Sep. 18, 2025
+ * @version Sep. 21, 2025
  * @author  ASAMI, Tomoharu
  */
 trait JavaRealmTransformerBase extends ProgramRealmTransformerBase {
@@ -52,6 +52,9 @@ trait JavaRealmTransformerBase extends ProgramRealmTransformerBase {
   //   maker.build()
   //   maker.toText
   // }
+
+
+  protected def source_Main_Pathname = "src/main/java"
 
   protected def package_To_Pathname(p: MObject): String = ???
   protected def object_To_Pathname(p: MObject): String = ???
