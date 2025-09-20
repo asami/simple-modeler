@@ -14,7 +14,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version Dec. 15, 2019
  *  version Mar.  8, 2020
  *  version May.  4, 2020
- * @version May. 13, 2025
+ *  version May. 18, 2025
+ * @version Sep. 17, 2025
  * @author  ASAMI, Tomoharu
  */
 trait ProgramRealmTransformerBase {
@@ -22,7 +23,7 @@ trait ProgramRealmTransformerBase {
   def fileSuffix: String
 
   def transform(model: PModel): TransformResult = {
-    val realm = model.root.elements./:(Realm.Builder())(_build(model)).build
+    val realm = model.root.elements.foldLeft(Realm.Builder())(_build(model)).build
     TransformResult(realm)
   }
 
@@ -66,7 +67,7 @@ trait ProgramRealmTransformerBase {
    * Legacy
    */
   def transform(model: SimpleModel): TransformResult = {
-    val realm = model.elements./:(Realm.Builder())(_build).build
+    val realm = model.elements.foldLeft(Realm.Builder())(_build).build
     TransformResult(realm)
   }
 
@@ -106,15 +107,22 @@ trait ProgramRealmTransformerBase {
   }
 
   private def _build_entity(b: Realm.Builder, p: MEntity): Realm.Builder = {
-    val pathname = package_to_pathname(p)
-    b.set(pathname, make_entity(p))
+    build_Entity(b, p)
+    // val pathname = object_to_pathname(p)
+    // b.set(pathname, make_entity(p))
   }
 
-  protected final def make_entity(p: MEntity): String = make_Entity(p)
+  protected def build_Entity(b: Realm.Builder, p: MEntity): Realm.Builder
 
-  protected def make_Entity(p: MEntity): String
+  // protected final def make_entity(p: MEntity): String = make_Entity(p)
+
+  // protected def make_Entity(p: MEntity): String
 
   protected final def package_to_pathname(p: MObject): String = package_To_Pathname(p)
 
   protected def package_To_Pathname(p: MObject): String
+
+  protected final def object_to_pathname(p: MObject): String = object_To_Pathname(p)
+
+  protected def object_To_Pathname(p: MObject): String
 }
