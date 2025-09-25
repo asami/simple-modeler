@@ -13,7 +13,8 @@ import org.goldenport.record.v2
  *  version Aug.  7, 2019
  *  version Nov.  4, 2019
  *  version May. 10, 2020
- * @version Sep. 24, 2023
+ *  version Sep. 24, 2023
+ * @version Sep. 23, 2025
  * @author  ASAMI, Tomoharu
  */
 trait MMultiplicity {
@@ -21,6 +22,8 @@ trait MMultiplicity {
   def mark: String = multiplicity.mark // +
   def label: String = multiplicity.label // 1..*
   def keywords: List[String] = Nil
+
+  def isRequired: Boolean
 }
 
 object MMultiplicity {
@@ -38,22 +41,28 @@ object MMultiplicity {
 
 case object MOne extends MMultiplicity {
   val multiplicity = v2.MOne
+  def isRequired = true
 }
 
 case object MZeroOne extends MMultiplicity {
   val multiplicity = v2.MZeroOne
+  def isRequired = false
 }
 
 case object MOneMore extends MMultiplicity {
   val multiplicity = v2.MOneMore
+  def isRequired = true
 }
 
 case object MZeroMore extends MMultiplicity {
   val multiplicity = v2.MZeroMore
+  def isRequired = false
 }
 
 case class MRange(multiplicity: v2.MRange) extends MMultiplicity {
+  def isRequired = true
 }
 
 case class MRanges(multiplicity: v2.MRanges) extends MMultiplicity {
+  def isRequired = multiplicity.ranges.nonEmpty
 }

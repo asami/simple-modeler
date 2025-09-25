@@ -6,13 +6,14 @@ import org.goldenport.datatype
 import org.goldenport.collection.VectorMap
 import org.goldenport.tree.Tree
 import org.goldenport.values.PathName
-import org.goldenport.record.v2.DataType
+import org.goldenport.record.v2._
 import org.goldenport.util.StringUtils
+import org.simplemodeling.model._
 
 /*
  * @since   May. 13, 2025
  *  version May. 17, 2025
- * @version Sep. 20, 2025
+ * @version Sep. 25, 2025
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -31,8 +32,6 @@ case class SPackage(
   controlClasses: Vector[SControlClass] = Vector.empty
 )
 
-case class ParameterName(name: String) extends datatype.Name
-
 case class PackageName(name: String) extends datatype.Name {
   def moveToSubPackage(subpkg: String): PackageName = PackageName(s"$name.$subpkg")
 
@@ -40,6 +39,10 @@ case class PackageName(name: String) extends datatype.Name {
 }
 
 case class ClassName(name: String) extends datatype.Name
+
+case class ParameterName(name: String) extends datatype.Name
+
+case class AttributeName(name: String) extends datatype.Name
 
 sealed trait ClassDeclaration extends Showable.Value {
 }
@@ -57,6 +60,25 @@ object TypeName {
   case class Primitive(datatype: DataType) extends TypeName {
     val name = StringUtils.makeTitle(datatype.name)
     def fullName = name
+  }
+  object Primitive {
+    val string = Primitive(XString)
+    val int = Primitive(XInt)
+
+    def create(p: DataType): Primitive = p match {
+      case XString => string
+      case XInt => int
+      case m => Primitive(m)
+    }
+
+    def createMarshalling(p: MDatatype): Primitive = createMarshalling(p.datatype)
+
+    def createMarshalling(p: DataType): Primitive = p match {
+      case XString => string
+      case XInt => int
+      case XAge => int
+      case _ => string
+    }
   }
 
   case class Plain(
@@ -86,12 +108,44 @@ object TypeName {
 
 case class Parameter(
   name: ParameterName,
-  typeName: TypeName
+  typeName: TypeName,
+  isAttribute: Boolean
 )
 
 case class ParameterSequence(
   parameters: Vector[Parameter] = Vector.empty
+) {
+  def distillAttributes: AttributeSequence = AttributeSequence(
+    parameters.flatMap {
+      case m if (m.isAttribute) => Some(Attribute(m.name.name, m.typeName))
+      case _ => None
+    }
+  )
+}
+
+case class Attribute(
+  name: AttributeName,
+  typeName: TypeName
 )
+object Attribute {
+  def apply(name: String, typeName: TypeName): Attribute = Attribute(
+    AttributeName(name), typeName
+  )
+}
+
+case class AttributeSequence(
+  attributes: Vector[Attribute] = Vector.empty
+) {
+  def +(rhs: AttributeSequence) = copy(attributes ++ rhs.attributes)
+}
+object AttributeSequence {
+  val empty = AttributeSequence()
+
+  implicit val attributeSequenceMonoid = new Monoid[AttributeSequence] {
+    def zero = empty
+    def append(lhs: AttributeSequence, rhs: => AttributeSequence) = lhs + rhs
+  }
+}
 
 case class MethodName(name: String)
 
@@ -126,8 +180,11 @@ sealed trait SClassBase {
   def parentClass: Option[TypeName]
   def traitList: List[TypeName]
   def parameterSequence: ParameterSequence
+  def attributeSequence: AttributeSequence
   def methodCompartment: MethodCompartment
   def receptionCompartment: ReceptionCompartment
+
+  def effectiveAttributeSequence: AttributeSequence = parameterSequence.distillAttributes + attributeSequence
 }
 
 case class ClassCore(
@@ -137,6 +194,7 @@ case class ClassCore(
   parentClass: Option[TypeName],
   traitList: List[TypeName],
   parameterSequence: ParameterSequence,
+  attributeSequence: AttributeSequence,
   methodCompartment: MethodCompartment,
   receptionCompartment: ReceptionCompartment
 ) {
@@ -208,6 +266,7 @@ object ClassCore {
     def parentClass = core.parentClass
     def traitList = core.traitList
     def parameterSequence = core.parameterSequence
+    def attributeSequence = core.attributeSequence
     def methodCompartment = core.methodCompartment
     def receptionCompartment = core.receptionCompartment
     def importNames = core.importNames

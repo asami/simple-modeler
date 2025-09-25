@@ -26,7 +26,8 @@ import org.simplemodeling.parser.SimpleModelParser
  *  version May. 16, 2020
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Sep. 23, 2025
  * @author  ASAMI, Tomoharu
  */
 case class MAttribute(
@@ -42,6 +43,8 @@ case class MAttribute(
   description: Description = Description.empty
 ) extends MElement {
   def getAffiliation = None
+
+  def isRequired: Boolean = multiplicity.isRequired
 }
 
 object MAttribute {

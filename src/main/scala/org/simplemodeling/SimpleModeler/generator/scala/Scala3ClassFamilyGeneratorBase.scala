@@ -14,7 +14,7 @@ import Generator.{State => GState, _}
 
 /*
  * @since   Sep. 18, 2025
- * @version Sep. 20, 2025
+ * @version Sep. 21, 2025
  * @author  ASAMI, Tomoharu
  */
 trait Scala3ClassFamilyGeneratorBase[T <: MObject] extends SourceArtifactsGenerator[T] {
@@ -27,13 +27,17 @@ trait Scala3ClassFamilyGeneratorBase[T <: MObject] extends SourceArtifactsGenera
   protected def scala_model_transformers: Vector[ScalaModelTransformer]
 
   private def _generate_class(g: ScalaModelTransformer, p: T): ArtifactsPipeline = {
-    val a0 = for {
-      purpose <- Purpose.elements
-      r <- scala_model_transformers.collect {
-        case f if f.isDefinedAt(p, purpose) => f.apply(p, purpose)
-      }
-    } yield r
-    val a: Consequence[Vector[SClassBase]] = a0.sequence.map(_.flatten)
+    val a00 = Purpose.elements.map(purpose =>
+      if (g.isDefinedAt((p, purpose)))
+        g.apply((p, purpose))
+      else
+        Consequence.success(Vector.empty))
+    val a0 = Purpose.elements.traverse(purpose =>
+      if (g.isDefinedAt((p, purpose)))
+        g.apply((p, purpose))
+      else
+        Consequence.success(Vector.empty))
+    val a: Consequence[Vector[SClassBase]] = a0.map(_.flatten)
 
     val r = for {
       xs <- a

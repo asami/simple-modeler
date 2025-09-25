@@ -9,7 +9,8 @@ import model._
 
 /*
  * @since   May. 14, 2025
- * @version May. 19, 2025
+ *  version May. 19, 2025
+ * @version Sep. 23, 2025
  * @author  ASAMI, Tomoharu
  */
 trait Generator[A, R] {
@@ -79,16 +80,19 @@ object Generator {
 
   case class State(
     indent: Int = 0,
+    width: Int = 2,
     output: Output = Output.empty
   ) {
     def up = copy(indent = indent + 1)
     def down = copy(indent = indent - 1)
 
-    def println(p: String) = copy(output = output.println(p))
-    def print(p: String) = copy(output = output.print(p))
-    def printws(p: String) = copy(output = output.printws(p))
+    def println(p: String) = copy(output = output.println(_format(p)))
+    def print(p: String) = copy(output = output.print(_format(p)))
+    def printws(p: String) = copy(output = output.printws(_format(p)))
     def separator() = copy(output = output.separator())
     def add(p: Output) = copy(output = output + p)
+
+    private def _format(p: String) = (" " * indent * width) + p
   }
 
   type GenM[A] = RWSCR[Config, State, A]

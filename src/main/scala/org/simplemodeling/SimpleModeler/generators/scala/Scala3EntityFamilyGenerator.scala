@@ -11,7 +11,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Sep. 18, 2025
- * @version Sep. 20, 2025
+ * @version Sep. 21, 2025
  * @author  ASAMI, Tomoharu
  */
 class Scala3EntityFamilyGenerator(
@@ -20,6 +20,7 @@ class Scala3EntityFamilyGenerator(
 
   protected def scala_model_transformers: Vector[ScalaModelTransformer] =
     Vector(
+      new EntityValueScalaModelTransformer(),
       new EntityValueCreateScalaModelTransformer(),
       new EntityValueReadScalaModelTransformer(),
       new EntityValueUpdateScalaModelTransformer(),
