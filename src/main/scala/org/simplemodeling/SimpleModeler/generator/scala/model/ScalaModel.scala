@@ -2,6 +2,7 @@ package org.simplemodeling.SimpleModeler.generator.scala.model
 
 import scalaz._, Scalaz._
 import org.goldenport.context.Showable
+import org.goldenport.context.Consequence
 import org.goldenport.datatype
 import org.goldenport.collection.VectorMap
 import org.goldenport.tree.Tree
@@ -9,11 +10,13 @@ import org.goldenport.values.PathName
 import org.goldenport.record.v2._
 import org.goldenport.util.StringUtils
 import org.simplemodeling.model._
+import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 
 /*
  * @since   May. 13, 2025
  *  version May. 17, 2025
- * @version Sep. 25, 2025
+ *  version Sep. 30, 2025
+ * @version Oct.  7, 2025
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -37,10 +40,16 @@ case class PackageName(name: String) extends datatype.Name {
 
   def toPathName: PathName = PathName(name.replace('.', '/'))
 }
+object PackageName {
+  val orgSimplemodeling = PackageName("org.simplemodeling")
+  val orgSimplemodelingRecord = PackageName("org.simplemodeling.record")
+}
 
 case class ClassName(name: String) extends datatype.Name
 
 case class ParameterName(name: String) extends datatype.Name
+
+case class FieldName(name: String) extends datatype.Name
 
 case class AttributeName(name: String) extends datatype.Name
 
@@ -79,6 +88,8 @@ object TypeName {
       case XAge => int
       case _ => string
     }
+
+    def create(name: String): Primitive = ???
   }
 
   case class Plain(
@@ -91,6 +102,11 @@ object TypeName {
     else
       packageName.name + "." + name
   }
+  object Plain {
+    def apply(p: SClassBase): Plain = Plain(p.packageName, p.className.name)
+
+    def create(pkgname: String, name: String): Plain = Plain(PackageName(pkgname), name)
+  }
 
   case class Container(
     container: TypeName,
@@ -98,19 +114,130 @@ object TypeName {
   ) extends TypeName {
     def fullName = s"${container.fullName}[${containee.fullName}]"
     def name = s"${container.name}[${containee.name}]"
+
+    def isOption: Boolean = container.name == "Option"
+    def isList: Boolean = container.name == "List"
+    def isVector: Boolean = container.name == "Vector"
+    def isSet: Boolean = container.name == "Set"
   }
+
+  val option = Plain(PackageName("scala"), "Option")
+  val consequence = Plain(PackageName("org.simplemodeling"), "Consequence")
+
+  val record = Plain(PackageName.orgSimplemodelingRecord, "Record")
 
 //  def apply(name: String): TypeName = Primitive(name)
 
   def apply(pkg: PackageName, name: String): TypeName = Plain(pkg, name)
-  def apply(pkg: String, name: String): TypeName = Plain(PackageName(pkg), name)
+
+  def create(pkg: String, name: String): TypeName = Plain(PackageName(pkg), name)
+  def create(p: SClassBase): TypeName = Plain(p)
+
+  def option(p: TypeName): Container = Container(option, p)
+  def consequence(p: SClassBase): Container = consequence(TypeName.create(p))
+  def consequence(p: TypeName): Container = Container(consequence, p)
+
+  def parseC(p: String): Consequence[TypeName] = Consequence(parse(p))
+
+  def parse(s: String): TypeName = _parse_type(s.trim, inParam = false)
+
+  private def _parse_type(s: String, inParam: Boolean): TypeName = {
+    val (base, paramOpt) = _split_top_level_param(s)
+    paramOpt match {
+      case Some(paramStr) =>
+        val outer = _to_plain(base.trim)
+        val inner = _parse_type(paramStr.trim, inParam = true)
+        Container(outer, inner)
+      case None => _parse_leaf(base.trim, inParam)
+    }
+  }
+
+  // Splits "A.B.C[X[Y]]" => ("A.B.C", Some("X[Y]"))
+  // If no param => (s, None)
+  private def _split_top_level_param(s: String): (String, Option[String]) = {
+    val i = s.indexOf('[')
+    if (i < 0) (s, None)
+    else {
+      var level = 0
+      var j = i
+      while (j < s.length) {
+        s.charAt(j) match {
+          case '[' => level += 1
+          case ']' =>
+            level -= 1
+            if (level == 0) {
+              val base   = s.substring(0, i)
+              val inside = s.substring(i + 1, j)
+              return (base, Some(inside))
+            }
+          case _ => ()
+        }
+        j += 1
+      }
+      // 不正（']'が無い）でも無理せずそのまま扱う
+      (s, None)
+    }
+  }
+
+  private val _primitive_names: Set[String] =
+    Set("String", "Boolean", "Int", "Long", "Short", "Byte", "Double", "Float",
+        "Char", "Unit", "BigInt", "BigDecimal")
+
+  private def _parse_leaf(token: String, inParam: Boolean): TypeName = {
+    if (token.isEmpty)
+      ???
+
+    // qualified?
+    val lastDot = token.lastIndexOf('.')
+    if (lastDot >= 0) {
+      val pkg  = token.substring(0, lastDot)
+      val name = token.substring(lastDot + 1)
+      // scala.String は Primitive とみなす
+      if ((pkg == "scala" || pkg.isEmpty) && _primitive_names(name))
+        Primitive.create(name)
+      else
+        Plain.create(pkg, name)
+    } else {
+      // unqualified
+      if (_primitive_names(token)) {
+        if (inParam) Plain.create("scala", token)
+        else Primitive.create(token)
+      } else {
+        // パッケージ不明の標準コンテナは scala とみなす
+        token match {
+          case "Option" | "List" | "Seq" | "Vector" | "Set" | "Either" | "Try" | "Array" =>
+            Plain.create("scala", token)
+          case _ =>
+            // それ以外は（必要なら）デフォルトパッケージ扱い
+            Plain.create("", token)
+        }
+      }
+    }
+  }
+
+  private def _to_plain(base: String): Plain = {
+    val t = base.trim
+    val i = t.lastIndexOf('.')
+    if (i >= 0) Plain.create(t.substring(0, i), t.substring(i + 1))
+    else Plain.create("scala", t) // パッケージ未指定のコンテナは scala 名前空間想定
+  }
 }
 
 case class Parameter(
   name: ParameterName,
   typeName: TypeName,
-  isAttribute: Boolean
+  isAttribute: Boolean = false,
+  isDefault: Boolean = false
 )
+object Parameter {
+  val record = create("record", TypeName.record)
+
+  def create(name: String, typename: String): Parameter =
+    create(name, TypeName.parse(typename))
+
+  def create(name: String, typename: TypeName): Parameter =
+    Parameter(ParameterName(name), typename)
+}
 
 case class ParameterSequence(
   parameters: Vector[Parameter] = Vector.empty
@@ -122,11 +249,15 @@ case class ParameterSequence(
     }
   )
 }
+object ParameterSequence {
+  val empty = ParameterSequence()
+}
 
 case class Attribute(
   name: AttributeName,
   typeName: TypeName
-)
+) {
+}
 object Attribute {
   def apply(name: String, typeName: TypeName): Attribute = Attribute(
     AttributeName(name), typeName
@@ -147,13 +278,45 @@ object AttributeSequence {
   }
 }
 
+case class Field(
+  name: FieldName,
+  typeName: TypeName
+)
+
+case class FieldCompartment(
+  fields: Vector[Field] = Vector.empty
+) {
+  def distillAttributes: AttributeSequence = AttributeSequence.empty // TODO
+}
+object FieldCompartment {
+  val empty = FieldCompartment()
+}
+
 case class MethodName(name: String)
 
 case class SMethod(
   name: MethodName,
   parameters: ParameterSequence,
-  returnType: TypeName
+  returnType: TypeName,
+  body: Option[() => GenM[Unit]] = None
 ) {
+}
+object SMethod {
+  def create(name: String, params: ParameterSequence, rtype: TypeName)(body: () => GenM[Unit]): SMethod =
+    SMethod(MethodName(name), params, rtype, Some(body))
+
+  def create(name: String, rtype: TypeName, param: Parameter, params: Parameter*)(body: => GenM[Unit]): SMethod =
+    create(name, rtype, param +: params)(body)
+
+  def create(name: String, rtype: TypeName, params: Seq[Parameter])(body: => GenM[Unit]): SMethod = {
+    val ps = ParameterSequence(params.toVector)
+    SMethod(MethodName(name), ps, rtype, Some(() => body))
+  }
+
+  def create(name: String, rtype: TypeName)(body: => GenM[Unit]): SMethod = {
+    val ps = ParameterSequence.empty
+    SMethod(MethodName(name), ps, rtype, Some(() => body))
+  }
 }
 
 case class MethodCompartment(
@@ -180,11 +343,12 @@ sealed trait SClassBase {
   def parentClass: Option[TypeName]
   def traitList: List[TypeName]
   def parameterSequence: ParameterSequence
-  def attributeSequence: AttributeSequence
+//  def attributeSequence: AttributeSequence
+  def fieldCompartment: FieldCompartment
   def methodCompartment: MethodCompartment
   def receptionCompartment: ReceptionCompartment
 
-  def effectiveAttributeSequence: AttributeSequence = parameterSequence.distillAttributes + attributeSequence
+  def attributeSequence: AttributeSequence = parameterSequence.distillAttributes + fieldCompartment.distillAttributes
 }
 
 case class ClassCore(
@@ -194,7 +358,7 @@ case class ClassCore(
   parentClass: Option[TypeName],
   traitList: List[TypeName],
   parameterSequence: ParameterSequence,
-  attributeSequence: AttributeSequence,
+  fieldCompartment: FieldCompartment,
   methodCompartment: MethodCompartment,
   receptionCompartment: ReceptionCompartment
 ) {
@@ -266,7 +430,8 @@ object ClassCore {
     def parentClass = core.parentClass
     def traitList = core.traitList
     def parameterSequence = core.parameterSequence
-    def attributeSequence = core.attributeSequence
+//    def attributeSequence = core.attributeSequence
+    def fieldCompartment = core.fieldCompartment
     def methodCompartment = core.methodCompartment
     def receptionCompartment = core.receptionCompartment
     def importNames = core.importNames

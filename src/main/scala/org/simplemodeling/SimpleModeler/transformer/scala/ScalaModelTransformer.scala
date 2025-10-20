@@ -7,7 +7,7 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.
 
 /*
  * @since   Sep. 19, 2025
- * @version Sep. 25, 2025
+ * @version Sep. 29, 2025
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -33,7 +33,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     val parentclass = p.base.map(_to_type)
     val traits = p.traits.map(_to_type)
     val parameters = to_parameters(p.attributes)
-    val attributes = to_attributes(p.attributes)
+    val fields = to_fields(p.attributes)
     val methods = _to_methods(p.operations)
     val receptions = ReceptionCompartment.empty // TODO
     ClassCore(
@@ -43,7 +43,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       parentclass,
       traits,
       parameters,
-      attributes,
+      fields,
       methods,
       receptions
     )
@@ -66,7 +66,15 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
 
   protected def to_parameter(p: MAttribute): Parameter = {
     val typename = to_typename(p)
-    Parameter(ParameterName(p.name), typename, false)
+    Parameter(ParameterName(p.name), typename, false, false)
+  }
+
+  protected def to_fields(ps: List[MAttribute]): FieldCompartment =
+    FieldCompartment(ps.toVector.flatMap(x => Vector(to_field(x))))
+
+  protected def to_field(p: MAttribute): Field = {
+    val typename = to_typename(p)
+    Field(FieldName(p.name), typename)
   }
 
   protected def to_attributes(ps: List[MAttribute]): AttributeSequence =

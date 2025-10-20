@@ -2,6 +2,7 @@ package org.simplemodeling.SimpleModeler.generator.scala
 
 import scalaz._, Scalaz.{modify => _, _}
 import org.goldenport.scalaz.Recorder
+import org.goldenport.scalaz.rwscr
 import org.goldenport.scalaz.rwscr._
 import org.goldenport.context.Consequence
 import org.goldenport.context.Showable
@@ -10,7 +11,8 @@ import model._
 /*
  * @since   May. 14, 2025
  *  version May. 19, 2025
- * @version Sep. 23, 2025
+ *  version Sep. 26, 2025
+ * @version Oct. 17, 2025
  * @author  ASAMI, Tomoharu
  */
 trait Generator[A, R] {
@@ -27,7 +29,7 @@ object Generator {
     lines: Vector[String] = Vector.empty,
     strings: Vector[String] = Vector.empty
   ) {
-    def println(p: String) = {
+    def println(p: String): Output = {
       val s = strings.mkString + p
       copy(lines = lines :+ s, strings = Vector.empty)
     }
@@ -37,11 +39,17 @@ object Generator {
       copy(lines = lines :+ s, strings = Vector.empty)
     }
 
-    def print(p: String) = copy(strings = strings :+ p)
+    def print(p: String): Output = copy(strings = strings :+ p)
 
     def printws(p: String) = copy(strings = strings :+ p :+ " ")
 
-    def separator() = println().copy(lines = lines :+ " ")
+    def separator() = println.copy(lines = lines :+ " ")
+
+    def indent(width: Int) =
+      if (strings.isEmpty)
+        print(" " * width)
+      else
+        this
 
     def +(rhs: Output): Output =
       (rhs.lines.isEmpty, rhs.strings.isEmpty) match {
@@ -86,13 +94,13 @@ object Generator {
     def up = copy(indent = indent + 1)
     def down = copy(indent = indent - 1)
 
-    def println(p: String) = copy(output = output.println(_format(p)))
-    def print(p: String) = copy(output = output.print(_format(p)))
-    def printws(p: String) = copy(output = output.printws(_format(p)))
+    def println(p: String) = copy(output = output.indent(indent_width).println(p))
+    def print(p: String) = copy(output = output.indent(indent_width).print(p))
+    def printws(p: String) = copy(output = output.indent(indent_width).printws(p))
     def separator() = copy(output = output.separator())
     def add(p: Output) = copy(output = output + p)
 
-    private def _format(p: String) = (" " * indent * width) + p
+    protected def indent_width = indent * width
   }
 
   type GenM[A] = RWSCR[Config, State, A]
@@ -123,16 +131,16 @@ object Generator {
     Consequence.success((Recorder.empty, (), state))
   }
 
-  def println(line: String): GenM[Unit] = ReaderWriterStateT { (config, state) =>
-    Consequence.success((Recorder.empty, (), state.println(line)))
+  def println(s: String, ss: String*): GenM[Unit] = ReaderWriterStateT { (config, state) =>
+    Consequence.success((Recorder.empty, (), state.println(s + ss.mkString)))
   }
 
   def println(line: Showable): GenM[Unit] = println(line.print)
 
   def println(): GenM[Unit] = println("")
 
-  def print(s: String): GenM[Unit] = ReaderWriterStateT { (config, state) =>
-    Consequence.success((Recorder.empty, (), state.print(s)))
+  def print(s: String, ss: String*): GenM[Unit] = ReaderWriterStateT { (config, state) =>
+    Consequence.success((Recorder.empty, (), state.print(s + ss.mkString)))
   }
 
   def print(p: Showable): GenM[Unit] = print(p.print)
@@ -165,104 +173,15 @@ object Generator {
     } yield (Recorder.empty, r, state)
   }
 
-  // implicit object Scala3ClassGenerator extends Generator[SClassBase] {
-  // }
+  def intercalateTraverse[A, B](
+    xs: Seq[A],
+    sep: GenM[B]
+  )(f: A => GenM[B]): GenM[Vector[B]] =
+    rwscr.intercalateTraverse[Config, State, A, B](xs, sep)(f)
 
-  // trait Scala3ClassGeneratorBase extends Generator[SClassBase] {
-  //   def run(ast: SClassBase): GenM[Unit] =
-  //     for {
-  //       _ <- section_package(ast)
-  //       _ <- separator
-  //       _ <- section_import(ast)
-  //       _ <- separator
-  //       _ <- section_class(ast)
-  //       _ <- separator
-  //       _ <- section_object(ast)
-  //     } yield ()
-
-  //   protected def section_package(p: SClassBase): GenM[Unit] =
-  //     for {
-  //       _ <- print("package ")
-  //       _ <- println(p.packageName)
-  //     } yield ()
-
-  //   protected def section_import(p: SClassBase): GenM[Unit] =
-  //     for {
-  //       _ <- {
-  //         val o = p.importNames.foldLeft(Output.empty)((z, x) =>
-  //           z.print("import ").println(x.fullName))
-  //         add(o)
-  //       }
-  //     } yield ()
-
-  //   protected def section_class(p: SClassBase): GenM[Unit] =
-  //     for {
-  //       _ <- printws(p.declaration)
-  //       _ <- print(p.className)
-  //       _ <- {
-  //         val ps = p.parameterSequence
-  //         val s = ps.parameters.map(x => x.name.name + ": " + x.typeName.name).mkString("(", ", ", ")")
-  //         print(s)
-  //       }
-  //       _ <- {
-  //         def _extends_(c: String, ts: List[String]) =
-  //           s" extends ${c}" + ts.mkString(" with", " with ", " ")
-  //         val s = (p.parentClass, p.traitList) match {
-  //           case (Some(s), Nil) => s" extends ${s.name} "
-  //           case (Some(s), xs) => _extends_(s.name, xs.map(_.name))
-  //           case (None, Nil) => " "
-  //           case (None, x :: xs) => _extends_(x.name, xs.map(_.name))
-  //         }
-  //         print(s)
-  //       }
-  //       _ <- println("{")
-  //       _ <- indent
-  //       _ <- section_variables(p)
-  //       _ <- separator
-  //       _ <- section_methods(p)
-  //       _ <- separator
-  //       _ <- section_reception(p)
-  //       _ <- outdent
-  //       _ <- println("}")
-  //     } yield ()
-
-  //   protected def section_variables(p: SClassBase): GenM[Unit] =
-  //     ???
-
-  //   protected def section_methods(p: SClassBase): GenM[Unit] =
-  //     ???
-
-  //   protected def section_methods(p: SMethod): GenM[Unit] =
-  //     ???
-
-  //   protected def section_reception(p: SClassBase): GenM[Unit] =
-  //     ???
-
-  //   protected def section_object(p: SClassBase): GenM[Unit] =
-  //     for {
-  //       _ <- print("object ")
-  //       _ <- print(p.className)
-  //       _ <- println(" {")
-  //       _ <- indent
-  //       _ <- outdent
-  //       _ <- println("}")
-  //     } yield ()
-  // }
+  def intercalateTraverse_[A](
+    xs: Seq[A],
+    sep: GenM[Unit]
+  )(f: A => GenM[Unit]): GenM[Unit] =
+    rwscr.intercalateTraverse_[Config, State, A](xs, sep)(f)
 }
-
-// object RWSTUtil {
-//   def modify[F[_]: Applicative, R, W: Monoid, S](f: S => S): ReaderWriterStateT[F, R, W, S, Unit] =
-//     ReaderWriterStateT { (r, s) =>
-//       (Monoid[W].zero, (), f(s)).pure[F]
-//     }
-
-//   def get[F[_]: Applicative, R, W: Monoid, S]: ReaderWriterStateT[F, R, W, S, S] =
-//     ReaderWriterStateT { (r, s) =>
-//       (Monoid[W].zero, s, s).pure[F]
-//     }
-
-//   def put[F[_]: Applicative, R, W: Monoid, S](newState: S): ReaderWriterStateT[F, R, W, S, Unit] =
-//     ReaderWriterStateT { (r, s) =>
-//       (Monoid[W].zero, (), newState).pure[F]
-//     }
-// }
