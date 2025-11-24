@@ -16,7 +16,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  * @since   May. 13, 2025
  *  version May. 17, 2025
  *  version Sep. 30, 2025
- * @version Oct.  7, 2025
+ *  version Oct.  7, 2025
+ * @version Nov. 18, 2025
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -26,6 +27,52 @@ case class ScalaModel(
 }
 
 object ScalaModel {
+  abstract class Context() {
+    def optionType(p: TypeName): TypeName = TypeName.Container.option(p)
+    def stringType: TypeName = TypeName.Primitive.string
+    def optionParameter(p: Parameter): Parameter = p.typeName match {
+      case m: TypeName.Container => ???
+      case _ => Parameter(p.name, optionType(p.typeName))
+    }
+    def stringParameter(p: Parameter): Parameter = p.typeName match {
+      case m: TypeName.Container => Parameter(p.name, m.withContainee(TypeName.Primitive.string))
+      case _ => Parameter(p.name, TypeName.Primitive.string)
+    }
+    def shortParameter(p: Parameter): Parameter = p.typeName match {
+      case m: TypeName.Container => Parameter(p.name, m.withContainee(TypeName.Primitive.short))
+      case _ => Parameter(p.name, TypeName.Primitive.short)
+    }
+    def intParameter(p: Parameter): Parameter = p.typeName match {
+      case m: TypeName.Container => Parameter(p.name, m.withContainee(TypeName.Primitive.int))
+      case _ => Parameter(p.name, TypeName.Primitive.int)
+    }
+    def longParameter(p: Parameter): Parameter = p.typeName match {
+      case m: TypeName.Container => Parameter(p.name, m.withContainee(TypeName.Primitive.long))
+      case _ => Parameter(p.name, TypeName.Primitive.long)
+    }
+    def floatParameter(p: Parameter): Parameter = p.typeName match {
+      case m: TypeName.Container => Parameter(p.name, m.withContainee(TypeName.Primitive.float))
+      case _ => Parameter(p.name, TypeName.Primitive.float)
+    }
+    def doubleParameter(p: Parameter): Parameter = p.typeName match {
+      case m: TypeName.Container => Parameter(p.name, m.withContainee(TypeName.Primitive.double))
+      case _ => Parameter(p.name, TypeName.Primitive.double)
+    }
+    def bigintParameter(p: Parameter): Parameter = p.typeName match {
+      case m: TypeName.Container => Parameter(p.name, m.withContainee(TypeName.Primitive.bigint))
+      case _ => Parameter(p.name, TypeName.Primitive.bigint)
+    }
+    def bigdecimalParameter(p: Parameter): Parameter = p.typeName match {
+      case m: TypeName.Container => Parameter(p.name, m.withContainee(TypeName.Primitive.bigdecimal))
+      case _ => Parameter(p.name, TypeName.Primitive.bigdecimal)
+    }
+  }
+  object Context {
+    val default = Default()
+
+    case class Default() extends Context() {
+    }
+  }
 }
 
 case class SPackage(
@@ -43,6 +90,9 @@ case class PackageName(name: String) extends datatype.Name {
 object PackageName {
   val orgSimplemodeling = PackageName("org.simplemodeling")
   val orgSimplemodelingRecord = PackageName("org.simplemodeling.record")
+
+  def apply(pn: PackageName, name: String): PackageName =
+    PackageName(pn.name + "." + name)
 }
 
 case class ClassName(name: String) extends datatype.Name
@@ -64,20 +114,47 @@ object ClassDeclaration {
 sealed trait TypeName {
   def fullName: String
   def name: String
+  def contentType: TypeName = this
+  def isRequired: Boolean
+  def isPrimitive: Boolean = false
+  def isString: Boolean = false
+  def isNumber: Boolean = false
+  def isNumberOrigin: Boolean = false
 }
 object TypeName {
-  case class Primitive(datatype: DataType) extends TypeName {
+  val datatypePkg = PackageName("org.simplemodeling.datatype")
+
+  case class Primitive(
+    datatype: DataType,
+    override val isString: Boolean = false,
+    override val isNumber: Boolean = false
+  ) extends TypeName {
     val name = StringUtils.makeTitle(datatype.name)
     def fullName = name
+    def isRequired = true
+    override def isPrimitive: Boolean = true
   }
   object Primitive {
-    val string = Primitive(XString)
-    val int = Primitive(XInt)
+    val string = Primitive(XString, isString = true)
+    val short = Primitive(XInt, isNumber = true)
+    val int = Primitive(XInt, isNumber = true)
+    val long = Primitive(XLong, isNumber = true)
+    val float = Primitive(XFloat, isNumber = true)
+    val double = Primitive(XDouble, isNumber = true)
+    val bigint = Primitive(XInteger, isNumber = true)
+    val bigdecimal = Primitive(XDecimal, isNumber = true)
 
-    def create(p: DataType): Primitive = p match {
+    def create(p: DataType): Primitive = createOption(p).get
+
+    def createOption(p: DataType): Option[Primitive] = Option(p).collect {
       case XString => string
+      case XShort => short
       case XInt => int
-      case m => Primitive(m)
+      case XLong => long
+      case XFloat => float
+      case XDouble => double
+      case XInteger => bigint
+      case XDecimal => bigdecimal
     }
 
     def createMarshalling(p: MDatatype): Primitive = createMarshalling(p.datatype)
@@ -94,13 +171,16 @@ object TypeName {
 
   case class Plain(
     packageName: PackageName,
-    name: String
+    name: String,
+    override val isNumberOrigin: Boolean = false
   ) extends TypeName {
   def fullName =
     if (packageName.name.isEmpty)
       name
     else
       packageName.name + "." + name
+
+    def isRequired = true
   }
   object Plain {
     def apply(p: SClassBase): Plain = Plain(p.packageName, p.className.name)
@@ -114,15 +194,34 @@ object TypeName {
   ) extends TypeName {
     def fullName = s"${container.fullName}[${containee.fullName}]"
     def name = s"${container.name}[${containee.name}]"
+    override def contentType: TypeName = containee
+    def isRequired = false
 
     def isOption: Boolean = container.name == "Option"
     def isList: Boolean = container.name == "List"
     def isVector: Boolean = container.name == "Vector"
     def isSet: Boolean = container.name == "Set"
+
+    def withContainee(p: TypeName) = copy(containee = p)
+  }
+  object Container {
+    val option = Plain(PackageName("scala"), "Option")
+    val consequence = Plain(PackageName("org.simplemodeling"), "Consequence")
+
+    def option(p: TypeName): TypeName = Container(option, p)
   }
 
-  val option = Plain(PackageName("scala"), "Option")
-  val consequence = Plain(PackageName("org.simplemodeling"), "Consequence")
+  case class Function(
+    in: TypeName,
+    out: TypeName
+  ) extends TypeName {
+    def fullName = s"${in.fullName} => ${out.fullName}]"
+    def name = s"${in.name}[${out.name}]"
+    def isRequired = true
+  }
+
+  def option = Container.option
+  def consequence = Container.consequence
 
   val record = Plain(PackageName.orgSimplemodelingRecord, "Record")
 
@@ -132,6 +231,10 @@ object TypeName {
 
   def create(pkg: String, name: String): TypeName = Plain(PackageName(pkg), name)
   def create(p: SClassBase): TypeName = Plain(p)
+
+  def create(p: DataType): TypeName = Primitive.createOption(p).getOrElse(
+    Plain(datatypePkg, StringUtils.makeTitle(p.name))
+  )
 
   def option(p: TypeName): Container = Container(option, p)
   def consequence(p: SClassBase): Container = consequence(TypeName.create(p))
@@ -228,7 +331,10 @@ case class Parameter(
   typeName: TypeName,
   isAttribute: Boolean = false,
   isDefault: Boolean = false
-)
+) {
+  def isRequired: Boolean = typeName.isRequired
+  def titleName = name.toTitle
+}
 object Parameter {
   val record = create("record", TypeName.record)
 
@@ -248,6 +354,8 @@ case class ParameterSequence(
       case _ => None
     }
   )
+
+  def requiredPatameters: Vector[Parameter] = parameters.filter(_.isRequired)
 }
 object ParameterSequence {
   val empty = ParameterSequence()

@@ -7,7 +7,8 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.
 
 /*
  * @since   Sep. 19, 2025
- * @version Sep. 29, 2025
+ *  version Sep. 29, 2025
+ * @version Nov. 11, 2025
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -127,7 +128,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     }
 
   protected def to_typename(p: MDatatype): TypeName =
-    TypeName.Primitive.create(p.datatype)
+    TypeName.create(p.datatype)
 
   private def _to_methods(ps: List[MOperation]): MethodCompartment = {
     MethodCompartment.empty // TODO

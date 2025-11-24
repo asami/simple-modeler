@@ -14,11 +14,14 @@ import Generator.{State => GState, _}
 
 /*
  * @since   Sep. 18, 2025
- * @version Sep. 21, 2025
+ *  version Sep. 21, 2025
+ * @version Nov.  8, 2025
  * @author  ASAMI, Tomoharu
  */
 trait Scala3ClassFamilyGeneratorBase[T <: MObject] extends SourceArtifactsGenerator[T] {
   import SourceArtifactsGenerator.ArtifactsPipeline
+
+  protected val scala_context = ScalaModel.Context.default
 
   def run(p: T): ArtifactsPipeline = {
     scala_model_transformers.foldMap(_generate_class(_, p))
@@ -53,10 +56,10 @@ trait Scala3ClassFamilyGeneratorBase[T <: MObject] extends SourceArtifactsGenera
     p match {
       case m: SComponent => ??? // Consequence.success(new Scala3ComponentGenerator())
       case m: STrait => ??? // Consequence.success(new Scala3TraitGenerator())
-      case m: SCaseClass => new Scala3CaseClassGenerator().generate(m)
+      case m: SCaseClass => new Scala3CaseClassGenerator(scala_context).generate(m)
       case m: SEnum => ??? // Consequence.success(new Scala3EnumGenerator())
       case m: SControlClass => ??? // Consequence.success(new Scala3ControlClassGenerator())
-      case m: SEntityClass => new Scala3EntityGenerator().generate(m)
+      case m: SEntityClass => new Scala3EntityGenerator(scala_context).generate(m)
     }
 
   // private def _generate_classx(g: Scala3ClassGeneratorBase[SCaseClass], p: SClassBase): Consequence[SourceArtifacts] =

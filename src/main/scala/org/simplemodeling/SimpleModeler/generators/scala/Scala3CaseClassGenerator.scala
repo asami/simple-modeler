@@ -6,11 +6,12 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Sep. 19, 2025
- * @version Sep. 19, 2025
+ * @version Nov.  8, 2025
  * @author  ASAMI, Tomoharu
  */
 class Scala3CaseClassGenerator(
-) extends Scala3ClassGeneratorBase[SCaseClass] {
+  context: ScalaModel.Context
+) extends Scala3ClassGeneratorBase[SCaseClass](context) {
 }
 
 object Scala3CaseClassGenerator {
