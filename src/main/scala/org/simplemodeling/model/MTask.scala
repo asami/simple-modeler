@@ -11,7 +11,8 @@ import org.simplemodeling.model._
  *  version Nov. 12, 2010
  *  version Nov.  4, 2012
  *  version May. 10, 2020
- * @version Jul. 25, 2020
+ *  version Jul. 25, 2020
+ * @version Feb. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MTask extends MStoryObject {
@@ -24,7 +25,7 @@ trait MTask extends MStoryObject {
   def operations: List[MOperation] = Nil
   def ports: List[MPort] = Nil
   def roles: List[MRoleRef] = Nil
-  def services: List[MServiceRef] = Nil
+  def services: List[MService] = Nil
   def rules: List[MRuleRef] = Nil
   def vouchers: List[MVoucherRef] = Nil
 }

@@ -15,7 +15,8 @@ import org.simplemodeling.SimpleModeler.generators.uml._
  *  version Aug. 17, 2020
  *  version Oct.  4, 2020
  *  version Nov. 21, 2020
- * @version Dec. 27, 2020
+ *  version Dec. 27, 2020
+ * @version Feb. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ObjectPart { self: SpecDocTransformer =>
@@ -62,7 +63,7 @@ trait ObjectPart { self: SpecDocTransformer =>
     case _: MService => Category_Service
     case _: MRule => Category_Rule
     case _: MPowertype => Category_Powertype
-    case _: MDatatype => Category_Datatype
+    case _: MDataType => Category_DataType
     case _: MBusinessUsecase => Category_BusinessUsecase
     case _: MRequirementUsecase => Category_RequirementUsecase
     case _: MRequirementTask => Category_RequirementTask
@@ -157,7 +158,8 @@ trait ObjectPart { self: SpecDocTransformer =>
     _make_relationships(Category_RoleRelationship, p.roles)
 
   protected final def make_services(p: MObject): Option[SDEntity] =
-    _make_relationships(Category_ServiceRelationship, p.services)
+    // _make_relationships(Category_ServiceRelationship, p.services)
+    None
 
   protected final def make_rules(p: MObject): Option[SDEntity] =
     _make_relationships(Category_RuleRelationship, p.rules)
@@ -892,7 +894,7 @@ trait ObjectPart { self: SpecDocTransformer =>
         else if (anObject.isInstanceOf[MService]) Category_Service
         else if (anObject.isInstanceOf[MRule]) Category_Rule
         else if (anObject.isInstanceOf[MPowertype]) Category_Powertype
-        else if (anObject.isInstanceOf[MDatatype]) Category_Datatype
+        else if (anObject.isInstanceOf[MDataType]) Category_DataType
         else if (anObject.isInstanceOf[MBusinessUsecase]) Category_BusinessUsecase
         else if (anObject.isInstanceOf[MBusinessTask]) Category_BusinessTask
         else if (anObject.isInstanceOf[MRequirementUsecase]) Category_RequirementUsecase

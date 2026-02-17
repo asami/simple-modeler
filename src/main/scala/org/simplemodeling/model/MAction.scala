@@ -13,14 +13,14 @@ import org.smartdox.Description
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
  *  version Jun. 20, 2021
- * @version Jul.  9, 2021
+ *  version Jul.  9, 2021
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MAction(
   description: Description,
   ownerStateMachine: MStateMachine
 ) extends MElement {
-  def getAffiliation = None
 }
 
 object MAction {

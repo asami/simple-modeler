@@ -18,25 +18,26 @@ import org.goldenport.record.v2._
  *  version May. 16, 2020
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
-case class MDatatype(
+case class MDataType(
   override val designation: Designation,
   datatype: DataType,
   affiliation: MPackageRef,
   description: Description = Description.empty
 ) extends MAttributeType {
-  def getAffiliation = Some(affiliation)
+  override def getAffiliation = Some(affiliation)
 }
 
-object MDatatype {
-  val string = MDatatype(XString)
+object MDataType {
+  val string = MDataType(XString)
 
-  def apply(p: DataType): MDatatype = apply(p, MPackageRef.default)
+  def apply(p: DataType): MDataType = apply(p, MPackageRef.default)
 
-  def apply(p: DataType, pkg: MPackageRef): MDatatype =
-    MDatatype(Designation.nameLabel(p.name, p.labelI18N), p, pkg)
+  def apply(p: DataType, pkg: MPackageRef): MDataType =
+    MDataType(Designation.nameLabel(p.name, p.labelI18N), p, pkg)
 
-  def create(p: String): MDatatype = MDatatype(Designation(p), DataType.to(p), MPackageRef.default)
+  def create(p: String): MDataType = MDataType(Designation(p), DataType.to(p), MPackageRef.default)
 }

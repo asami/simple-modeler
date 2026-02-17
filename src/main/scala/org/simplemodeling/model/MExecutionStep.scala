@@ -9,14 +9,15 @@ import org.simplemodeling.model._
  * 
  * @since   Dec.  5, 2008
  *  version Jul. 27, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MExecutionStep(
   override val designation: Designation,
   affiliation: MPackageRef
 ) extends MStep {
-  def getAffiliation = Some(affiliation)
+  override def getAffiliation = Some(affiliation)
   def inputs: List[MEntityRef] = Nil // TODO
   def outputs: List[MEntityRef] = Nil // TODO
   def entities: List[MEntityRef] = (inputs ::: outputs).distinct

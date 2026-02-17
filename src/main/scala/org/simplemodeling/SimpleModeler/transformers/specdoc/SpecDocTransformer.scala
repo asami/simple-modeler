@@ -42,7 +42,8 @@ import org.simplemodeling.SimpleModeler.generators.uml._
  *  version Sep. 13, 2020
  *  version Oct. 11, 2020
  *  version Nov. 19, 2020
- * @version Dec. 21, 2020
+ *  version Dec. 21, 2020
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class SpecDocTransformer(
@@ -72,7 +73,7 @@ class SpecDocTransformer(
   val Category_Service = new ServiceCategory
   val Category_Rule = new RuleCategory
   val Category_Powertype = new PowertypeCategory
-  val Category_Datatype = new DatatypeCategory
+  val Category_DataType = new DatatypeCategory
   val Category_BusinessUsecase = new BusinessUsecaseCategory
   val Category_BusinessTask = new BusinessTaskCategory
   val Category_RequirementUsecase = new RequirementUsecaseCategory
@@ -105,7 +106,7 @@ class SpecDocTransformer(
     Category_Service,
     Category_Rule,
     Category_Powertype,
-    Category_Datatype,
+    Category_DataType,
     Category_BusinessUsecase,
     Category_BusinessTask,
     Category_RequirementUsecase,
@@ -199,7 +200,7 @@ class SpecDocTransformer(
           case m: MComponent => add_component(m)
           case m: MRule => add_rule(m)
           case m: MPowertype => add_powertype(m)
-          case m: MDatatype => add_datatype(m)
+          case m: MDataType => add_datatype(m)
           case m: MBusinessUsecase => add_businessUsecase(m)
           case m: MBusinessTask => add_businessTask(m)
           case m: MRequirementUsecase => add_requirementUsecase(m)
@@ -285,7 +286,7 @@ class SpecDocTransformer(
       powertype
     }
 
-    def add_datatype(aDatatype: MDatatype): SDEntity = {
+    def add_datatype(aDatatype: MDataType): SDEntity = {
       // val datatype = add_object(aDatatype)
       // datatype
       // TODO

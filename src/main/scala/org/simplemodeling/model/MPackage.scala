@@ -17,7 +17,8 @@ import org.smartdox.Description
  *  version Aug.  1, 2020
  *  version Jun. 20, 2021
  *  version Sep. 26, 2023
- * @version Oct. 12, 2023
+ *  version Oct. 12, 2023
+ * @version Feb. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MPackage(
@@ -26,7 +27,7 @@ case class MPackage(
   elements: Vector[MElement],
   description: Description = Description.empty
 ) extends MElement {
-  def getAffiliation = Some(affiliation)
+  override def getAffiliation = Some(affiliation)
 
   def getPackage(p: MPackageRef): Option[MPackage] = getPackage(p.pathName)
 
@@ -56,6 +57,20 @@ case class MPackage(
       case m: MPowertype => m
       case m => RAISE.invalidArgumentFault(s"Not powertype: $name -> ${m.show}")
     }
+
+  lazy val entities: Vector[MEntity] = elements.collect {
+    case m: MEntity => m
+  }
+
+  lazy val components: Vector[MComponent] = elements.collect {
+    case m: MComponent => m
+  }
+
+  lazy val subpackages: Vector[MPackage] = elements.collect {
+    case m: MPackage => m
+  }
+
+  def toPackageRef: MPackageRef = MPackageRef(this)
 }
 
 object MPackage {

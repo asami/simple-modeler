@@ -12,7 +12,8 @@ import model._
  * @since   May. 14, 2025
  *  version May. 19, 2025
  *  version Sep. 26, 2025
- * @version Oct. 17, 2025
+ *  version Oct. 17, 2025
+ * @version Feb. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 trait Generator[A, R] {
@@ -167,11 +168,95 @@ object Generator {
 
   def outdent: GenM[Unit] = modify(_.down)
 
-  def build: GenM[String] = ReaderWriterStateT { (config, state) =>
-    for {
-      r <- state.output.toString(config)
-    } yield (Recorder.empty, r, state)
+  def block(prefix: String)(body: => GenM[Unit]): GenM[Unit] = {
+    val s = prefix.trim
+    if (s.endsWith("(") || s.endsWith("."))
+      blockSimple(prefix)(body)
+    else
+      blockOpenClose(prefix)(body)
   }
+
+  def blockR[T](prefix: String)(body: => GenM[T]): GenM[T] = {
+    val s = prefix.trim
+    if (s.endsWith("(") || s.endsWith("."))
+      blockSimpleR(prefix)(body)
+    else
+      blockOpenCloseR(prefix)(body)
+  }
+
+  def blockOpenClose(prefix: String)(body: => GenM[Unit]): GenM[Unit] =
+    blockOpenCloseR[Unit](prefix)(body)
+
+  def blockOpenCloseR[T](prefix: String)(body: => GenM[T]): GenM[T] = {
+    val head =
+      if (prefix.trim.isEmpty)
+        "{"
+      else if (prefix.trim.endsWith("{"))
+        prefix
+      else if (prefix.endsWith(" "))
+        prefix + "{"
+      else
+        prefix + " {"
+    for {
+      _ <- println(head)
+      _ <- indent
+      r <- body
+      _ <- outdent
+      _ <- println("}")
+    } yield r
+  }
+
+  def blockSimple(prefix: String)(body: => GenM[Unit]): GenM[Unit] =
+    blockSimpleR[Unit](prefix)(body)
+
+  def blockSimpleR[T](prefix: String)(body: => GenM[T]): GenM[T] = {
+    for {
+      _ <- println(prefix)
+      _ <- indent
+      r <- body
+      _ <- outdent
+    } yield r
+  }
+
+  def blockAfter(prefix: GenM[Unit])(body: => GenM[Unit]): GenM[Unit] =
+    for {
+      _ <- prefix
+      _ <- block("")(body)
+    } yield ()
+
+  def blockInline(prefix: String)(body: => GenM[Unit]): GenM[Unit] =
+    for {
+      _ <- print(
+        if (prefix.endsWith(" "))
+          prefix + "{ "
+        else
+          prefix + " { "
+      )
+      _ <- body
+      _ <- println(" }")
+    } yield ()
+
+  def blockExpression(prefix: String)(body: Seq[String]): GenM[Unit] =
+    for {
+      _ <- println(s"$prefix(")
+      _ <- intercalateTraverse_(body, println(","))(x => print(x))
+      _ <- println(")")
+    } yield()
+
+  // def blockIfNonEmpty(prefix: String)(body: => GenM[Unit]): GenM[Unit] =
+  //   for {
+  //     before <- get
+  //     _ <- block(prefix)(body)
+  //     after <- get
+  //     _ <-
+  //       if (before.output == after.output)
+  //         unit
+  //       else
+  //         unit
+  //   } yield ()
+
+  def braced(body: => GenM[Unit]): GenM[Unit] =
+    block("")(body)
 
   def intercalateTraverse[A, B](
     xs: Seq[A],
@@ -184,4 +269,10 @@ object Generator {
     sep: GenM[Unit]
   )(f: A => GenM[Unit]): GenM[Unit] =
     rwscr.intercalateTraverse_[Config, State, A](xs, sep)(f)
+
+  def build: GenM[String] = ReaderWriterStateT { (config, state) =>
+    for {
+      r <- state.output.toString(config)
+    } yield (Recorder.empty, r, state)
+  }
 }

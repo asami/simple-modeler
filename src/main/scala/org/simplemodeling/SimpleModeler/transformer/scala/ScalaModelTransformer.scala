@@ -1,6 +1,8 @@
 package org.simplemodeling.SimpleModeler.transformer.scala
 
+import org.goldenport.RAISE
 import org.goldenport.context.Consequence
+import org.goldenport.util.StringUtils
 import org.simplemodeling.model._
 import org.simplemodeling.SimpleModeler.generator.scala.model._
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.Purpose
@@ -8,7 +10,8 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.
 /*
  * @since   Sep. 19, 2025
  *  version Sep. 29, 2025
- * @version Nov. 11, 2025
+ *  version Nov. 11, 2025
+ * @version Feb. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -22,6 +25,12 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   def isDefinedAt(p: (MObject, Purpose)): Boolean =
     is_Accept_Object(p._1) && is_accept_purpose(p._2)
 
+  protected final def to_scala_core_with_subpackage(p: MObject): ClassCore =
+    to_scala_core(p, sub_Package_Name)
+
+  protected final def to_scala_core(p: MObject, subpkg: Option[String]): ClassCore =
+    subpkg.fold(to_scala_core(p))(to_scala_core_subpackage(p, _))
+
   protected final def to_scala_core_subpackage(
     p: MObject,
     subpkg: String
@@ -29,13 +38,13 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
 
   protected final def to_scala_core(p: MObject): ClassCore = {
     val packagename = PackageName(p.packageName)
-    val declaration = ClassDeclaration.CaseClass
+    val declaration = to_scala_core_declaration(p)
     val classname = ClassName(p.name)
-    val parentclass = p.base.map(_to_type)
-    val traits = p.traits.map(_to_type)
+    val parentclass = to_scala_core_parent(p)
+    val traits = to_scala_core_traits(p)
     val parameters = to_parameters(p.attributes)
     val fields = to_fields(p.attributes)
-    val methods = _to_methods(p.operations)
+    val methods = to_methods(p.operations)
     val receptions = ReceptionCompartment.empty // TODO
     ClassCore(
       packagename,
@@ -49,6 +58,26 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       receptions
     )
   }
+
+  protected def to_scala_core_declaration(p: MObject) = p match {
+    case m: MComponent => ClassDeclaration.Control
+    case _ => ClassDeclaration.CaseClass
+  }
+
+  protected def to_scala_core_parent(p: MObject) = p match {
+    case m: MComponent =>
+      if (p.base.isEmpty)
+        Some(TypeName(PackageName("org.goldenport.cncf.component"), "Component"))
+      else
+        to_scala_core_parent_default(p)
+    case _ => to_scala_core_parent_default(p)
+  }
+
+  protected final def to_scala_core_parent_default(p: MObject) =
+    p.base.map(_to_type)
+
+  protected def to_scala_core_traits(p: MObject) = 
+    p.traits.map(_to_type)
 
   private def _to_type(p: MObjectRef): TypeName =
     TypeName(PackageName(p.packageName), p.name)
@@ -124,15 +153,63 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
 
   private def _to_typename(p: MAttributeType): TypeName =
     p match {
-      case m: MDatatype => to_typename(m)
+      case m: MDataType => to_typename(m)
+      case m: MObject => to_typename(m)
+      case m: MObjectRef => to_typename(m)
     }
 
-  protected def to_typename(p: MDatatype): TypeName =
+  final protected def to_methods(ps: List[MOperation]): MethodCompartment = {
+    val xs = ps.toVector.map(to_method)
+    MethodCompartment(xs)
+  }
+
+  final protected def to_method(p: MOperation): SMethod = {
+    val params = ParameterSequence(p.parameters.map(to_parameter).toVector)
+    val result = to_result(p.result)
+    SMethod(MethodName(p.name), params, result)
+  }
+
+  final protected def to_parameter(p: MParameter): Parameter = {
+    import MParameter._
+    val tname = p.parameterType match {
+      case MDataTypeParameterType(dt) => to_typename(dt)
+      case MObjectParameterType(o) => to_typename(o)
+      case MObjectRefParameterType(ref) => to_typename(ref)
+    }
+    Parameter(ParameterName(p.name), tname)
+  }
+
+  final protected def to_result(p: MResult): TypeName = {
+    import MResult._
+    p.resultType match {
+      case MUnitResultType() => TypeName.Unit()
+      case MDataTypeResultType(dt) => to_typename(dt)
+      case MObjectResultType(o) => to_typename(o)
+      case MObjectRefResultType(ref) => to_typename(ref)
+    }
+  }
+
+  protected def to_typename(p: MDataType): TypeName =
     TypeName.create(p.datatype)
 
-  private def _to_methods(ps: List[MOperation]): MethodCompartment = {
-    MethodCompartment.empty // TODO
+  final protected def to_typename(o: MObject): TypeName = o match {
+    case m: MTypedObject => to_typename(m)
+    case _ => TypeName.create(o.packageName, o.name)
   }
+
+  final protected def to_typename(o: MTypedObject): TypeName = {
+    val contenee = to_typename(o.typeParameters.head)
+    val container = TypeName.create(o.packageName, o.name)
+    TypeName.Container(container, contenee)
+  }
+
+  final protected def to_typename(o: MObjectRef): TypeName =
+    TypeName.create(o.packageName, o.name)
+
+  final protected def make_title_name(
+    p: String,
+    ps: String*
+  ): String = (p +: ps).map(StringUtils.makeTitle).mkString
 
   protected def project_dir = "scala.d"
 

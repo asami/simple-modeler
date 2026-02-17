@@ -14,11 +14,11 @@ import org.smartdox.Description
  *  version Jun. 17, 2020
  *  version Aug. 12, 2020
  *  version Sep. 26, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MReference extends MRelationship {
   override def designation: Designation = Designation.empty
   def description: Description = Description.empty
-  def getAffiliation: Option[MPackageRef] = None
 }

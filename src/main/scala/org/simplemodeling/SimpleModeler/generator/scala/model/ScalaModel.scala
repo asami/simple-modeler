@@ -17,7 +17,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version May. 17, 2025
  *  version Sep. 30, 2025
  *  version Oct.  7, 2025
- * @version Nov. 18, 2025
+ *  version Nov. 18, 2025
+ * @version Feb. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -88,8 +89,8 @@ case class PackageName(name: String) extends datatype.Name {
   def toPathName: PathName = PathName(name.replace('.', '/'))
 }
 object PackageName {
-  val orgSimplemodeling = PackageName("org.simplemodeling")
-  val orgSimplemodelingRecord = PackageName("org.simplemodeling.record")
+  val orgSimplemodeling = PackageName("org.goldenport")
+  val orgSimplemodelingRecord = PackageName("org.goldenport.record")
 
   def apply(pn: PackageName, name: String): PackageName =
     PackageName(pn.name + "." + name)
@@ -109,6 +110,12 @@ object ClassDeclaration {
   object CaseClass extends ClassDeclaration {
     protected def print_String = "case class"
   }
+  object Service extends ClassDeclaration {
+    protected def print_String = "class"
+  }
+  object Control extends ClassDeclaration {
+    protected def print_String = "class"
+  }
 }
 
 sealed trait TypeName {
@@ -122,7 +129,13 @@ sealed trait TypeName {
   def isNumberOrigin: Boolean = false
 }
 object TypeName {
-  val datatypePkg = PackageName("org.simplemodeling.datatype")
+  val datatypePkg = PackageName("org.goldenport.datatype")
+
+  case class Unit() extends TypeName {
+    val name = "unit"
+    val fullName = name
+    def isRequired = true
+  }
 
   case class Primitive(
     datatype: DataType,
@@ -157,7 +170,7 @@ object TypeName {
       case XDecimal => bigdecimal
     }
 
-    def createMarshalling(p: MDatatype): Primitive = createMarshalling(p.datatype)
+    def createMarshalling(p: MDataType): Primitive = createMarshalling(p.datatype)
 
     def createMarshalling(p: DataType): Primitive = p match {
       case XString => string
@@ -457,23 +470,27 @@ sealed trait SClassBase {
   def receptionCompartment: ReceptionCompartment
 
   def attributeSequence: AttributeSequence = parameterSequence.distillAttributes + fieldCompartment.distillAttributes
+
+  def fullName: String = s"${packageName.name}.${className.name}"
 }
 
 case class ClassCore(
   packageName: PackageName,
   declaration: ClassDeclaration,
   className: ClassName,
-  parentClass: Option[TypeName],
-  traitList: List[TypeName],
-  parameterSequence: ParameterSequence,
-  fieldCompartment: FieldCompartment,
-  methodCompartment: MethodCompartment,
-  receptionCompartment: ReceptionCompartment
+  parentClass: Option[TypeName] = None,
+  traitList: List[TypeName] = Nil,
+  parameterSequence: ParameterSequence = ParameterSequence.empty,
+  fieldCompartment: FieldCompartment = FieldCompartment.empty,
+  methodCompartment: MethodCompartment = MethodCompartment.empty,
+  receptionCompartment: ReceptionCompartment = ReceptionCompartment.empty
 ) {
   import ClassCore._
 
   def moveToSubPackage(subpkg: String): ClassCore =
     copy(packageName = packageName.moveToSubPackage(subpkg))
+
+  def withClassName(name: String): ClassCore = copy(className = ClassName(name))
 
   def importNames: Vector[TypeName.Plain] = {
     case class Z(
@@ -481,12 +498,19 @@ case class ClassCore(
     ) {
       def r: Vector[TypeName.Plain] = {
         val ps = pkgs.keys.toVector.sortBy(_.name)
-        ps.foldLeft(Vector.empty[TypeName.Plain])((z, x) =>
+        val xs = ps.foldLeft(Vector.empty[TypeName.Plain])((z, x) =>
           pkgs.get(x).fold(z) { xs =>
             xs.toVector.sortBy(_.name).distinct
           }
         )
+        xs.map(_normalize)
       }
+
+      private def _normalize(p: TypeName.Plain) =
+        if (p.name.contains("."))
+          p.copy(name = p.name.takeWhile(_ != '.'))
+        else
+          p
 
       def add(p: Seq[TypeName]): Z = p.foldLeft(this)(_ add _)
 
@@ -520,7 +544,8 @@ case class ClassCore(
         VectorMap(pkg -> Set(TypeName.Plain(pkg, name)))
       }
     }
-    Z().add(parentClass).add(traitList).
+    Z().add(parentClass).
+      add(traitList).
       add(parameterSequence).
       add(methodCompartment).
       add(receptionCompartment).r
@@ -544,9 +569,17 @@ object ClassCore {
     def receptionCompartment = core.receptionCompartment
     def importNames = core.importNames
   }
-}
 
-case class SComponent(core: ClassCore) extends SClassBase with ClassCore.Holder {
+  def service(
+    pkg: String,
+    name: String,
+    methods: MethodCompartment
+  ): ClassCore = ClassCore(
+    PackageName(pkg),
+    ClassDeclaration.Service,
+    ClassName(s"${StringUtils.makeTitle(name)}Service"),
+    methodCompartment = methods
+  )
 }
 
 case class STrait(core: ClassCore) extends SClassBase with ClassCore.Holder {
@@ -574,4 +607,93 @@ case class SAbstractMethod() extends SSlot {
 }
 
 case class SConcreteMethod() extends SSlot {
+}
+
+case class SService(
+  core: ClassCore,
+  serviceCore: SService.ServiceCore
+) extends SClassBase with ClassCore.Holder with SService.ServiceCore.Holder {
+  def methods: Vector[SMethod] = methodCompartment.methods
+}
+object SService {
+  case class ServiceCore(
+    serviceName: String,
+    actions: Vector[SCaseClass]
+  )
+  object ServiceCore {
+    trait Holder {
+      def serviceCore: ServiceCore
+
+      def serviceName = serviceCore.serviceName
+      def actions = serviceCore.actions
+    }
+  }
+
+  def apply(
+    pkg: String,
+    name: String,
+    methods: MethodCompartment,
+    actions: Seq[SCaseClass]
+  ): SService = {
+    SService(
+      ClassCore.service(pkg, name, methods),
+      ServiceCore(name, actions.toVector)
+    )
+  }
+}
+
+case class SComponent(
+  core: ClassCore,
+  componentCore: SComponent.ComponentCore
+) extends SClassBase with ClassCore.Holder with SComponent.ComponentCore.Holder {
+}
+object SComponent {
+  case class ComponentCore(
+    componentName: String,
+    services: List[SService]
+  )
+  object ComponentCore {
+    trait Holder {
+      def componentCore: ComponentCore
+
+      def componentName = componentCore.componentName
+      def services = componentCore.services
+    }
+  }
+
+  abstract class Processor() {
+    def component: SComponent
+
+    final protected def component_name: String = component.componentName
+
+    final protected def component_class_name: String = make_title(component_name) + "Component"
+
+    final protected def component_packagename: PackageName = component.packageName
+
+    final protected def component_factory_class_name: String = s"$component_class_name.Factory"
+
+    final protected def component_factory_typename: TypeName =
+      TypeName(component_packagename, component_factory_class_name)
+
+    final protected def services: List[SService] = component.services
+
+    final protected def service_name(service: SService) = service.serviceName
+
+    final protected def service_object_name(service: SService): String =
+      make_title(service.serviceName) + "Service"
+
+    final protected def operation_name(op: SMethod): String = op.name.name
+
+    final protected def operation_object_name(op: SMethod): String = make_title(operation_name(op)) + "Operation"
+
+    final protected def action_class_name(op: SMethod): String = {
+      val actionclass = if (true) "Query" else "Command"
+      make_title(operation_name(op)) + actionclass
+    }
+
+    final protected def action_call_class_name(op: SMethod): String =
+      make_title(operation_name(op)) + "ActionCall"
+
+    final protected def make_title(s: String) = StringUtils.makeTitle(s)
+  }
 }

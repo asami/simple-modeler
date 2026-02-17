@@ -11,7 +11,8 @@ import org.simplemodeling.model._
  *  version Aug. 13, 2020
  *  version Sep. 22, 2020
  *  version Oct.  3, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MUse(
@@ -21,5 +22,4 @@ case class MUse(
   def relationshipType = MRelationshipType(???, ???)
   // def targetName: String = ???
   // def targetPackageName: String = ???
-  def getAffiliation = None
 }

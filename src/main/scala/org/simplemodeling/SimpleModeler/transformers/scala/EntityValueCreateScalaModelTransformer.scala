@@ -9,7 +9,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Sep. 19, 2025
- * @version Sep. 23, 2025
+ *  version Sep. 23, 2025
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -37,6 +38,6 @@ class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModel
   //   SCaseClass(core)
   // }
 
-  override protected def to_typename(p: MDatatype): TypeName =
+  override protected def to_typename(p: MDataType): TypeName =
     TypeName.Primitive.createMarshalling(p)
 }

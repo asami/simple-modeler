@@ -26,14 +26,14 @@ import org.smartdox.Description
  *  version Aug. 15, 2020
  *  version Jun. 20, 2021
  *  version Jul.  3, 2021
- * @version Sep. 25, 2023
+ *  version Sep. 25, 2023
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MElement extends Description.Holder with Showable {
-  override def designation: Designation
   def description: Description
   final override def resume: org.smartdox.Resume = description.resume
-  def getAffiliation: Option[MPackageRef]
+  def getAffiliation: Option[MPackageRef] = None
   def qualifiedName: String = getAffiliation.map(x =>
     if (x.isDefault)
       name
@@ -52,4 +52,22 @@ trait MElement extends Description.Holder with Showable {
   def display = name
   def show = name
   override def embed = name
+}
+
+object MElement {
+  case class Core(
+    description: Description = Description.empty,
+    getAffiliation: Option[MPackageRef] = None
+  )
+  object Core {
+    trait Holder {
+      def elementCore: Core
+
+      def description = elementCore.description
+    }
+
+    def apply(name: String): Core = Core(
+      description = Description.name(name)
+    )
+  }
 }

@@ -23,7 +23,8 @@ import org.goldenport.values.PathName
  *  version Aug.  1, 2020
  *  version Jun. 20, 2021
  *  version Jul. 11, 2021
- * @version Aug.  2, 2021
+ *  version Aug.  2, 2021
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class MState(
@@ -31,7 +32,6 @@ class MState(
   val ownerStateMachine: MStateMachine,
   val parentState: Option[MState] = None
 ) extends MElement {
-  def getAffiliation = None
 //   val transitions = dslState.transitions.map(new SMTransition(_, ownerStateMachine))
   var transitions: List[MTransition] = Nil
   var subStateMap = VectorMap.empty[String, MState]

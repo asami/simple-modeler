@@ -11,7 +11,8 @@ import org.goldenport.values.PathName
  *  version Sep. 27, 2020
  *  version Oct.  4, 2020
  *  version Sep. 17, 2023
- * @version Oct.  9, 2023
+ *  version Oct.  9, 2023
+ * @version Feb. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MPackageRef(
@@ -33,6 +34,13 @@ case class MPackageRef(
 
 object MPackageRef {
   val default = MPackageRef("")
+  val lang = MPackageRef("scala.lang")
+  val platform = MPackageRef("org.goldenport")
+  val datatype = MPackageRef("org.goldenport.datatype")
+  val value = MPackageRef("org.goldenport.value")
+  val record = MPackageRef("org.goldenport.record")
+
+  def apply(pkg: MPackage): MPackageRef = MPackageRef(pkg.name)
 
   def create(p: I18NString): MPackageRef = {
     val name = p.c

@@ -19,7 +19,8 @@ import org.goldenport.RAISE
  *  version Aug.  8, 2019
  *  version Apr. 25, 2020
  *  version May. 17, 2020
- * @version Sep. 26, 2020
+ *  version Sep. 26, 2020
+ * @version Feb. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MObject extends MElement { // Classifier
@@ -36,7 +37,7 @@ trait MObject extends MElement { // Classifier
   def operations: List[MOperation]
   def ports: List[MPort]
   def roles: List[MRoleRef]
-  def services: List[MServiceRef]
+  def services: List[MService]
   def rules: List[MRuleRef]
   def vouchers: List[MVoucherRef]
   // uses
@@ -53,4 +54,69 @@ trait MObject extends MElement { // Classifier
   def typeName: String = ??? // TODO usage
   def kindName: String = ??? // TODO usage
   def powertypeName: String = ??? // TODO usage
+
+  def toObjectRef: MObjectRef = MObjectRef(affiliation, name)
+}
+
+object MObject {
+  case class Core(
+    affiliation: MPackageRef,
+    stereotypes: List[MStereotype] = Nil,
+    base: Option[MObjectRef] = None,
+    traits: List[MTraitRef] = Nil,
+    powertypes: List[MPowertypeRef] = Nil,
+    stateMachines: List[MStateMachineRef] = Nil,
+    attributes: List[MAttribute] = Nil,
+    associations: List[MAssociation] = Nil,
+    operations: List[MOperation] = Nil,
+    ports: List[MPort] = Nil,
+    roles: List[MRoleRef] = Nil,
+    services: List[MService] = Nil,
+    rules: List[MRuleRef] = Nil,
+    vouchers: List[MVoucherRef] = Nil
+  )
+  object Core {
+    trait Holder {
+      def objectCore: Core
+
+      def affiliation: MPackageRef = objectCore.affiliation
+      def stereotypes: List[MStereotype] = objectCore.stereotypes
+      def base: Option[MObjectRef] = objectCore.base
+      def traits: List[MTraitRef] = objectCore.traits
+      def powertypes: List[MPowertypeRef] = objectCore.powertypes
+      def stateMachines: List[MStateMachineRef] = objectCore.stateMachines
+      def attributes: List[MAttribute] = objectCore.attributes
+      def associations: List[MAssociation] = objectCore.associations
+      def operations: List[MOperation] = objectCore.operations
+      def ports: List[MPort] = objectCore.ports
+      def roles: List[MRoleRef] = objectCore.roles
+      def services: List[MService] = objectCore.services
+      def rules: List[MRuleRef] = objectCore.rules
+      def vouchers: List[MVoucherRef] = objectCore.vouchers
+    }
+
+    def create(
+      pkg: MPackage,
+      operations: Seq[MOperation] = Nil,
+      services: Seq[MService] = Nil
+    ): Core = Core(
+      pkg.toPackageRef,
+      operations = operations.toList,
+      services = services.toList
+    )
+  }
+
+  case class Instance(
+    elementCore: MElement.Core,
+    objectCore: MObject.Core
+  ) extends MObject with MElement.Core.Holder with MObject.Core.Holder {
+  }
+
+  val entityId = MObject(MPackageRef.datatype, "EntityId")
+  val record = MObject(MPackageRef.record, "Record")
+
+  def apply(pkg: MPackageRef, name: String): MObject = Instance(
+    MElement.Core(name),
+    MObject.Core(pkg)
+  )
 }

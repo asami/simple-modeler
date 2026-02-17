@@ -1,7 +1,9 @@
 package org.simplemodeling.SimpleModeler.transformer
 
+import org.goldenport.RAISE
 import org.goldenport.realm.Realm
 import org.goldenport.values.PathName
+import org.goldenport.tree.TreeNode
 import org.goldenport.util.StringUtils
 import org.simplemodeling.model._
 import org.simplemodeling.SimpleModeler.transformer.maker._
@@ -15,7 +17,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version Mar.  8, 2020
  *  version May.  4, 2020
  *  version May. 18, 2025
- * @version Sep. 21, 2025
+ *  version Sep. 21, 2025
+ * @version Feb. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ProgramRealmTransformerBase {
@@ -69,9 +72,14 @@ trait ProgramRealmTransformerBase {
   protected def package_File_Pathname(p: PObject): PathName
 
   def transform(model: SimpleModel): TransformResult = {
-    val src = model.elements.foldLeft(Realm.Builder())(_build).build
     val realm = Realm.create()
-    val r = realm.merge(source_Main_Pathname, src)
+
+    val whole = model.elements.foldLeft(Realm.Builder())(_build).build
+    val (generated, impl) = _distill_realms(whole)
+    val r1 = realm.merge(source_Managed_Main_Pathname, generated)
+    val r2 = r1.merge(source_Main_Pathname, impl)
+    val r3 = _build_makefile(r2)
+    val r = r3
     TransformResult(r)
   }
 
@@ -80,7 +88,7 @@ trait ProgramRealmTransformerBase {
       case m: MAssociation => _build_association(b, m)
       case m: MReference => b
 
-      case m: MDatatype => b
+      case m: MDataType => b
       case m: MAttributeType => b
 
 //      case m: MAttribute => b
@@ -91,6 +99,7 @@ trait ProgramRealmTransformerBase {
 //      case m: MConstraint => b
 
       case m: MEntity => _build_entity(b, m)
+      case m: MComponent => _build_component(b, m)
       case m: MObject => b
 
 //      case m: MMultiplicity => b
@@ -124,6 +133,8 @@ trait ProgramRealmTransformerBase {
 
   protected def source_Main_Pathname: String
 
+  protected def source_Managed_Main_Pathname: String = source_Main_Pathname
+
   protected final def package_to_pathname(p: MObject): String = package_To_Pathname(p)
 
   protected def package_To_Pathname(p: MObject): String
@@ -131,4 +142,42 @@ trait ProgramRealmTransformerBase {
   protected final def object_to_pathname(p: MObject): String = object_To_Pathname(p)
 
   protected def object_To_Pathname(p: MObject): String
+
+  private def _build_makefile(b: Realm): Realm =
+    build_Makefile(b)
+
+  protected def build_Makefile(b: Realm): Realm = RAISE.notImplementedYetDefect
+
+  private def _build_component(b: Realm.Builder, p: MComponent): Realm.Builder =
+    build_Component(b, p)
+
+  protected def build_Component(b: Realm.Builder, p: MComponent): Realm.Builder = RAISE.notImplementedYetDefect
+
+  private def _distill_realms(p: Realm): (Realm, Realm) = {
+    val splitter = new ProgramRealmTransformerBase.Splitter()
+    p.traverse(splitter)
+    splitter.result
+  }
+}
+
+object ProgramRealmTransformerBase {
+  class Splitter() extends Realm.Visitor {
+    private val _generated = Realm.Builder()
+    private val _impl = Realm.Builder()
+
+    def result: (Realm, Realm) = (_generated.build(), _impl.build())
+
+    override def enter(p: TreeNode[Realm.Data]): Unit =
+      p.getContent foreach { x =>
+        if (_is_impl(p))
+          _impl.set(p.pathnameValue, x)
+        else
+          _generated.set(p.pathnameValue, x)
+      }
+
+    private def _is_impl(p: TreeNode[Realm.Data]): Boolean = {
+      val pn = p.pathnameValue
+      p.getParent.fold(false)(_.pathnameValue.lastComponent == "impl")
+    }
+  }
 }

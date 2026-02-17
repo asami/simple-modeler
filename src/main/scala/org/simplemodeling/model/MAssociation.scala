@@ -23,13 +23,14 @@ import org.simplemodeling.parser.SimpleModelParser
  *  version May. 24, 2020
  *  version Jun. 17, 2020
  *  version Sep. 26, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MAssociation(
   override val designation: Designation,
   description: Description,
-  getAffiliation: Option[MPackageRef],
+  override val getAffiliation: Option[MPackageRef],
   objectRef: MObjectRef,
   kind: MAssociation.Kind,
   multiplicity: MMultiplicity,

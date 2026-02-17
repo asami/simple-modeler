@@ -15,7 +15,8 @@ import org.smartdox.Description
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
  *  version Jun. 20, 2021
- * @version Jul.  9, 2021
+ *  version Jul.  9, 2021
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MTransition(
@@ -27,5 +28,4 @@ case class MTransition(
   action: Option[MAction],
   description: Description = Description.empty
 ) extends MElement {
-  def getAffiliation = None
 }

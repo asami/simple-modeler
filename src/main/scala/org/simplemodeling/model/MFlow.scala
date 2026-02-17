@@ -12,7 +12,8 @@ import org.simplemodeling.model._
  *  version May. 17, 2020
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Feb. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MFlow(
@@ -30,7 +31,7 @@ case class MFlow(
   def powertypes: List[MPowertypeRef] = Nil
   def stateMachines: List[MStateMachineRef] = Nil
   def roles: List[MRoleRef] = Nil
-  def services: List[MServiceRef] = Nil
+  def services: List[MService] = Nil
   def rules: List[MRuleRef] = Nil
   def vouchers: List[MVoucherRef] = Nil
 }

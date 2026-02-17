@@ -9,7 +9,8 @@ import org.simplemodeling.model._
  *  version Dec.  7, 2008
  *  version Jan. 18, 2009
  *  version Nov.  4, 2011
- * @version May. 10, 2020
+ *  version May. 10, 2020
+ * @version Feb. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MUsecase extends MStoryObject {
@@ -23,7 +24,7 @@ trait MUsecase extends MStoryObject {
   def operations: List[MOperation] = Nil
   def ports: List[MPort] = Nil
   def roles: List[MRoleRef] = Nil
-  def services: List[MServiceRef] = Nil
+  def services: List[MService] = Nil
   def rules: List[MRuleRef] = Nil
   def vouchers: List[MVoucherRef] = Nil
 }

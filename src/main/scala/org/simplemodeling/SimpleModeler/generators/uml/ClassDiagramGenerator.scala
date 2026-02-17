@@ -32,7 +32,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version Dec. 17, 2012
  *  version May. 24, 2020
  *  version Sep. 17, 2023
- * @version May.  5, 2025
+ *  version May.  5, 2025
+ * @version Feb. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class ClassDiagramGenerator(
@@ -361,7 +362,7 @@ class ClassDiagramGenerator(
 
         def add_service_relationships(aSource: MObject) {
           for (rel <- aSource.services) {
-            val target = rel.service
+            val target = rel // rel.service
             val sourceId = ids.get(aSource).get
             val targetId = ids.get(target).get
             aTheme match {

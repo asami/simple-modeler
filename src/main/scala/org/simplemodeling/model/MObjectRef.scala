@@ -9,7 +9,8 @@ import org.goldenport.Strings
  *  version May.  6, 2020
  *  version May. 25, 2020
  *  version Jun.  6, 2020
- * @version Sep. 27, 2020
+ *  version Sep. 27, 2020
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MObjectRef extends MReference {
@@ -30,6 +31,9 @@ object MObjectRef {
   case class PlainObjectRef(packageRef: MPackageRef, objectName: String) extends MObjectRef {
     val relationshipType: MRelationshipType = MRelationshipType(objectName, packageRef)
   }
+
+  val entityId = MObject.entityId.toObjectRef
+  val record = MObject.record.toObjectRef
 
   def apply(packageRef: MPackageRef, objectName: String): MObjectRef = PlainObjectRef(packageRef, objectName)
 

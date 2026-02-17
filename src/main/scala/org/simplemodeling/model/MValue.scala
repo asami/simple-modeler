@@ -12,7 +12,8 @@ import org.goldenport.i18n.I18NString
  *  version Jan.  5, 2020
  *  version Apr. 25, 2020
  *  version May. 10, 2020
- * @version Aug.  1, 2020
+ *  version Aug.  1, 2020
+ * @version Feb. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MValue extends MObject {
@@ -29,6 +30,6 @@ trait MValue extends MObject {
   def ports: List[org.simplemodeling.model.MPort] = ???
   def roles: List[org.simplemodeling.model.MRoleRef] = ???
   def rules: List[org.simplemodeling.model.MRuleRef] = ???
-  def services: List[org.simplemodeling.model.MServiceRef] = ???
+  def services: List[org.simplemodeling.model.MService] = ???
   def vouchers: List[org.simplemodeling.model.MVoucherRef] = ???
 }

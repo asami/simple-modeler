@@ -15,8 +15,9 @@ import org.goldenport.collection.VectorMap
  *  version Mar.  3, 2020
  *  version Apr. 25, 2020
  *  version May. 10, 2020
-transition.event *  version Jun. 30, 2021
-transition.event * @version Jul.  9, 2021
+ *  version Jun. 30, 2021
+ *  version Jul.  9, 2021
+ * @version Feb. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MStateMachine extends MObject {
@@ -29,7 +30,7 @@ trait MStateMachine extends MObject {
   def stateMachines: List[MStateMachineRef] = Nil
   def ports: List[MPort] = Nil
   def roles: List[MRoleRef] = Nil
-  def services: List[MServiceRef] = Nil
+  def services: List[MService] = Nil
   def rules: List[MRuleRef] = Nil
   def vouchers: List[MVoucherRef] = Nil
 

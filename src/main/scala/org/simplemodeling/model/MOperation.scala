@@ -1,5 +1,7 @@
 package org.simplemodeling.model
 
+import org.smartdox.Description
+
 /*
  * derived from SOperation and SMOperation.
  *
@@ -9,8 +11,52 @@ package org.simplemodeling.model
  *  version Dec.  6, 2012
  *  version Aug.  8, 2019
  *  version Dec. 14, 2019
- * @version Apr. 25, 2020
+ *  version Apr. 25, 2020
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
-trait MOperation extends MElement {
+abstract class MOperation extends MElement
+    with MElement.Core.Holder
+    with MOperation.Core.Holder {
+}
+
+object MOperation {
+  case class Core(
+    parameters: List[MParameter],
+    result: MResult
+  )
+  object Core {
+    trait Holder {
+      def operationCore: Core
+
+      def parameters = operationCore.parameters
+      def result = operationCore.result
+    }
+  }
+
+  case class Instance(
+    elementCore: MElement.Core,
+    operationCore: Core
+  ) extends MOperation {
+  }
+
+  def apply(name: String, params: List[MParameter]): MOperation = ???
+
+  def apply(name: String, param: MParameter): MOperation =
+    apply(name, param, MResult.unit)
+
+  def apply(name: String, param: MParameter, result: MResult): MOperation =
+    Instance(
+      MElement.Core(name),
+      Core(List(param), result)
+    )
+
+  def apply(name: String, param: MParameter, result: MDataType): MOperation =
+    apply(name, param, MResult(result))
+
+  def apply(name: String, param: MParameter, result: MObject): MOperation =
+    apply(name, param, MResult(result))
+
+  def apply(name: String, param: MParameter, result: MObjectRef): MOperation =
+    apply(name, param, MResult(result))
 }

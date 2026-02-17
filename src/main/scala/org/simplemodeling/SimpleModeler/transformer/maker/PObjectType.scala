@@ -25,7 +25,8 @@ import org.simplemodeling.model._
  *  version Mar.  1, 2020
  *  version Apr. 27, 2020
  *  version May. 24, 2020
- * @version Jun.  1, 2020
+ *  version Jun.  1, 2020
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 trait PObjectType {
@@ -1186,7 +1187,7 @@ case class PGenericType(
 object PObjectType {
   def apply(p: MAttributeType): PObjectType = {
     val a: PObjectType = p match {
-      case m: MDatatype => m.datatype match {
+      case m: MDataType => m.datatype match {
         case XBoolean => new PBooleanType(m)
         case XByte => new PByteType(m)
         case XShort => new PShortType(m)

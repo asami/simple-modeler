@@ -9,7 +9,8 @@ import org.goldenport.i18n.I18NString
  * @since   Jan. 19, 2009
  *  version Jan.  5, 2020
  *  version Apr. 25, 2020
- * @version May. 10, 2020
+ *  version May. 10, 2020
+ * @version Feb. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MVoucher extends MObject {
@@ -18,7 +19,7 @@ trait MVoucher extends MObject {
   def stateMachines: List[MStateMachineRef] = Nil
   def ports: List[MPort] = Nil
   def roles: List[MRoleRef] = Nil
-  def services: List[MServiceRef] = Nil
+  def services: List[MService] = Nil
   def rules: List[MRuleRef] = Nil
   def vouchers: List[MVoucherRef] = Nil
 }

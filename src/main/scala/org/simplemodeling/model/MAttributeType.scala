@@ -9,7 +9,8 @@ package org.simplemodeling.model
  *  version Aug.  7, 2019
  *  version Nov.  4, 2019
  *  version Jan.  5, 2020
- * @version May. 16, 2020
+ *  version May. 16, 2020
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MAttributeType extends MElement {
@@ -23,5 +24,5 @@ trait MAttributeType extends MElement {
 }
 
 object MAttributeType {
-  def create(p: String): MAttributeType = MDatatype.create(p)
+  def create(p: String): MAttributeType = MDataType.create(p)
 }

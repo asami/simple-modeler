@@ -13,7 +13,8 @@ import org.smartdox.Description
  *  version Nov.  3, 2019
  *  version Jan.  5, 2020
  *  version May. 10, 2020
- * @version Oct. 22, 2023
+ *  version Oct. 22, 2023
+ * @version Feb. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MPowertype(
@@ -32,7 +33,7 @@ case class MPowertype(
   def stateMachines: List[MStateMachineRef] = Nil
   def ports: List[MPort] = Nil
   def roles: List[MRoleRef] = Nil
-  def services: List[MServiceRef] = Nil
+  def services: List[MService] = Nil
   def rules: List[MRuleRef] = Nil
   def vouchers: List[MVoucherRef] = Nil
 }

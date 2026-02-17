@@ -15,7 +15,8 @@ import Generator.{State => GState, _}
 /*
  * @since   Sep. 18, 2025
  *  version Sep. 21, 2025
- * @version Nov.  8, 2025
+ *  version Nov.  8, 2025
+ * @version Feb. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 trait Scala3ClassFamilyGeneratorBase[T <: MObject] extends SourceArtifactsGenerator[T] {
@@ -54,11 +55,11 @@ trait Scala3ClassFamilyGeneratorBase[T <: MObject] extends SourceArtifactsGenera
 
   private def _generate_class(p: SClassBase): Consequence[SourceArtifacts] =
     p match {
-      case m: SComponent => ??? // Consequence.success(new Scala3ComponentGenerator())
+      case m: SComponent => new Scala3ComponentGenerator(scala_context).generate(m)
       case m: STrait => ??? // Consequence.success(new Scala3TraitGenerator())
       case m: SCaseClass => new Scala3CaseClassGenerator(scala_context).generate(m)
       case m: SEnum => ??? // Consequence.success(new Scala3EnumGenerator())
-      case m: SControlClass => ??? // Consequence.success(new Scala3ControlClassGenerator())
+      case m: SControlClass => new Scala3ControlClassGenerator(scala_context).generate(m)
       case m: SEntityClass => new Scala3EntityGenerator(scala_context).generate(m)
     }
 

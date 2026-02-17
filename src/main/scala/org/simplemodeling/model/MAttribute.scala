@@ -27,7 +27,8 @@ import org.simplemodeling.parser.SimpleModelParser
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
  *  version Jun. 20, 2021
- * @version Sep. 23, 2025
+ *  version Sep. 23, 2025
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MAttribute(
@@ -42,8 +43,6 @@ case class MAttribute(
   readonly: Boolean = false,
   description: Description = Description.empty
 ) extends MElement {
-  def getAffiliation = None
-
   def isRequired: Boolean = multiplicity.isRequired
 }
 
@@ -54,7 +53,7 @@ object MAttribute {
       RAISE.syntaxErrorFault("Missing 'name' in attribute.")
     }
     val datatype = p.getStringCaseInsensitive(config.datatypeNames).
-      map(MAttributeType.create).getOrElse(MDatatype.string)
+      map(MAttributeType.create).getOrElse(MDataType.string)
     val multiplicity = p.getStringCaseInsensitive(config.multiplicityNames).
       map(MMultiplicity.create).getOrElse(MOne)
     val label = p.getStringCaseInsensitive(config.labelNames).

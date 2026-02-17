@@ -10,7 +10,8 @@ import org.goldenport.tree._
  *  version Aug. 13, 2020
  *  version Sep. 21, 2020
  *  version Sep. 26, 2023
- * @version Oct. 12, 2023
+ *  version Oct. 12, 2023
+ * @version Feb. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 case class SimpleModel(
@@ -62,4 +63,6 @@ case class SimpleModel(
       case _ => None
     }.toList
   }
+
+  def add(ps: Seq[MElement]): SimpleModel = copy(elements = elements ++ ps)
 }

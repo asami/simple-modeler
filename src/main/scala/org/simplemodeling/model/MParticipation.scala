@@ -14,7 +14,8 @@ import org.simplemodeling.model._
  *  version Aug. 13, 2020
  *  version Sep. 22, 2020
  *  version Oct.  3, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MParticipation(
@@ -24,7 +25,6 @@ case class MParticipation(
   def relationshipType = MRelationshipType(???, ???)
   // def targetName: String = ???
   // def targetPackageName: String = ???
-  def getAffiliation = None
 }
 /*
 class SMParticipation(val dslParticipation: SParticipation) extends SMElement(dslParticipation) {

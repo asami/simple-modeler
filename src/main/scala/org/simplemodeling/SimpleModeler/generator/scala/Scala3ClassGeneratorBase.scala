@@ -15,7 +15,8 @@ import Generator.{State => GState, _}
  *  version May. 19, 2025
  *  version Sep. 30, 2025
  *  version Oct. 17, 2025
- * @version Nov. 18, 2025
+ *  version Nov. 18, 2025
+ * @version Feb. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -25,7 +26,7 @@ abstract class Scala3ClassGeneratorBase[T <: SClassBase](
 
   protected final def scala_context: ScalaModel.Context = context
 
-  val classkind = ClassKind.Entity // TODO
+  def classkind: ClassKind
 
   def generate(p: T): Consequence[SourceArtifacts] = {
     val r = run(p)
@@ -41,11 +42,18 @@ abstract class Scala3ClassGeneratorBase[T <: SClassBase](
 }
 
 object Scala3ClassGeneratorBase {
-  sealed trait ClassKind
+  sealed trait ClassKind {
+    def isValue: Boolean = false
+  }
   object ClassKind {
-    case object Entity extends ClassKind
-    case object Value extends ClassKind
+    case object Value extends ClassKind {
+      override def isValue = true
+    }
+    case object EntityValue extends ClassKind {
+      override def isValue = true
+    }
     case object Control extends ClassKind
+    case object Component extends ClassKind
   }
 }
 
@@ -53,20 +61,17 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   context: ScalaModel.Context,
   classKind: Scala3ClassGeneratorBase.ClassKind,
   val clazz: T
-) {
+) extends ComponentPart[T] {
   import Scala3ClassGeneratorBase._
 
   protected final def scala_context = context
 
-  protected final def is_entity = classKind match {
-    case ClassKind.Entity => true
-    case _ => false
-  }
+  // protected final def is_entity = classKind match {
+  //   case ClassKind.Entity => true
+  //   case _ => false
+  // }
 
-  protected final def is_value = classKind match {
-    case ClassKind.Value => true
-    case _ => false
-  }
+  protected final def is_value = classKind.isValue
 
   protected final def class_type_name: TypeName = TypeName.create(clazz)
 
@@ -117,10 +122,16 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import cats.*")
       _ <- println("import cats.implicits.*")
       _ <- println("import cats.syntax.all.*")
+      _ <- println("import cats.derived.*")
       _ <- println("import io.circe.Codec")
       _ <- println("import io.circe.generic.semiauto.*")
-      _ <- println("import org.simplemodeling.Consequence")
-      _ <- println("import org.simplemodeling.record.Record")
+      _ <- println("import org.goldenport.Consequence")
+      _ <- println("import org.goldenport.record.Record")
+      _ <- println("import org.goldenport.protocol.*")
+      _ <- println("import org.goldenport.protocol.spec.*")
+      _ <- println("import org.goldenport.protocol.operation.*")
+      _ <- println("import org.goldenport.cncf.action.*")
+      _ <- println("import org.goldenport.cncf.component.*")
       _ <- clazz.importNames.traverse_(x =>
         println(s"import ${x.fullName}")
       )
@@ -145,6 +156,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- declare_derives
       _ <- println("{")
       _ <- indent
+      _ <- section_import_in_class
       _ <- section_variables
       _ <- separator
       _ <- section_methods
@@ -158,9 +170,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected def declare_derives: GenM[Unit] =
     classKind match {
-      case ClassKind.Entity => print("derives Codec.AsObject ") // Case class
+      case ClassKind.EntityValue => print("derives Codec.AsObject ") // Case class
       case ClassKind.Value => print("derives Eq, Codec.AsObject ") // Case class
+      case _ => unit
     }
+
+  protected def section_import_in_class: GenM[Unit] =
+    println(s"import ${clazz.className}.*")
 
   protected def section_variables: GenM[Unit] = unit
 
@@ -197,35 +213,39 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   protected def lenslikeupdate_methods: GenM[Unit] =
-    intercalateTraverse_(parameters_vector, separator) { p =>
-      val name = s"update${p.titleName}"
-      val param = Parameter.create("f", TypeName.Function(p.typeName, p.typeName))
-      val pname = p.name.name
-      val m = SMethod.create(name, class_type_name, param) {
-        println(s"copy($pname = f($pname))")
-      }
-      define_method(m)
-    }
+    println("// lenslikeupdate_methods")
+    // intercalateTraverse_(parameters_vector, separator) { p =>
+    //   val name = s"update${p.titleName}"
+    //   val param = Parameter.create("f", TypeName.Function(p.typeName, p.typeName))
+    //   val pname = p.name.name
+    //   val m = SMethod.create(name, class_type_name, param) {
+    //     println(s"copy($pname = f($pname))")
+    //   }
+    //   define_method(m)
+    // }
 
   protected def validate_method: GenM[Unit] =
-    ???
+    println("// validate_method")
 
   protected def iri_method: GenM[Unit] =
-    ???
+    println("// iri_method")
 
   protected def properties_method: GenM[Unit] =
-    ???
+    println("// properties_method")
 
-  protected def to_record_method: GenM[Unit] = {
-    val m = SMethod.create("toRecord", TypeName.create("org.simplemodeling.record", "Record")) {
-      for {
-        _ <- println("Record.data(")
-        _ <- _to_record
-        _ <- println(")")
-      } yield ()
+  protected def to_record_method: GenM[Unit] =
+    if (is_value) {
+      val m = SMethod.create("toRecord", TypeName.create("org.goldenport.record", "Record")) {
+        for {
+          _ <- println("Record.data(")
+          _ <- _to_record
+          _ <- println(")")
+        } yield ()
+      }
+      define_method(m)
+    } else {
+      unit
     }
-    define_method(m)
-  }
 
   private def _to_record: GenM[Unit] =
     FoldTraverseUtil.intercalateTraverseWithEnd_(
@@ -263,16 +283,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- schema
       _ <- separator
       _ <- given_typeclasses
-      _ <- separator
-      _ <- builder
-      _ <- separator
-      _ <- createc_method_required
-      _ <- separator
-      _ <- create_method
-      _ <- separator
-      _ <- create_recordc_method
-      _ <- separator
-      _ <- create_record_method
+      _ <- builder_part
+      _ <- component_object_part
       _ <- outdent
       _ <- println("}")
     } yield ()
@@ -301,7 +313,25 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected def property_name_definition(p: String): GenM[Unit] =
     println(s"""final val ${property_name(p)} = "${p}"""")
 
-  protected def schema: GenM[Unit] = ???
+  protected def schema: GenM[Unit] =
+    println("// Schema")
+
+  protected def builder_part: GenM[Unit] =
+    if (is_value)
+      for {
+        _ <- separator
+        _ <- builder
+        _ <- separator
+        _ <- createc_method_required
+        _ <- separator
+        _ <- create_method
+        _ <- separator
+        _ <- create_recordc_method
+        _ <- separator
+        _ <- create_record_method
+      } yield {}
+    else
+      unit
 
   protected def builder: GenM[Unit] =
     for {
@@ -873,13 +903,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   private def _can_equal(name: String): GenM[Unit] =
-    if (true)
+    if (is_value)
       println(s"given CanEqual[", name, ",", name, "] = CanEqual.derived")
     else
       unit
 
   private def _eq(name: String): GenM[Unit] =
-    if (is_entity) {
+    if (is_value) {
       println("// Domain semantic equality = equality of identity")
       println(s"given Eq[", name, "] = Eq.by(_.id)")
     } else {

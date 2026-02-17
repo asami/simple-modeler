@@ -28,7 +28,8 @@ import org.simplemodeling.SimpleModeler.Context
  *  version Nov. 28, 2012
  *  version Dec. 17, 2012
  *  version May.  9, 2020
- * @version Jun.  6, 2020
+ *  version Jun.  6, 2020
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class DigraphBase(
@@ -754,7 +755,7 @@ class DigraphBase(
       case _: MStateMachine => "#f5b1aa" // 珊瑚色 さんごいろ
       case _: MRule => "#68be8d" // 若竹色わかたけいろ "#a6a5c4" // 藤鼠 ふじねず "#93ca76" // 山吹色 やまぶきいろ 
       case _: MService => "#ebd842" // 金糸雀色かなりあいろ
-      case _: MDatatype => "#b3ada0" // 利休白茶 りきゅうしろちゃ
+      case _: MDataType => "#b3ada0" // 利休白茶 りきゅうしろちゃ
       case _: MPowertype => "#7ebea5" // 青磁色 せいじいろ
       case _: MVoucher => "#93ca76" // 淡萌黄 うすもえぎ
       case _: MValue => "#a8bf93" // 山葵色 わさびいろ

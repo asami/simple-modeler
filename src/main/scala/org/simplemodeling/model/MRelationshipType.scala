@@ -9,11 +9,11 @@ import org.goldenport.values.Designation
  * @since   Nov. 22, 2008
  *  version Sep. 27, 2020
  *  version Oct.  4, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MRelationshipType extends MElement {
-  val getAffiliation = None
   def description: Description = Description.empty
   def target: MPointer
 }

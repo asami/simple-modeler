@@ -12,14 +12,15 @@ import org.simplemodeling.model._
  *  version May. 10, 2020
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Feb. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MFlowStep(
   override val designation: Designation,
   affiliation: MPackageRef
 ) extends MElement {
-  def getAffiliation = Some(affiliation)
+  override def getAffiliation = Some(affiliation)
   def description: Description = Description.empty
   def inputs: List[MEntityRef] = Nil // TODO
   def outputs: List[MEntityRef] = Nil // TODO

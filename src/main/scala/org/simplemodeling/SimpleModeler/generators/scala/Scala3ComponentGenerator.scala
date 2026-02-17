@@ -6,16 +6,15 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
 import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
- * @since   May. 16, 2025
- *  version Nov.  8, 2025
+ * @since   Feb. 12, 2026
  * @version Feb. 12, 2026
  * @author  ASAMI, Tomoharu
  */
-class Scala3EntityGenerator(
+class Scala3ComponentGenerator(
   context: ScalaModel.Context
-) extends Scala3ClassGeneratorBase[SEntityClass](context) {
-  val classkind = ClassKind.EntityValue
+) extends Scala3ClassGeneratorBase[SComponent](context) {
+  val classkind = ClassKind.Component
 }
 
-object Scala3EntityGenerator {
+object Scala3ComponentGenerator {
 }
