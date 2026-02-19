@@ -10,7 +10,7 @@ import org.simplemodeling.parser.SimpleModelParser
 
 /*
  * @since   Feb. 10, 2026
- * @version Feb. 10, 2026
+ * @version Feb. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MParameter(
@@ -64,8 +64,11 @@ object MParameter {
 
   def record(name: String): MParameter = apply(name, MObjectRef.record)
 
-  def select(name: String, o: MObject): MParameter =
-    apply(name, MTypedObject.select(o))
+  def query(name: String, o: MObject): MParameter =
+    apply(name, MTypedObject.query(o))
+
+  def query(name: String, ref: MObjectRef): MParameter =
+    apply(name, MTypedObject.query(ref))
 
   // def apply(config: SimpleModelParser.Config, p: Record): MParameter = {
   //   val kind = p.getStringCaseInsensitive(config.attributeKindNames) // XXX currently unused

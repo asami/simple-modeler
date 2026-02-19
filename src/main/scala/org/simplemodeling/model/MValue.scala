@@ -13,7 +13,7 @@ import org.goldenport.i18n.I18NString
  *  version Apr. 25, 2020
  *  version May. 10, 2020
  *  version Aug.  1, 2020
- * @version Feb. 11, 2026
+ * @version Feb. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MValue extends MObject {
@@ -21,15 +21,15 @@ trait MValue extends MObject {
 
   // var datatype: SDatatype = null // XXX SNull
   // var invariants: SData => Boolean = null
-  def associations: List[MAssociation] = ???
+  def associations: List[MAssociation] = Nil
   // def attributes: List[MAttribute] = ???
   // def base: Option[MObjectRef] = ???
   // def operations: List[MOperation] = ???
-  def stateMachines: List[MStateMachineRef] = ???
+  def stateMachines: List[MStateMachineRef] = Nil
   // def traits: List[MTraitRef] = ???
-  def ports: List[org.simplemodeling.model.MPort] = ???
-  def roles: List[org.simplemodeling.model.MRoleRef] = ???
-  def rules: List[org.simplemodeling.model.MRuleRef] = ???
-  def services: List[org.simplemodeling.model.MService] = ???
-  def vouchers: List[org.simplemodeling.model.MVoucherRef] = ???
+  def ports: List[org.simplemodeling.model.MPort] = Nil
+  def roles: List[org.simplemodeling.model.MRoleRef] = Nil
+  def rules: List[org.simplemodeling.model.MRuleRef] = Nil
+  def services: List[org.simplemodeling.model.MService] = Nil
+  def vouchers: List[org.simplemodeling.model.MVoucherRef] = Nil
 }

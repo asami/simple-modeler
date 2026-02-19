@@ -81,10 +81,11 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
     final protected def to_action(p: MOperation): (SMethod, Vector[SCaseClass]) = {
       val action = _create_action(p)
       val actionclassname = action.fullName
+      val descriptor = to_descriptor(p.descriptor)
       val rtype = to_result(p.result)
-      val ap = Parameter.create("action", actionclassname)
+      val ap = Parameter.create("action", action)
       val aps = ParameterSequence(Vector(ap))
-      val method = SMethod(MethodName(p.name), aps, rtype)
+      val method = SMethod(MethodName(p.name), descriptor, aps, rtype)
       (method, Vector(action))
     }
 

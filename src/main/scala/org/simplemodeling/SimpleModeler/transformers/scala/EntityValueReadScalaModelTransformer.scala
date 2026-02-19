@@ -8,12 +8,16 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Sep. 20, 2025
- * @version Sep. 23, 2025
+ *  version Sep. 23, 2025
+ * @version Feb. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueReadScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
   protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Read)
   override protected def sub_Package_Name: Option[String] = Some("read")
+
+  def apply(p: MObject): Consequence[Vector[SClassBase]] =
+    apply(p, Purpose.Read)
 
   // def isDefinedAt(p: (MObject, Purpose)): Boolean =
   //   p match {

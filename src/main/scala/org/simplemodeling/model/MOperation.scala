@@ -12,7 +12,7 @@ import org.smartdox.Description
  *  version Aug.  8, 2019
  *  version Dec. 14, 2019
  *  version Apr. 25, 2020
- * @version Feb. 10, 2026
+ * @version Feb. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class MOperation extends MElement
@@ -21,7 +21,22 @@ abstract class MOperation extends MElement
 }
 
 object MOperation {
+  sealed trait Kind
+  object Kind {
+    case object Command extends Kind
+    case object Query extends Kind
+  }
+
+  case class Descriptor(
+    kind: Kind
+  )
+  object Descriptor {
+    val query = Descriptor(Kind.Query)
+    val command = Descriptor(Kind.Command)
+  }
+
   case class Core(
+    descriptor: Descriptor,
     parameters: List[MParameter],
     result: MResult
   )
@@ -29,6 +44,7 @@ object MOperation {
     trait Holder {
       def operationCore: Core
 
+      def descriptor = operationCore.descriptor
       def parameters = operationCore.parameters
       def result = operationCore.result
     }
@@ -40,23 +56,33 @@ object MOperation {
   ) extends MOperation {
   }
 
-  def apply(name: String, params: List[MParameter]): MOperation = ???
+  def query(name: String, param: MParameter, result: MResult): MOperation =
+    query(name, List(param), result)
 
-  def apply(name: String, param: MParameter): MOperation =
-    apply(name, param, MResult.unit)
-
-  def apply(name: String, param: MParameter, result: MResult): MOperation =
+  def query(name: String, params: List[MParameter], result: MResult): MOperation =
     Instance(
       MElement.Core(name),
-      Core(List(param), result)
+      Core(Descriptor.query, params, result)
     )
 
-  def apply(name: String, param: MParameter, result: MDataType): MOperation =
-    apply(name, param, MResult(result))
+  // def query(name: String, param: MParameter, result: MDataType): MOperation =
+  //   query(name, param, MResult(result))
 
-  def apply(name: String, param: MParameter, result: MObject): MOperation =
-    apply(name, param, MResult(result))
+  // def query(name: String, param: MParameter, result: MObject): MOperation =
+  //   query(name, param, MResult(result))
 
-  def apply(name: String, param: MParameter, result: MObjectRef): MOperation =
-    apply(name, param, MResult(result))
+  // def query(name: String, param: MParameter, result: MObjectRef): MOperation =
+  //   query(name, param, MResult(result))
+
+  def command(name: String, param: MParameter): MOperation =
+    command(name, List(param))
+
+  def command(name: String, params: List[MParameter]): MOperation =
+    command(name, params, MResult.unit)
+
+  def command(name: String, params: List[MParameter], result: MResult): MOperation =
+    Instance(
+      MElement.Core(name),
+      Core(Descriptor.command, params, result)
+    )
 }

@@ -6,12 +6,13 @@ import org.goldenport.util.StringUtils
 import org.simplemodeling.model._
 import org.simplemodeling.SimpleModeler.generator.scala.model._
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.Purpose
+import org.simplemodeling.SimpleModeler.transformers.scala._
 
 /*
  * @since   Sep. 19, 2025
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
- * @version Feb. 17, 2026
+ * @version Feb. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -166,7 +167,8 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   final protected def to_method(p: MOperation): SMethod = {
     val params = ParameterSequence(p.parameters.map(to_parameter).toVector)
     val result = to_result(p.result)
-    SMethod(MethodName(p.name), params, result)
+    val descriptor = to_descriptor(p.descriptor)
+    SMethod(MethodName(p.name), descriptor, params, result)
   }
 
   final protected def to_parameter(p: MParameter): Parameter = {
@@ -176,8 +178,51 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       case MObjectParameterType(o) => to_typename(o)
       case MObjectRefParameterType(ref) => to_typename(ref)
     }
-    Parameter(ParameterName(p.name), tname)
+    val value = _get_value(p.parameterType)
+    Parameter(ParameterName(p.name), tname, value = value)
   }
+
+  private def _get_value(p: MParameter.MParameterType): Option[SClassBase] =
+    p match {
+      case MParameter.MObjectParameterType(o) => _from_object(o)
+      case _ => None
+    }
+
+  private def _from_object(p: MObject): Option[SClassBase] = p match {
+    case m: MEntityValue => Some(_from_entity_value(m))
+    case m: MTypedObject => m.typeParameters.head match {
+      case MTypedObject.Slot.ObjectBody(o) => _from_object(o)
+      case _ => None
+    }
+    case m: MValue => None
+    case m: MEntity => None
+    case _ => None
+  }
+
+  private def _from_entity_value(p: MEntityValue): SClassBase = 
+    p.kind match {
+      case MEntityValue.Kind.Create =>
+        val tx = new EntityValueCreateScalaModelTransformer()
+        _to_class(tx(p.entity))
+      case MEntityValue.Kind.Store =>
+        val tx = new EntityValueCreateScalaModelTransformer()
+        _to_class(tx(p.entity))
+      case MEntityValue.Kind.Update =>
+        val tx = new EntityValueUpdateScalaModelTransformer()
+        _to_class(tx(p.entity))
+      case MEntityValue.Kind.Query =>
+        val tx = new EntityValueQueryScalaModelTransformer()
+        _to_class(tx(p.entity))
+      case MEntityValue.Kind.Whole =>
+        val tx = new EntityValueReadScalaModelTransformer()
+        _to_class(tx(p.entity))
+      case MEntityValue.Kind.Summary =>
+        val tx = new EntityValueReadScalaModelTransformer()
+        _to_class(tx(p.entity))
+    }
+
+  private def _to_class(p: Consequence[Vector[SClassBase]]): SClassBase =
+    p.take.head
 
   final protected def to_result(p: MResult): TypeName = {
     import MResult._
@@ -203,8 +248,22 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     TypeName.Container(container, contenee)
   }
 
+  final protected def to_typename(o: MTypedObject.Slot): TypeName = o match {
+    case MTypedObject.Slot.ObjectRef(ref) => to_typename(ref)
+    case MTypedObject.Slot.ObjectBody(o) => to_typename(o)
+  }
+
   final protected def to_typename(o: MObjectRef): TypeName =
-    TypeName.create(o.packageName, o.name)
+    TypeName.create(o.packageName, o.objectName)
+
+  final protected def to_descriptor(p: MOperation.Descriptor): SMethod.Descriptor = {
+    SMethod.Descriptor(
+      p.kind match {
+        case MOperation.Kind.Query => SMethod.Kind.Query
+        case MOperation.Kind.Command => SMethod.Kind.Command
+      }
+    )
+  }
 
   final protected def make_title_name(
     p: String,
@@ -229,7 +288,16 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
 object ScalaModelTransformer {
   sealed trait Purpose
   object Purpose {
-    val elements = Vector(Plain, Create, Read, Update, Delete, Operation, View)
+    val elements = Vector(
+      Plain,
+      Create,
+      Read,
+      Update,
+      Delete,
+      Operation,
+      View,
+      Query
+    )
 
     case object Plain extends Purpose
     case object Create extends Purpose
@@ -238,5 +306,6 @@ object ScalaModelTransformer {
     case object Delete extends Purpose
     case object Operation extends Purpose
     case object View extends Purpose
+    case object Query extends Purpose
   }
 }

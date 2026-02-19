@@ -16,7 +16,7 @@ import Generator.{State => GState, _}
  *  version Sep. 30, 2025
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
- * @version Feb. 17, 2026
+ * @version Feb. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -126,10 +126,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import io.circe.Codec")
       _ <- println("import io.circe.generic.semiauto.*")
       _ <- println("import org.goldenport.Consequence")
+      _ <- println("import org.goldenport.datatype.*")
+//      _ <- println("import org.goldenport.value.*")
       _ <- println("import org.goldenport.record.Record")
       _ <- println("import org.goldenport.protocol.*")
       _ <- println("import org.goldenport.protocol.spec.*")
       _ <- println("import org.goldenport.protocol.operation.*")
+      _ <- println("import org.goldenport.cncf.datatype.*")
+      _ <- println("import org.goldenport.cncf.directive.*")
       _ <- println("import org.goldenport.cncf.action.*")
       _ <- println("import org.goldenport.cncf.component.*")
       _ <- clazz.importNames.traverse_(x =>
@@ -205,7 +209,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val name = s"with${StringUtils.makeTitle(p.name.name)}"
     val param = p
     val rtype = TypeName.create(clazz)
-    val m = SMethod.create(name, rtype, param) {
+    val m = SMethod.query(name, rtype, param) {
       val paramname = p.name.name
       println(s"copy($paramname = $paramname)")
     }
@@ -235,7 +239,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected def to_record_method: GenM[Unit] =
     if (is_value) {
-      val m = SMethod.create("toRecord", TypeName.create("org.goldenport.record", "Record")) {
+      val m = SMethod.query("toRecord", TypeName.create("org.goldenport.record", "Record")) {
         for {
           _ <- println("Record.data(")
           _ <- _to_record
@@ -368,6 +372,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case m: TypeName.Primitive => TypeName.option(m)
       case m: TypeName.Plain => TypeName.option(m)
       case m: TypeName.Container => m
+      case m: TypeName.Function => RAISE.notImplementedYetDefect("Function")
+      case m: TypeName.Unit => RAISE.notImplementedYetDefect("Unit")
     }
 
   protected def define_case_class(
@@ -444,7 +450,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     rtype: TypeName,
     params: Seq[Parameter]
   )(body: => GenM[Unit]): GenM[Unit] = {
-    val m = SMethod.create(name, rtype, params)(body)
+    val m = SMethod.query(name, rtype, params)(body)
     define_method(m)
   }
 
@@ -531,7 +537,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     rtype: TypeName,
     params: Seq[Parameter]
   ): GenM[Unit] = {
-    val m = SMethod.create(s"${name}", rtype, params) {
+    val m = SMethod.query(s"${name}", rtype, params) {
       println(s"""${target}(${params.map(_.name.name).mkString(" ,")})""")
     }
     define_method(m)
@@ -560,7 +566,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     rtype: TypeName,
     params: Seq[Parameter]
   ): GenM[Unit] = {
-    val m = SMethod.create(s"${name}", rtype, params) {
+    val m = SMethod.query(s"${name}", rtype, params) {
       println(s"""${name}C(${params.map(_.name.name).mkString(" ,")}).take""")
     }
     define_method(m)
@@ -571,7 +577,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     rtype: TypeName,
     params: Seq[Parameter]
   ): GenM[Unit] = {
-    val m = SMethod.create(s"${name}U", rtype, params) {
+    val m = SMethod.query(s"${name}U", rtype, params) {
       println(s"""${name}C(${params.map(_.name.name).mkString(" ,")}).take""")
     }
     define_method(m)
@@ -710,7 +716,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     s"with${StringUtils.makeTitle(name)}"
 
   protected def builder_buildc_method: GenM[Unit] = {
-    val m = SMethod.create("buildC", TypeName.consequence(clazz)) {
+    val m = SMethod.query("buildC", TypeName.consequence(clazz)) {
       _builder_buildc_method_body(builder_parameters)
     }
     define_method(m)
@@ -767,7 +773,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } yield ()
 
   protected def builder_build_recordc_method: GenM[Unit] = {
-    val m = SMethod.create("buildC", TypeName.consequence(clazz), Parameter.record) {
+    val m = SMethod.query("buildC", TypeName.consequence(clazz), Parameter.record) {
       _builder_buildc_method_body(_builder_record_parameters)
     }
     define_method(m)
@@ -875,7 +881,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   protected def create_recordc_method: GenM[Unit] = {
-    val m = SMethod.create("createC", TypeName.consequence(clazz), Parameter.record) {
+    val m = SMethod.query("createC", TypeName.consequence(clazz), Parameter.record) {
       for {
         _ <- println("val builder = Builder()")
         _ <- println("builder.buildC(record)")

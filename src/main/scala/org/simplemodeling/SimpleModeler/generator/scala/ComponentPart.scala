@@ -6,7 +6,7 @@ import Generator.{State => GState, _}
 
 /*
  * @since   Feb. 12, 2026
- * @version Feb. 18, 2026
+ * @version Feb. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -146,7 +146,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               println("req: Request")
             }
             _ <- block(s"): Consequence[${actionclassname}] =") {
-              println(s"Consequence.success(${actionclassname}(req))")
+              println(s"${actionclassname}.create(req)")
             }
           } yield ()
         }
@@ -159,12 +159,20 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       val actionclassname = action_class_name(op)
       val actioncallclassname = action_call_class_name(op)
       val factorymethodname = s"create${actioncallclassname}"
+      val opkind = op.descriptor.kind match {
+        case SMethod.Kind.Query => "QueryAction"
+        case SMethod.Kind.Command => "CommandAction"
+      }
+      val (paramname, paramclasstype) = _param_descriptor(op)
       for {
         _ <- separator
         _ <- block(s"final case class ${actionclassname}(") {
-          println("request: Request")
+          for {
+            _ <- println("request: Request,")
+            _ <- println(s"${paramname}: ${typename_relative_name(paramclasstype)}")
+          } yield ()
         }
-        _ <- block(") extends Query()") { // TODO
+        _ <- block(s") extends ${opkind}()") {
           block(s"override def createCall(core: ActionCall.Core): ActionCall =") {
             for {
               _ <- block(s"core.getFactory[${component_factory_class_name}] match") {
@@ -176,7 +184,70 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
             } yield ()
           }
         }
+        _ <- _action_companion_object(op, paramname, paramclasstype)
       } yield ()
+    }
+
+    private def _param_descriptor(op: SMethod): (String, TypeName) =
+      op.parameters.parameters.headOption match {
+        case Some(s) => s.value match {
+          case Some(v) => _action_descriptor(v)
+          case None => (s.name.name, s.typeName)
+        }
+        case None => ("entity", TypeName.parse("Person")) // TODO
+      }
+
+    private def _action_descriptor(action: SClassBase) = {
+      val tn = action.parameterSequence.parameters.headOption match {
+        case Some(s) => s.value match {
+          case Some(v) => TypeName.create(v)
+          case None => s.typeName
+        }
+        case None => TypeName.create(action)
+      }
+      ("entity", tn)
+    }
+
+    private def _action_companion_object(
+      op: SMethod,
+      paramname: String,
+      paramtype: TypeName
+    ): GenM[Unit] = {
+      val actionclassname = action_class_name(op)
+      block(s"object $actionclassname") {
+        block(s"def create(request: Request): Consequence[$actionclassname] =") {
+          _action_companion_object_create_body(paramname, paramtype, actionclassname)
+        }
+      }
+    }
+
+    private def _action_companion_object_create_body(
+      paramname: String,
+      paramtype: TypeName,
+      actionclassname: String
+    ): GenM[Unit] = paramtype match {
+      case m if m.fullName == "org.goldenport.record.Record" =>
+        println(s"Consequence.success($actionclassname(request, request.toRecord))")
+      case m if m.isPlatform =>
+        block(s"""Consequence.successOrRecordNotFound[${paramtype.name}](request.toRecord, "${paramname}").""") {
+          println(s"map($actionclassname(request, _))")
+        }
+      case TypeName.Container(container, containee) => containee match {
+        case mm if mm.fullName == "org.goldenport.record.Record" =>
+          println(s"Consequence.success($actionclassname(request, ${container.name}(request.toRecord)))")
+        case mm if mm.isPlatform => 
+          block(s"""Consequence.successOrRecordNotFound[${paramtype.name}](request.toRecord, "${paramname}").""") {
+            println(s"map(x => $actionclassname(request, ${container.name}(x)))")
+          }
+        case _ => 
+          block(s"${containee.fullName}.createC(request.toRecord).") {
+            println(s"map(${container.name}(_)).map($actionclassname(request, _))")
+          }
+      }
+      case _ =>
+        block(s"${paramtype.fullName}.createC(request.toRecord).") {
+          println(s"map($actionclassname(request, _))")
+        }
     }
 
     private def _action_call(op: SMethod): GenM[ActionCallDescriptor] = {

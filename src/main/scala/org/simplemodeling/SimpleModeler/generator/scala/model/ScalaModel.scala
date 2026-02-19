@@ -18,7 +18,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Sep. 30, 2025
  *  version Oct.  7, 2025
  *  version Nov. 18, 2025
- * @version Feb. 18, 2026
+ * @version Feb. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -87,6 +87,8 @@ case class PackageName(name: String) extends datatype.Name {
   def moveToSubPackage(subpkg: String): PackageName = PackageName(s"$name.$subpkg")
 
   def toPathName: PathName = PathName(name.replace('.', '/'))
+
+  def isPlatform = name.startsWith("org.goldenport.")
 }
 object PackageName {
   val orgSimplemodeling = PackageName("org.goldenport")
@@ -127,6 +129,7 @@ sealed trait TypeName {
   def isString: Boolean = false
   def isNumber: Boolean = false
   def isNumberOrigin: Boolean = false
+  def isPlatform: Boolean = false
 }
 object TypeName {
   val datatypePkg = PackageName("org.goldenport.datatype")
@@ -146,6 +149,7 @@ object TypeName {
     def fullName = name
     def isRequired = true
     override def isPrimitive: Boolean = true
+    override def isPlatform: Boolean = true
   }
   object Primitive {
     val string = Primitive(XString, isString = true)
@@ -194,6 +198,7 @@ object TypeName {
       packageName.name + "." + name
 
     def isRequired = true
+    override def isPlatform: Boolean = packageName.isPlatform
   }
   object Plain {
     def apply(p: SClassBase): Plain = Plain(p.packageName, p.className.name)
@@ -343,7 +348,8 @@ case class Parameter(
   name: ParameterName,
   typeName: TypeName,
   isAttribute: Boolean = false,
-  isDefault: Boolean = false
+  isDefault: Boolean = false,
+  value: Option[SClassBase] = None
 ) {
   def isRequired: Boolean = typeName.isRequired
   def titleName = name.toTitle
@@ -356,6 +362,9 @@ object Parameter {
 
   def create(name: String, typename: TypeName): Parameter =
     Parameter(ParameterName(name), typename)
+
+  def create(name: String, value: SClassBase): Parameter =
+    Parameter(ParameterName(name), TypeName.create(value), value = Some(value))
 }
 
 case class ParameterSequence(
@@ -417,26 +426,41 @@ case class MethodName(name: String)
 
 case class SMethod(
   name: MethodName,
+  descriptor: SMethod.Descriptor,
   parameters: ParameterSequence,
   returnType: TypeName,
   body: Option[() => GenM[Unit]] = None
 ) {
 }
 object SMethod {
-  def create(name: String, params: ParameterSequence, rtype: TypeName)(body: () => GenM[Unit]): SMethod =
-    SMethod(MethodName(name), params, rtype, Some(body))
-
-  def create(name: String, rtype: TypeName, param: Parameter, params: Parameter*)(body: => GenM[Unit]): SMethod =
-    create(name, rtype, param +: params)(body)
-
-  def create(name: String, rtype: TypeName, params: Seq[Parameter])(body: => GenM[Unit]): SMethod = {
-    val ps = ParameterSequence(params.toVector)
-    SMethod(MethodName(name), ps, rtype, Some(() => body))
+  sealed trait Kind
+  object Kind {
+    case object Command extends Kind
+    case object Query extends Kind
   }
 
-  def create(name: String, rtype: TypeName)(body: => GenM[Unit]): SMethod = {
+  case class Descriptor(
+    kind: Kind
+  )
+  object Descriptor {
+    val command = Descriptor(Kind.Command)
+    val query = Descriptor(Kind.Query)
+  }
+
+  def query(name: String, params: ParameterSequence, rtype: TypeName)(body: () => GenM[Unit]): SMethod =
+    SMethod(MethodName(name), Descriptor.query, params, rtype, Some(body))
+
+  def query(name: String, rtype: TypeName, param: Parameter, params: Parameter*)(body: => GenM[Unit]): SMethod =
+    query(name, rtype, param +: params)(body)
+
+  def query(name: String, rtype: TypeName, params: Seq[Parameter])(body: => GenM[Unit]): SMethod = {
+    val ps = ParameterSequence(params.toVector)
+    SMethod(MethodName(name), Descriptor.query, ps, rtype, Some(() => body))
+  }
+
+  def query(name: String, rtype: TypeName)(body: => GenM[Unit]): SMethod = {
     val ps = ParameterSequence.empty
-    SMethod(MethodName(name), ps, rtype, Some(() => body))
+    SMethod(MethodName(name), Descriptor.query, ps, rtype, Some(() => body))
   }
 }
 
@@ -520,6 +544,8 @@ case class ClassCore(
         case m: TypeName.Primitive => _add(_fqname_primitive(m.name))
         case m: TypeName.Plain => _add(VectorMap(m.packageName -> Set(m)))
         case m: TypeName.Container => add(m.container).add(m.containee)
+        case m: TypeName.Function => add(m.in).add(m.out)
+        case m: TypeName.Unit => this
       }
 
       def add(p: ParameterSequence): Z =
@@ -582,19 +608,28 @@ object ClassCore {
   )
 }
 
-case class STrait(core: ClassCore) extends SClassBase with ClassCore.Holder {
+trait SClassBaseWithCore extends SClassBase with ClassCore.Holder
+
+case class STrait(core: ClassCore) extends SClassBaseWithCore {
 }
 
-case class SCaseClass(core: ClassCore) extends SClassBase with ClassCore.Holder {
+case class SCaseClass(core: ClassCore) extends SClassBaseWithCore {
 }
 
-case class SEnum(core: ClassCore) extends SClassBase with ClassCore.Holder {
+case class SEnum(core: ClassCore) extends SClassBaseWithCore {
 }
 
-case class SControlClass(core: ClassCore) extends SClassBase with ClassCore.Holder {
+case class SControlClass(core: ClassCore) extends SClassBaseWithCore {
 }
 
-case class SEntityClass(core: ClassCore) extends SClassBase with ClassCore.Holder {
+case class STypedClass(
+  container: SClassBaseWithCore,
+  containee: SClassBaseWithCore
+) extends SClassBaseWithCore {
+  def core = container.core
+}
+
+case class SEntityClass(core: ClassCore) extends SClassBaseWithCore {
 }
 
 sealed trait SSlot {
@@ -612,7 +647,7 @@ case class SConcreteMethod() extends SSlot {
 case class SService(
   core: ClassCore,
   serviceCore: SService.ServiceCore
-) extends SClassBase with ClassCore.Holder with SService.ServiceCore.Holder {
+) extends SClassBaseWithCore with SService.ServiceCore.Holder {
   def methods: Vector[SMethod] = methodCompartment.methods
 }
 object SService {
@@ -645,7 +680,7 @@ object SService {
 case class SComponent(
   core: ClassCore,
   componentCore: SComponent.ComponentCore
-) extends SClassBase with ClassCore.Holder with SComponent.ComponentCore.Holder {
+) extends SClassBaseWithCore with SComponent.ComponentCore.Holder {
 }
 object SComponent {
   case class ComponentCore(
@@ -687,12 +722,57 @@ object SComponent {
     final protected def operation_object_name(op: SMethod): String = make_title(operation_name(op)) + "Operation"
 
     final protected def action_class_name(op: SMethod): String = {
-      val actionclass = if (true) "Query" else "Command"
+      val actionclass = op.descriptor.kind match {
+        case SMethod.Kind.Query => "Query"
+        case SMethod.Kind.Command => "Command"
+      }
       make_title(operation_name(op)) + actionclass
     }
 
     final protected def action_call_class_name(op: SMethod): String =
       make_title(operation_name(op)) + "ActionCall"
+
+    final protected def typename_relative_name(p: TypeName): String =
+      p match {
+        case TypeName.Plain(pkg, name, _) => _relative_plain_name(pkg, name)
+        case TypeName.Container(container, containee) =>
+          s"${typename_relative_name(container)}[${typename_relative_name(containee)}]"
+        case TypeName.Function(in, out) =>
+          s"${typename_relative_name(in)} => ${typename_relative_name(out)}"
+        case _ => p.name
+      }
+
+    private def _relative_plain_name(pkg: PackageName, name: String): String = {
+      if (!_is_component_subpackage(pkg))
+        name
+      else {
+        val relativeSegments = _relative_package_segments(pkg)
+        if (relativeSegments.isEmpty)
+          name
+        else
+          s"${relativeSegments.mkString(".")}.$name"
+      }
+    }
+
+    private def _relative_package_segments(pkg: PackageName): Vector[String] = {
+      val target = _package_segments(pkg)
+      val base = _package_segments(component_packagename)
+      val shared = target.zip(base).takeWhile { case (x, y) => x == y }.length
+      target.drop(shared)
+    }
+
+    // true when `pkg` is equal to or lives below the component package
+    private def _is_component_subpackage(pkg: PackageName): Boolean = {
+      val target = _package_segments(pkg)
+      val base = _package_segments(component_packagename)
+      base.isEmpty || (
+        target.length >= base.length && target.take(base.length) == base
+      )
+    }
+
+    private def _package_segments(pkg: PackageName): Vector[String] =
+      if (pkg.name.isEmpty) Vector.empty
+      else pkg.name.split('.').toVector
 
     final protected def make_title(s: String) = StringUtils.makeTitle(s)
   }

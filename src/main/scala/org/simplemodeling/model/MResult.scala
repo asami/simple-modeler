@@ -2,7 +2,7 @@ package org.simplemodeling.model
 
 /*
  * @since   Feb. 10, 2026
- * @version Feb. 10, 2026
+ * @version Feb. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MResult(
@@ -34,10 +34,10 @@ object MResult {
 
   def option(dt: MDataType): MResult = ???
 
-  def select(o: MObject): MResult = MResult(
-    MObjectResultType(MTypedObject.select(o))
+  def search(o: MObject): MResult = MResult(
+    MObjectResultType(MTypedObject.searchresult(o))
   )
 
-  def select(o: MObjectRef): MResult = ???
-  def select(dt: MDataType): MResult = ???
+  def search(o: MObjectRef): MResult = ???
+  def search(dt: MDataType): MResult = ???
 }
