@@ -25,7 +25,8 @@ import org.simplemodeling.model.domain._
  *  version Jun. 17, 2020
  *  version Nov. 19, 2020
  *  version Dec. 27, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Feb. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 case class SimpleModelParser(config: SimpleModelParser.Config) {
@@ -228,7 +229,7 @@ object SimpleModelParser {
           case Failure(e) => RAISE.syntaxErrorFault("???")
         }
       }
-      xs./:(Z())(_+_).r
+      xs.foldLeft(Z())(_+_).r
     }
 
     private def _parse_by_kind(p: LogicalBlock): Vector[ValidationNel[ParseMessage, MElement]] = {
@@ -379,7 +380,7 @@ object SimpleModelParser {
         )
       }
       println(s"SimpleModelParser#_make_description $dox")
-      dox.elements./:(Z() )(_+_).r
+      dox.elements.foldLeft(Z() )(_+_).r
     }
 
     private def _parse_entity(p: LogicalBlock, st: MDomainStereotype) =

@@ -3,10 +3,11 @@ package org.simplemodeling.SimpleModeler.generator.scala
 import scalaz._, Scalaz._
 import model._
 import Generator.{State => GState, _}
+import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 
 /*
  * @since   Feb. 12, 2026
- * @version Feb. 19, 2026
+ * @version Feb. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -194,19 +195,17 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           case Some(v) => _action_descriptor(v)
           case None => (s.name.name, s.typeName)
         }
-        case None => ("entity", TypeName.parse("Person")) // TODO
+        case None => ("p", TypeName.parse("Record")) // TODO
       }
 
-    private def _action_descriptor(action: SClassBase) = {
-      val tn = action.parameterSequence.parameters.headOption match {
+    private def _action_descriptor(action: SClassBase): (String, TypeName) =
+      action.parameterSequence.parameters.headOption match {
         case Some(s) => s.value match {
-          case Some(v) => TypeName.create(v)
-          case None => s.typeName
+          case Some(v) => (s.name.name, TypeName.create(v))
+          case None => (s.name.name, s.typeName)
         }
-        case None => TypeName.create(action)
+        case None => ("p", TypeName.create(action))
       }
-      ("entity", tn)
-    }
 
     private def _action_companion_object(
       op: SMethod,
@@ -251,12 +250,14 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     }
 
     private def _action_call(op: SMethod): GenM[ActionCallDescriptor] = {
+      val paramtypename = _param_type_fullname(op)
       val actionclassname = action_class_name(op)
       val actioncallclassname = action_call_class_name(op)
       for {
         _ <- separator
-        _ <- block(s"abstract class ${actioncallclassname}() extends ActionCall") {
-          println("def execute(): Consequence[OperationResponse] = ???")
+        _ <- block(s"abstract class ${actioncallclassname}() extends FunctionalActionCall") {
+          // println("def execute(): Consequence[OperationResponse] = ???")
+          println("")
         }
         _ <- block(s"object ${actioncallclassname}") {
           for {
@@ -267,7 +268,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               } yield ()
             }
             _ <- block(s") extends ${actioncallclassname}") {
-              println("")
+              block("protected def build_Program: ExecUowM[OperationResponse] =") {
+                _action_program(op)
+              }
             }
             _ <- separator
             _ <- block(s"def apply(") {
@@ -280,6 +283,40 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           } yield ()
         }
       } yield ActionCallDescriptor(actionclassname, actioncallclassname)
+    }
+
+    private def _param_type_fullname(op: SMethod): String = {
+      val (paramname, paramclasstype) = _param_descriptor(op)
+      _param_type_fullname(paramclasstype)
+    }
+
+    private def _param_type_fullname(paramtype: TypeName): String =
+      paramtype match {
+        case m if m.fullName == "org.goldenport.record.Record" => "Record"
+        case m if m.isPlatform => paramtype.name
+        case TypeName.Container(container, containee) => _param_type_fullname(containee)
+        case m => paramtype.fullName
+      }
+
+    private def _action_program(op: SMethod): GenM[Unit] = {
+      op.body match {
+        case Some(s) => s()
+        case None => println("uowmNotImplemented")
+      }
+    }
+
+    private def _action_program_entity: GenM[Unit] = {
+      ???
+    }
+
+    private def _action_program_entity_create: GenM[Unit] = {
+      for {
+        //                  _ <- println(s"given EntityPersistentCreate[${paramtypename}] = EntityPersistentCreate[${paramtypename}]")
+        _ <- block("for") {
+          println("r <- entity_create(action.entity)")
+        }
+        _ <- println("yield OperationResponse(r.toRecord)")
+      } yield ()
     }
   }
   object ComponentProcessor {

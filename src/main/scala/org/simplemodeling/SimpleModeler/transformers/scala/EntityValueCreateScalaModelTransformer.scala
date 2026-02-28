@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Sep. 19, 2025
  *  version Sep. 23, 2025
- * @version Feb. 18, 2026
+ * @version Feb. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -20,27 +20,10 @@ class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModel
   def apply(p: MObject): Consequence[Vector[SClassBase]] =
     apply(p, Purpose.Create)
 
-  // def isDefinedAt(p: (MObject, Purpose)): Boolean =
-  //   p match {
-  //     case (_: MEntity, Purpose.Create) => true
-  //     case _ => false
-  //   }
-
-  // def apply(p: (MObject, Purpose)): Consequence[Vector[SClassBase]] =
-  //   p match {
-  //     case (m: MEntity, Purpose.Create) => _transform(m)
-  //     case _ => Consequence.noReachDefect(s"EntityValueCreateScalaModelTransformer#apply")
-  //   }
-
-  // private def _transform(p: MEntity): Consequence[Vector[SClassBase]] = Consequence {
-  //   Vector(_to_scala(p))
-  // }
-
-  // private def _to_scala(p: MEntity): SCaseClass = {
-  //   val core = to_scala_core_subpackage(p, "create")
-  //   SCaseClass(core)
-  // }
-
   override protected def to_typename(p: MDataType): TypeName =
-    TypeName.Primitive.createMarshalling(p)
+    p.datatype match {
+      case XEntityId => TypeName.option(super.to_typename(p))
+      case m => super.to_typename(p)
+    }
+//    TypeName.Primitive.createMarshalling(p)
 }

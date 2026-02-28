@@ -16,7 +16,7 @@ import Generator.{State => GState, _}
  *  version Sep. 30, 2025
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
- * @version Feb. 19, 2026
+ * @version Feb. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -26,6 +26,7 @@ abstract class Scala3ClassGeneratorBase[T <: SClassBase](
 
   protected final def scala_context: ScalaModel.Context = context
 
+  // default class kind
   def classkind: ClassKind
 
   def generate(p: T): Consequence[SourceArtifacts] = {
@@ -38,12 +39,16 @@ abstract class Scala3ClassGeneratorBase[T <: SClassBase](
     }
   }
 
-  def run(p: T): GenM[SourceArtifacts] = new Scala3ClassGeneratorExecutor(scala_context, classkind, p).run()
+  def run(p: T): GenM[SourceArtifacts] = {
+    val ck = p.directive.classKind getOrElse classkind
+    new Scala3ClassGeneratorExecutor(scala_context, ck, p).run()
+  }
 }
 
 object Scala3ClassGeneratorBase {
   sealed trait ClassKind {
     def isValue: Boolean = false
+    def isEntityValue: Boolean = false
   }
   object ClassKind {
     case object Value extends ClassKind {
@@ -51,6 +56,7 @@ object Scala3ClassGeneratorBase {
     }
     case object EntityValue extends ClassKind {
       override def isValue = true
+      override def isEntityValue: Boolean = true
     }
     case object Control extends ClassKind
     case object Component extends ClassKind
@@ -71,7 +77,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   //   case _ => false
   // }
 
+  protected final def is_entity_value_create: Boolean =
+    is_entity_value && clazz.directive.isCreate
+
   protected final def is_value = classKind.isValue
+  protected final def is_entity_value = classKind.isEntityValue
 
   protected final def class_type_name: TypeName = TypeName.create(clazz)
 
@@ -126,6 +136,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import io.circe.Codec")
       _ <- println("import io.circe.generic.semiauto.*")
       _ <- println("import org.goldenport.Consequence")
+      _ <- println("import org.goldenport.ConsequenceT")
       _ <- println("import org.goldenport.datatype.*")
 //      _ <- println("import org.goldenport.value.*")
       _ <- println("import org.goldenport.record.Record")
@@ -136,6 +147,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import org.goldenport.cncf.directive.*")
       _ <- println("import org.goldenport.cncf.action.*")
       _ <- println("import org.goldenport.cncf.component.*")
+      _ <- println("import org.goldenport.cncf.unitofwork.ExecUowM")
+      _ <- println("import org.goldenport.cncf.unitofwork.UnitOfWork.uowmNotImplemented")
+      _ <- println("import org.goldenport.cncf.entity.*")
       _ <- clazz.importNames.traverse_(x =>
         println(s"import ${x.fullName}")
       )
@@ -148,12 +162,18 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- parameter_list(clazz.parameterSequence)
       _ <- {
         def _extends_(c: String, ts: List[String]) =
-          s" extends ${c}" + ts.mkString(" with", " with ", " ")
-        val s = (clazz.parentClass, clazz.traitList) match {
+          s" extends ${c}" + (
+            ts match {
+              case Nil => ""
+              case xs => " with " + xs.mkString(" with ")
+            }
+          )
+        val ts = clazz.traitList.map(_.name) ++ _augument_traits
+        val s = (clazz.parentClass, ts) match {
           case (Some(s), Nil) => s" extends ${s.name} "
-          case (Some(s), xs) => _extends_(s.name, xs.map(_.name))
+          case (Some(s), xs) => _extends_(s.name, xs)
           case (None, Nil) => " "
-          case (None, x :: xs) => _extends_(x.name, xs.map(_.name))
+          case (None, x :: xs) => _extends_(x, xs)
         }
         print(s)
       }
@@ -172,10 +192,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("}")
     } yield ()
 
+  private def _augument_traits: List[String] = {
+    if (is_entity_value_create)
+      List("EntityPersistableCreate")
+    else if (is_entity_value)
+      List("EntityPersistable")
+    else
+      Nil
+  }
+
   protected def declare_derives: GenM[Unit] =
-    classKind match {
-      case ClassKind.EntityValue => print("derives Codec.AsObject ") // Case class
-      case ClassKind.Value => print("derives Eq, Codec.AsObject ") // Case class
+    classKind match { // TODO Eq
+      case ClassKind.EntityValue => print(" derives Codec.AsObject ") // Case class
+      case ClassKind.Value => print(" derives Eq, Codec.AsObject ") // Case class
       case _ => unit
     }
 
@@ -242,7 +271,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       val m = SMethod.query("toRecord", TypeName.create("org.goldenport.record", "Record")) {
         for {
           _ <- println("Record.data(")
+          _ <- indent
           _ <- _to_record
+          _ <- outdent
           _ <- println(")")
         } yield ()
       }
@@ -259,7 +290,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     )(_to_record)
 
   private def _to_record(p: Attribute): GenM[Unit] =
-    println(property_name(p.name.name), " -> ", p.name.name)
+    print(property_name(p.name.name), " -> ", p.name.name)
 
   // protected final def traverse_with_separator[T](ps: Vector[T]): GenM[Unit] =
   //   ???
@@ -362,7 +393,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } yield ()
 
   protected def to_builder_parameters(p: AttributeSequence): ParameterSequence =
-    ParameterSequence(p.attributes.map(to_builder_parameter))
+    ParameterSequence(p.attributes.map(to_builder_parameter) :+ Parameter(ParameterName("_failures"), TypeName.failureVector, true, true))
 
   protected def to_builder_parameter(p: Attribute): Parameter =
     Parameter(ParameterName(p.name.name), to_optionable_type(p.typeName), true, true)
@@ -605,6 +636,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected final def string_type: TypeName = scala_context.stringType
 
+  protected final def raw_parameter(p: Parameter): Parameter = {
+    p.typeName match {
+      case TypeName.Container(_, containee) => p.copy(typeName = containee)
+      case _ => p
+    }
+  }
+
   protected final def option_parameter(p: Parameter): Parameter = scala_context.optionParameter(p)
 
   protected final def string_parameter(p: Parameter): Parameter = scala_context.stringParameter(p)
@@ -632,7 +670,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val optionp = Parameter(p.name, option_type(p.typeName))
 
     for {
-      _ <- define_method(methodname, builder_type, p) {
+      _ <- define_method(methodname, builder_type, raw_parameter(p)) {
         println("copy(", propname, " = Some(", propname, "))")
       }
       _ <- define_method(methodname, builder_type, option_parameter(p)) {
@@ -667,48 +705,165 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       unit
     }
 
-  private def _builder_with_method_parse_if_required(name: String, rtype: TypeName, param: Parameter): GenM[Unit] =
-    if (rtype.contentType == param.typeName)
+  private def _builder_with_method_parse_if_required(name: String, proptype: TypeName, param: Parameter): GenM[Unit] =
+    if (proptype.contentType == param.typeName)
       unit
     else
-      _builder_with_method_parse(name, rtype, param)
+      _builder_with_method_parse(name, proptype, param)
 
-  private def _builder_with_method_parse(name: String, rtype: TypeName, param: Parameter): GenM[Unit] = 
-    rtype match {
+  private def _builder_with_method_parse(name: String, proptype: TypeName, param: Parameter): GenM[Unit] = 
+    proptype match {
       case m: TypeName.Primitive =>
         _builder_with_method_parse_primitive(name, m, param)
       case m => _builder_with_method_parse_plain(name, m, param)
     }
 
-  private def _builder_with_method_parse_primitive(name: String, rtype: TypeName.Primitive, param: Parameter): GenM[Unit] =
+  private def _builder_with_method_parse_primitive(name: String, proptype: TypeName.Primitive, param: Parameter): GenM[Unit] =
     if (param.typeName.isPrimitive)
-      _builder_with_method_parse_primitive_primitive(name, rtype, param)
+      _builder_with_method_parse_primitive_primitive(name, proptype, param)
     else
-      _builder_with_method_parse_primitive_plain(name, rtype, param)
+      _builder_with_method_parse_primitive_plain(name, proptype, param)
 
-  private def _builder_with_method_parse_primitive_primitive(name: String, rtype: TypeName.Primitive, param: Parameter): GenM[Unit] = {
+  private def _builder_with_method_parse_primitive_primitive(name: String, proptype: TypeName.Primitive, param: Parameter): GenM[Unit] = {
     val methodname = with_method_name(name)
+    val varname = name
     val propname = name
-    val primitivename = rtype.name
+    val primitivename = proptype.name
     define_cmethods(methodname, builder_type, param) {
-      println("Consequence.to", primitivename, "(", propname, ").map(x => copy(", propname, " = Some(x)))")
+      println("Consequence.to", primitivename, "(", varname, ").map(x => copy(", propname, " = Some(x)))")
     }
   }
 
-  private def _builder_with_method_parse_primitive_plain(name: String, rtype: TypeName.Primitive, param: Parameter): GenM[Unit] = {
+  private def _builder_with_method_parse_primitive_plain(name: String, proptype: TypeName.Primitive, param: Parameter): GenM[Unit] = {
     val methodname = with_method_name(name)
+    val varname = name
     val propname = name
-    val primitivename = rtype.name
+    val primitivename = proptype.name
     define_cmethods(methodname, builder_type, param) {
-      println(propname, ".to" + primitivename, ".map(x => copy(", propname, " = Some(x)))")
+      println(varname, ".to" + primitivename, ".map(x => copy(", propname, " = Some(x)))")
     }
   }
 
-  private def _builder_with_method_parse_plain(name: String, rtype: TypeName, param: Parameter): GenM[Unit] = {
+  private def _builder_with_method_parse_plain(name: String, proptype: TypeName, param: Parameter): GenM[Unit] = {
+    proptype match {
+      case m: TypeName.Container =>
+        if (m.isOption)
+          _builder_with_method_parse_plain_option(name, m.containee, param)
+        else
+          println("???")
+      case m => _builder_with_method_parse_plain_nooption(name, proptype, param)
+    }
+  }
+
+  private def _builder_with_method_parse_plain_nooption(name: String, proptype: TypeName, param: Parameter): GenM[Unit] = {
     val methodname = with_method_name(name)
     val propname = name
-    define_cmethods(methodname, builder_type, param) {
-      println(rtype.name, ".parse(", propname, ").map(x => copy(", propname, " = Some(x)))")
+    // define_cmethods(methodname, builder_type, param) {
+    //   println(proptype.name, ".parse(", varname, ").map(x => copy(", propname, " = Some(x)))")
+    // }
+    _builder_with_methods_parse_plain_nooption(methodname, propname, proptype, param)
+  }
+
+  private def _builder_with_method_parse_plain_option(name: String, proptype: TypeName, param: Parameter): GenM[Unit] = {
+    val methodname = with_method_name(name)
+    val propname = name
+    // define_cmethods(methodname, builder_type, param) {
+    //   println(proptype.name, ".parse(", varname, ").map(x => copy(", propname, " = Some(x)))")
+    // }
+    _builder_with_methods_parse_plain_option(methodname, propname, proptype, param)
+  }
+
+  // private def _builder_define_with_methods() = {
+  //   for {
+  //     _ <- _define_method_within_failure()
+  //   } yield ()
+  // }
+
+  private def _builder_with_methods_parse_plain_nooption(
+    methodname: String,
+    propname: String,
+    proptype: TypeName,
+    param: Parameter
+  ) = {
+    for {
+      _ <- _builder_with_method_parse_plain_nooption_nooption(methodname, propname, proptype, param)
+      _ <- _builder_with_method_parse_plain_nooption_option(methodname, propname, param)
+    } yield ()
+  }
+
+  private def _builder_with_methods_parse_plain_option(
+    methodname: String,
+    propname: String,
+    proptype: TypeName,
+    param: Parameter
+  ) = {
+    for {
+      _ <- _builder_with_method_parse_plain_option_nooption(methodname, propname, proptype, param)
+      _ <- _builder_with_method_parse_plain_option_option(methodname, propname, param)
+    } yield ()
+  }
+
+  private def _builder_with_method_parse_plain_nooption_nooption(
+    methodname: String,
+    propname: String,
+    proptype: TypeName,
+    param: Parameter
+  ) = {
+    // define_method(methodname, builder_type, param) {
+    //   block(s"${proptype.name}.parse(${propname}) match") {
+    //     for {
+    //       _ <- println(s"case Consequence.Success(s) => copy(${propname} = s)")
+    //       _ <- println(s"case m: Consequence.Failure[_] => copy(_failures = _failures :+ m)")
+    //     } yield ()
+    //   }
+    // }
+    _builder_with_method_parse_plain_option_nooption(methodname, propname, proptype, param)
+  }
+
+  private def _builder_with_method_parse_plain_nooption_option(
+    methodname: String,
+    propname: String,
+    param: Parameter
+  ) = {
+    // define_method(methodname, builder_type, param) {
+    //   block(s"${propname} match") {
+    //     for {
+    //       _ <- println(s"case Some(s) => ${methodname}(s)")
+    //       _ <- println(s"case None => this")
+    //     } yield ()
+    //   }
+    // }
+    _builder_with_method_parse_plain_option_option(methodname, propname, param)
+  }
+
+  private def _builder_with_method_parse_plain_option_nooption(
+    methodname: String,
+    propname: String,
+    proptype: TypeName,
+    param: Parameter
+  ) = {
+    define_method(methodname, builder_type, param.toRawType) {
+      block(s"${proptype.name}.parse(${propname}) match") {
+        for {
+          _ <- println(s"case Consequence.Success(s) => copy(${propname} = Some(s))")
+          _ <- println(s"case m: Consequence.Failure[_] => copy(_failures = _failures :+ m)")
+        } yield ()
+      }
+    }
+  }
+
+  private def _builder_with_method_parse_plain_option_option(
+    methodname: String,
+    propname: String,
+    param: Parameter
+  ) = {
+    define_method(s"${methodname}Option", builder_type, param.toOptionType) {
+      block(s"${propname} match") {
+        for {
+          _ <- println(s"case Some(s) => ${methodname}(s)")
+          _ <- println(s"case None => this")
+        } yield ()
+      }
     }
   }
 
@@ -756,10 +911,35 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     println(builder_parameter_line(p))
 
   protected def builder_parameter_line(p: Parameter): String =
-    builder_parameter_line(p.name.name)
+    p.typeName match {
+      case m: TypeName.Container => builder_parameter_line_container(p, m)
+      case m => builder_parameter_line_raw(p)
+    }
 
-  protected def builder_parameter_line(p: String): String =
+  protected def builder_parameter_line_raw(p: Parameter): String =
+    builder_parameter_line_raw(p.name.name)
+
+  protected def builder_parameter_line_raw(p: String): String =
     s"Consequence.takeOrMissingPropertyFault(${property_name(p)}, $p)"
+
+  protected def builder_parameter_line_container(
+    p: Parameter,
+    container: TypeName.Container
+  ): String =
+    if (container.isOption)
+      builder_parameter_line_container_option(p)
+    else if (container.isList)
+      s"???"
+    else if (container.isVector)
+      s"???"
+    else if (container.isSet)
+      s"???"
+    else
+      RAISE.noReachDefect
+
+  protected def builder_parameter_line_container_option(
+    p: Parameter
+  ): String = s"Consequence.success(${p.name})"
 
   protected def builder_build_method: GenM[Unit] =
     for {
@@ -794,14 +974,38 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     _build_param_or_var(p)(_get_record_param(p))
 
   private def _build_param_or_var(p: Parameter)(param: => GenM[Unit]): GenM[Unit] =
+    p.typeName match {
+      case m: TypeName.Container => _build_param_or_var_container(p, m)(param)
+      case _ => _build_param_or_var_raw(p)(param)
+    }
+
+  private def _build_param_or_var_raw(p: Parameter)(param: => GenM[Unit]): GenM[Unit] =
     for {
       _ <- print("Consequence.takeOrMissingPropertyFault(", property_name(p.name.name), ", ")
       _ <- param
-      _ <- print(" orElse ", p.name.name, ")")
+      _ <- print(", ", p.name.name, ")")
     } yield ()
 
+  private def _build_param_or_var_container(
+    p: Parameter,
+    container: TypeName.Container
+  )(param: => GenM[Unit]): GenM[Unit] =
+    if (container.isOption)
+      for {
+        _ <- param
+        _ <- print(".map(_  orElse ", p.name.name, ")")
+      } yield ()
+    else if (container.isList)
+      println("???")
+    else if (container.isVector)
+      println("???")
+    else if (container.isSet)
+      println("???")
+    else
+      RAISE.noReachDefect
+
   private def _get_record_param(p: Parameter): GenM[Unit] =
-    print("record.getAs[", p.typeName.name, "](", property_name(p.name.name), ")")
+    print("record.getAsC[", p.toRawType.typeName.name, "](", property_name(p.name.name), ")")
 
   // protected def builder_build_recordc_method(p: T): GenM[Unit] = {
   //   val m = SMethod.create("buildC", TypeName.consequence(p), Parameter.record) {
@@ -905,6 +1109,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     for {
       _ <- _can_equal(name)
       _ <- _eq(name)
+      _ <- _entity(name)
     } yield ()
   }
 
@@ -916,8 +1121,25 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _eq(name: String): GenM[Unit] =
     if (is_value) {
-      println("// Domain semantic equality = equality of identity")
-      println(s"given Eq[", name, "] = Eq.by(_.id)")
+      for {
+        _ <- println("// Domain semantic equality = equality of identity")
+        _ <- println(s"given Eq[", name, "] = Eq.by(_.id)")
+      } yield ()
+    } else {
+      unit
+    }
+
+  private def _entity(name: String): GenM[Unit] =
+    if (is_entity_value_create) {
+      for {
+        _ <- println("val collectionId: EntityCollectionId = ???")
+        _ <- println(s"given EntityPersistentCreate[$name] = EntityPersistentCreate.derived(collectionId)")
+      } yield ()
+    } else if (is_entity_value) {
+      for {
+        _ <- println("val collectionId: EntityCollectionId = ???")
+        _ <- println(s"given EntityPersistent[$name] = EntityPersistent.derived(createC)")
+      } yield ()
     } else {
       unit
     }

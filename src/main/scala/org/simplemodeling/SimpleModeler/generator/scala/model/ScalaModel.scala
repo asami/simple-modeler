@@ -10,7 +10,9 @@ import org.goldenport.values.PathName
 import org.goldenport.record.v2._
 import org.goldenport.util.StringUtils
 import org.simplemodeling.model._
+import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.Purpose
 import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
+import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase.ClassKind
 
 /*
  * @since   May. 13, 2025
@@ -18,7 +20,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Sep. 30, 2025
  *  version Oct.  7, 2025
  *  version Nov. 18, 2025
- * @version Feb. 20, 2026
+ * @version Feb. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -32,7 +34,7 @@ object ScalaModel {
     def optionType(p: TypeName): TypeName = TypeName.Container.option(p)
     def stringType: TypeName = TypeName.Primitive.string
     def optionParameter(p: Parameter): Parameter = p.typeName match {
-      case m: TypeName.Container => ???
+      case m: TypeName.Container => p
       case _ => Parameter(p.name, optionType(p.typeName))
     }
     def stringParameter(p: Parameter): Parameter = p.typeName match {
@@ -120,7 +122,7 @@ object ClassDeclaration {
   }
 }
 
-sealed trait TypeName {
+sealed abstract class TypeName {
   def fullName: String
   def name: String
   def contentType: TypeName = this
@@ -130,9 +132,16 @@ sealed trait TypeName {
   def isNumber: Boolean = false
   def isNumberOrigin: Boolean = false
   def isPlatform: Boolean = false
+
+  def toRawType: TypeName = this
+  def toOptionType: TypeName = TypeName.option(this)
+  def toListType: TypeName = TypeName.list(this)
+  def toVectorType: TypeName = TypeName.vector(this)
+  def toSetType: TypeName = TypeName.set(this)
 }
 object TypeName {
   val datatypePkg = PackageName("org.goldenport.datatype")
+  val cncfDatatypePkg = PackageName("org.goldenport.cncf.datatype")
 
   case class Unit() extends TypeName {
     val name = "unit"
@@ -221,12 +230,45 @@ object TypeName {
     def isSet: Boolean = container.name == "Set"
 
     def withContainee(p: TypeName) = copy(containee = p)
+
+    override def toRawType: TypeName = containee
+
+    override def toOptionType: TypeName =
+      if (isOption)
+        this
+      else
+        Container.option(containee)
+
+    override def toListType: TypeName =
+      if (isList)
+        this
+      else
+        Container.list(containee)
+
+    override def toVectorType: TypeName =
+      if (isVector)
+        this
+      else
+        Container.vector(containee)
+
+    override def toSetType: TypeName =
+      if (isSet)
+        this
+      else
+        Container.set(containee)
   }
   object Container {
     val option = Plain(PackageName("scala"), "Option")
+    val list = Plain(PackageName("scala"), "List")
+    val vector = Plain(PackageName("scala"), "Vector")
+    val set = Plain(PackageName("scala"), "Set")
     val consequence = Plain(PackageName("org.simplemodeling"), "Consequence")
+    val consequenceFailure = Plain(PackageName("org.simplemodeling"), "Consequence.Failure[_]")
 
-    def option(p: TypeName): TypeName = Container(option, p)
+    def option(p: TypeName): Container = Container(option, p)
+    def list(p: TypeName): Container = Container(list, p)
+    def vector(p: TypeName): Container = Container(vector, p)
+    def set(p: TypeName): Container = Container(set, p)
   }
 
   case class Function(
@@ -240,6 +282,9 @@ object TypeName {
 
   def option = Container.option
   def consequence = Container.consequence
+  def consequenceFailure = Container.consequenceFailure
+
+  def failureVector = Container.vector(consequenceFailure)
 
   val record = Plain(PackageName.orgSimplemodelingRecord, "Record")
 
@@ -250,11 +295,17 @@ object TypeName {
   def create(pkg: String, name: String): TypeName = Plain(PackageName(pkg), name)
   def create(p: SClassBase): TypeName = Plain(p)
 
-  def create(p: DataType): TypeName = Primitive.createOption(p).getOrElse(
-    Plain(datatypePkg, StringUtils.makeTitle(p.name))
-  )
+  def create(p: DataType): TypeName = Primitive.createOption(p).getOrElse {
+    p match {
+      case XEntityId => Plain(cncfDatatypePkg, "EntityId")
+      case _ => Plain(datatypePkg, StringUtils.makeTitle(p.name))
+    }
+  }
 
-  def option(p: TypeName): Container = Container(option, p)
+  def option(p: TypeName): Container = Container.option(p)
+  def list(p: TypeName): Container = Container.list(p)
+  def vector(p: TypeName): Container = Container.vector(p)
+  def set(p: TypeName): Container = Container.set(p)
   def consequence(p: SClassBase): Container = consequence(TypeName.create(p))
   def consequence(p: TypeName): Container = Container(consequence, p)
 
@@ -353,6 +404,12 @@ case class Parameter(
 ) {
   def isRequired: Boolean = typeName.isRequired
   def titleName = name.toTitle
+
+  def toRawType: Parameter = copy(typeName = typeName.toRawType)
+  def toOptionType: Parameter = copy(typeName = typeName.toOptionType)
+  def toListType: Parameter = copy(typeName = typeName.toListType)
+  def toVectorType: Parameter = copy(typeName = typeName.toVectorType)
+  def toSetType: Parameter = copy(typeName = typeName.toSetType)
 }
 object Parameter {
   val record = create("record", TypeName.record)
@@ -480,6 +537,19 @@ object ReceptionCompartment {
   val empty = ReceptionCompartment()
 }
 
+case class Directive(
+  classKind: Option[ClassKind] = None,
+  purpose: Option[Purpose] = None
+) {
+  def isCreate: Boolean = purpose.fold(false)(_ == Purpose.Create)
+
+  def withEntityValue = copy(classKind = Some(ClassKind.EntityValue))
+  def withPurpose(purpose: Purpose) = copy(purpose = Some(purpose))
+}
+object Directive {
+  val default = Directive()
+}
+
 sealed trait SClassBase {
   def packageName: PackageName
   def importNames: Vector[TypeName]
@@ -496,6 +566,8 @@ sealed trait SClassBase {
   def attributeSequence: AttributeSequence = parameterSequence.distillAttributes + fieldCompartment.distillAttributes
 
   def fullName: String = s"${packageName.name}.${className.name}"
+
+  def directive: Directive
 }
 
 case class ClassCore(
@@ -507,7 +579,8 @@ case class ClassCore(
   parameterSequence: ParameterSequence = ParameterSequence.empty,
   fieldCompartment: FieldCompartment = FieldCompartment.empty,
   methodCompartment: MethodCompartment = MethodCompartment.empty,
-  receptionCompartment: ReceptionCompartment = ReceptionCompartment.empty
+  receptionCompartment: ReceptionCompartment = ReceptionCompartment.empty,
+  directive: Directive = Directive.default
 ) {
   import ClassCore._
 
@@ -515,6 +588,10 @@ case class ClassCore(
     copy(packageName = packageName.moveToSubPackage(subpkg))
 
   def withClassName(name: String): ClassCore = copy(className = ClassName(name))
+
+  def withEntityValue: ClassCore = copy(directive = directive.withEntityValue)
+
+  def withPurpose(purpose: Purpose): ClassCore = copy(directive = directive.withPurpose(purpose))
 
   def importNames: Vector[TypeName.Plain] = {
     case class Z(
@@ -594,6 +671,7 @@ object ClassCore {
     def methodCompartment = core.methodCompartment
     def receptionCompartment = core.receptionCompartment
     def importNames = core.importNames
+    def directive = core.directive
   }
 
   def service(

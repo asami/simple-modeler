@@ -16,7 +16,7 @@ import Generator.{State => GState, _}
  * @since   Sep. 18, 2025
  *  version Sep. 21, 2025
  *  version Nov.  8, 2025
- * @version Feb. 16, 2026
+ * @version Feb. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 trait Scala3ClassFamilyGeneratorBase[T <: MObject] extends SourceArtifactsGenerator[T] {

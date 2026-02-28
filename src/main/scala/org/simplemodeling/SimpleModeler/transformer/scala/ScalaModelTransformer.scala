@@ -12,7 +12,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  * @since   Sep. 19, 2025
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
- * @version Feb. 20, 2026
+ * @version Feb. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -47,6 +47,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     val fields = to_fields(p.attributes)
     val methods = to_methods(p.operations)
     val receptions = ReceptionCompartment.empty // TODO
+    val directive = Directive.default
     ClassCore(
       packagename,
       declaration,
@@ -56,7 +57,8 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       parameters,
       fields,
       methods,
-      receptions
+      receptions,
+      directive
     )
   }
 
@@ -168,7 +170,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     val params = ParameterSequence(p.parameters.map(to_parameter).toVector)
     val result = to_result(p.result)
     val descriptor = to_descriptor(p.descriptor)
-    SMethod(MethodName(p.name), descriptor, params, result)
+    SMethod(MethodName(p.name), descriptor, params, result, p.body)
   }
 
   final protected def to_parameter(p: MParameter): Parameter = {

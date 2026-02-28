@@ -1,6 +1,7 @@
 package org.simplemodeling.model
 
 import org.smartdox.Description
+import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 
 /*
  * derived from SOperation and SMOperation.
@@ -12,7 +13,7 @@ import org.smartdox.Description
  *  version Aug.  8, 2019
  *  version Dec. 14, 2019
  *  version Apr. 25, 2020
- * @version Feb. 19, 2026
+ * @version Feb. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class MOperation extends MElement
@@ -38,7 +39,8 @@ object MOperation {
   case class Core(
     descriptor: Descriptor,
     parameters: List[MParameter],
-    result: MResult
+    result: MResult,
+    body: Option[() => GenM[Unit]] = None
   )
   object Core {
     trait Holder {
@@ -47,6 +49,7 @@ object MOperation {
       def descriptor = operationCore.descriptor
       def parameters = operationCore.parameters
       def result = operationCore.result
+      def body = operationCore.body
     }
   }
 
@@ -84,5 +87,14 @@ object MOperation {
     Instance(
       MElement.Core(name),
       Core(Descriptor.command, params, result)
+    )
+
+  def commandBody(name: String, param: MParameter)(body: GenM[Unit]): MOperation =
+    commandBody(name, List(param), MResult.unit)(body)
+
+  def commandBody(name: String, params: List[MParameter], result: MResult)(body: GenM[Unit]): MOperation =
+    Instance(
+      MElement.Core(name),
+      Core(Descriptor.command, params, result, Some(() => body))
     )
 }
