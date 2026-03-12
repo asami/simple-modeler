@@ -7,7 +7,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 
 /*
  * @since   Feb. 12, 2026
- * @version Feb. 27, 2026
+ *  version Feb. 27, 2026
+ * @version Mar.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -228,14 +229,14 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       case m if m.fullName == "org.goldenport.record.Record" =>
         println(s"Consequence.success($actionclassname(request, request.toRecord))")
       case m if m.isPlatform =>
-        block(s"""Consequence.successOrRecordNotFound[${paramtype.name}](request.toRecord, "${paramname}").""") {
+        block(s"""Consequence.successOrRecordNotFound[${paramtype.name}]("${paramname}", request.toRecord).""") {
           println(s"map($actionclassname(request, _))")
         }
       case TypeName.Container(container, containee) => containee match {
         case mm if mm.fullName == "org.goldenport.record.Record" =>
           println(s"Consequence.success($actionclassname(request, ${container.name}(request.toRecord)))")
         case mm if mm.isPlatform => 
-          block(s"""Consequence.successOrRecordNotFound[${paramtype.name}](request.toRecord, "${paramname}").""") {
+          block(s"""Consequence.successOrRecordNotFound[${paramtype.name}]("${paramname}", request.toRecord).""") {
             println(s"map(x => $actionclassname(request, ${container.name}(x)))")
           }
         case _ => 

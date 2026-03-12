@@ -16,7 +16,8 @@ import Generator.{State => GState, _}
  *  version Sep. 30, 2025
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
- * @version Feb. 28, 2026
+ *  version Feb. 28, 2026
+ * @version Mar. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -270,7 +271,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     if (is_value) {
       val m = SMethod.query("toRecord", TypeName.create("org.goldenport.record", "Record")) {
         for {
-          _ <- println("Record.data(")
+          _ <- println("Record.dataAuto(")
           _ <- indent
           _ <- _to_record
           _ <- outdent
@@ -920,7 +921,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     builder_parameter_line_raw(p.name.name)
 
   protected def builder_parameter_line_raw(p: String): String =
-    s"Consequence.takeOrMissingPropertyFault(${property_name(p)}, $p)"
+    s"Consequence.successOrPropertyNotFound(${property_name(p)}, $p)"
 
   protected def builder_parameter_line_container(
     p: Parameter,
@@ -981,8 +982,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _build_param_or_var_raw(p: Parameter)(param: => GenM[Unit]): GenM[Unit] =
     for {
-      _ <- print("Consequence.takeOrMissingPropertyFault(", property_name(p.name.name), ", ")
-      _ <- param
+      _ <- print("Consequence.successOrRecordNotFound(", property_name(p.name.name), ", ")
+      _ <- print("record") // print(param)
       _ <- print(", ", p.name.name, ")")
     } yield ()
 
@@ -1132,7 +1133,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _entity(name: String): GenM[Unit] =
     if (is_entity_value_create) {
       for {
-        _ <- println("val collectionId: EntityCollectionId = ???")
+        _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
         _ <- println(s"given EntityPersistentCreate[$name] = EntityPersistentCreate.derived(collectionId)")
       } yield ()
     } else if (is_entity_value) {

@@ -9,7 +9,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Feb. 11, 2026
- * @version Feb. 18, 2026
+ *  version Feb. 18, 2026
+ * @version Mar. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -85,14 +86,17 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       val rtype = to_result(p.result)
       val ap = Parameter.create("action", action)
       val aps = ParameterSequence(Vector(ap))
-      val method = SMethod(MethodName(p.name), descriptor, aps, rtype)
+      val method = SMethod(MethodName(p.name), descriptor, aps, rtype, p.body)
       (method, Vector(action))
     }
 
     private def _create_action(p: MOperation): SCaseClass = {
       val pkgname = componentPackageName // TODO
       val name = p.name
-      val actionkind = "command"
+      val actionkind = p.descriptor.kind match {
+        case MOperation.Kind.Command => "command"
+        case MOperation.Kind.Query => "query"
+      }
       val actionname = make_title_name(name, actionkind)
       val params = p.parameters.toVector.map(to_parameter)
       val parameters = ParameterSequence(params)

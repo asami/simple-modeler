@@ -21,7 +21,7 @@ import org.simplemodeling.SimpleModeler.generators.scala._
  *  version May. 16, 2020
  *  version May. 18, 2025
  *  version Sep. 21, 2025
- * @version Feb. 17, 2026
+ * @version Feb. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
@@ -195,7 +195,7 @@ lazy val root = project
     libraryDependencies += "io.circe" %% "circe-core" % "0.14.3",
     libraryDependencies += "io.circe" %% "circe-generic" % "0.14.3",
     libraryDependencies += "io.circe" %% "circe-parser" % "0.14.3",
-    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % "0.3.6-SNAPSHOT",
+    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % "0.3.7-SNAPSHOT",
 
     Compile / unmanagedSourceDirectories += (Compile / sourceManaged).value
   )

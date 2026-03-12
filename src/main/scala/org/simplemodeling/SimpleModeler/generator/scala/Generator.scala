@@ -13,7 +13,8 @@ import model._
  *  version May. 19, 2025
  *  version Sep. 26, 2025
  *  version Oct. 17, 2025
- * @version Feb. 17, 2026
+ *  version Feb. 17, 2026
+ * @version Mar. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 trait Generator[A, R] {
@@ -205,6 +206,30 @@ object Generator {
       _ <- println("}")
     } yield r
   }
+
+  def blockFor(body: => GenM[Unit])(output: => GenM[Unit]): GenM[Unit] =
+    for {
+      _ <- println("for {")
+      _ <- indent
+      r <- body
+      _ <- outdent
+      _ <- print("} yield {")
+      _ <- indent
+      _ <- output
+      _ <- outdent
+      _ <- println("}")
+    } yield r
+
+  def blockFor(body: String, bodys: String*)(output: String, outputs: String*): GenM[Unit] =
+    blockFor(_println_block(body +: bodys))(_println_block(output +: outputs))
+
+  private def _println_block(ps: Seq[String]): GenM[Unit] =
+    ps.toVector.foldLeft(unit) { (z, s) =>
+      for {
+        _ <- z
+        _ <- println(s)
+      } yield ()
+    }
 
   def blockSimple(prefix: String)(body: => GenM[Unit]): GenM[Unit] =
     blockSimpleR[Unit](prefix)(body)
