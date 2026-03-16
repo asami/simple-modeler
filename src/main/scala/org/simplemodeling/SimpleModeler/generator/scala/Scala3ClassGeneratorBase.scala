@@ -17,7 +17,7 @@ import Generator.{State => GState, _}
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 11, 2026
+ * @version Mar. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -83,6 +83,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected final def is_value = classKind.isValue
   protected final def is_entity_value = classKind.isEntityValue
+  protected final def is_query = clazz.directive.isQuery
+  protected final def is_update = clazz.directive.isUpdate
 
   protected final def class_type_name: TypeName = TypeName.create(clazz)
 
@@ -194,7 +196,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } yield ()
 
   private def _augument_traits: List[String] = {
-    if (is_entity_value_create)
+    if (is_query)
+      List("EntityPersistableQuery")
+    else if (is_update)
+      List("EntityPersistableUpdate")
+    else if (is_entity_value_create)
       List("EntityPersistableCreate")
     else if (is_entity_value)
       List("EntityPersistable")
@@ -403,10 +409,36 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     p match {
       case m: TypeName.Primitive => TypeName.option(m)
       case m: TypeName.Plain => TypeName.option(m)
+      case m: TypeName.Container if is_condition_type(m) => TypeName.option(m)
+      case m: TypeName.Container if is_update_type(m) => TypeName.option(m)
       case m: TypeName.Container => m
       case m: TypeName.Function => RAISE.notImplementedYetDefect("Function")
       case m: TypeName.Unit => RAISE.notImplementedYetDefect("Unit")
     }
+
+  protected final def is_condition_type(p: TypeName): Boolean = p match {
+    case m: TypeName.Container =>
+      m.container.name == "Condition" ||
+      m.container.fullName == "org.goldenport.cncf.directive.Condition"
+    case _ => false
+  }
+
+  protected final def is_option_condition_type(p: TypeName): Boolean = p match {
+    case m: TypeName.Container if m.isOption => is_condition_type(m.containee)
+    case _ => false
+  }
+
+  protected final def is_update_type(p: TypeName): Boolean = p match {
+    case m: TypeName.Container =>
+      m.container.name == "Update" ||
+      m.container.fullName == "org.goldenport.cncf.directive.Update"
+    case _ => false
+  }
+
+  protected final def is_option_update_type(p: TypeName): Boolean = p match {
+    case m: TypeName.Container if m.isOption => is_update_type(m.containee)
+    case _ => false
+  }
 
   protected def define_case_class(
     name: ClassName,
@@ -670,19 +702,45 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     def methodname = "with" + StringUtils.makeTitle(propname)
     val optionp = Parameter(p.name, option_type(p.typeName))
 
-    for {
-      _ <- define_method(methodname, builder_type, raw_parameter(p)) {
-        println("copy(", propname, " = Some(", propname, "))")
-      }
-      _ <- define_method(methodname, builder_type, option_parameter(p)) {
-        println("copy(", propname, " = ", propname, ")")
-      }
-      _ <- _builder_with_methods_parse(p)
-    } yield ()
+    if (is_condition_type(p.typeName)) {
+      for {
+        _ <- define_method(methodname, builder_type, raw_parameter(p)) {
+          println("copy(", propname, " = Some(Condition.is(", propname, ")))")
+        }
+        _ <- define_method(methodname, builder_type, p) {
+          println("copy(", propname, " = Some(", propname, "))")
+        }
+      } yield ()
+    } else if (is_update_type(p.typeName)) {
+      for {
+        _ <- define_method(methodname, builder_type, raw_parameter(p)) {
+          println("copy(", propname, " = Some(Update.set(", propname, ")))")
+        }
+        _ <- define_method(methodname, builder_type, p) {
+          println("copy(", propname, " = Some(", propname, "))")
+        }
+      } yield ()
+    } else {
+      for {
+        _ <- define_method(methodname, builder_type, raw_parameter(p)) {
+          println("copy(", propname, " = Some(", propname, "))")
+        }
+        _ <- define_method(methodname, builder_type, option_parameter(p)) {
+          println("copy(", propname, " = ", propname, ")")
+        }
+        _ <- _builder_with_methods_parse(p)
+      } yield ()
+    }
   }
 
   private def _builder_with_methods_parse(p: Parameter): GenM[Unit] =
-    if (p.typeName.isString) {
+    if (
+      p.typeName.isString ||
+      is_condition_type(p.typeName) ||
+      is_option_condition_type(p.typeName) ||
+      is_update_type(p.typeName) ||
+      is_option_update_type(p.typeName)
+    ) {
       unit
     } else {
       for {
@@ -929,6 +987,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   ): String =
     if (container.isOption)
       builder_parameter_line_container_option(p)
+    else if (is_update_type(container))
+      s"Consequence.success(${p.name.name}.getOrElse(Update.noop[${container.containee.name}]))"
+    else if (is_condition_type(container))
+      builder_parameter_line_raw(p.name.name)
     else if (container.isList)
       s"???"
     else if (container.isVector)
@@ -996,6 +1058,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- param
         _ <- print(".map(_  orElse ", p.name.name, ")")
       } yield ()
+    else if (is_condition_type(container))
+      _build_param_or_var_condition(p, container)
+    else if (is_update_type(container))
+      _build_param_or_var_update(p, container)
     else if (container.isList)
       println("???")
     else if (container.isVector)
@@ -1004,6 +1070,38 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       println("???")
     else
       RAISE.noReachDefect
+
+  private def _build_param_or_var_condition(
+    p: Parameter,
+    container: TypeName.Container
+  ): GenM[Unit] = {
+    val propname = property_name(p.name.name)
+    for {
+      _ <- print("record.getAsC[", container.containee.name, "](", propname, ").flatMap {")
+      _ <- println()
+      _ <- indent
+      _ <- println("case Some(s) => Consequence.success(Condition.is(s))")
+      _ <- println("case None => Consequence.successOrPropertyNotFound(", propname, ", ", p.name.name, ")")
+      _ <- outdent
+      _ <- print("}")
+    } yield ()
+  }
+
+  private def _build_param_or_var_update(
+    p: Parameter,
+    container: TypeName.Container
+  ): GenM[Unit] = {
+    val propname = property_name(p.name.name)
+    for {
+      _ <- print("record.getAsC[", container.containee.name, "](", propname, ").flatMap {")
+      _ <- println()
+      _ <- indent
+      _ <- println("case Some(s) => Consequence.success(Update.set(s))")
+      _ <- println("case None => Consequence.success(", p.name.name, ".getOrElse(Update.noop[", container.containee.name, "]))")
+      _ <- outdent
+      _ <- print("}")
+    } yield ()
+  }
 
   private def _get_record_param(p: Parameter): GenM[Unit] =
     print("record.getAsC[", p.toRawType.typeName.name, "](", property_name(p.name.name), ")")
@@ -1124,14 +1222,27 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     if (is_value) {
       for {
         _ <- println("// Domain semantic equality = equality of identity")
-        _ <- println(s"given Eq[", name, "] = Eq.by(_.id)")
+        _ <- if (clazz.directive.isQuery || clazz.directive.isUpdate)
+          println(s"given Eq[", name, "] = Eq.fromUniversalEquals")
+        else
+          println(s"given Eq[", name, "] = Eq.by(_.id)")
       } yield ()
     } else {
       unit
     }
 
   private def _entity(name: String): GenM[Unit] =
-    if (is_entity_value_create) {
+    if (is_query) {
+      for {
+        _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
+        _ <- println(s"given EntityPersistentQuery[$name] = EntityPersistentQuery.derived(createC, collectionId)")
+      } yield ()
+    } else if (is_update) {
+      for {
+        _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
+        _ <- println(s"given EntityPersistentUpdate[$name] = EntityPersistentUpdate.derived(createC, collectionId)")
+      } yield ()
+    } else if (is_entity_value_create) {
       for {
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
         _ <- println(s"given EntityPersistentCreate[$name] = EntityPersistentCreate.derived(collectionId)")

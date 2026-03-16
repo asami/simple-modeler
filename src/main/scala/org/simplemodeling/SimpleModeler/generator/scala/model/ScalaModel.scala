@@ -20,7 +20,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Sep. 30, 2025
  *  version Oct.  7, 2025
  *  version Nov. 18, 2025
- * @version Feb. 28, 2026
+ *  version Feb. 28, 2026
+ * @version Mar. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -542,6 +543,8 @@ case class Directive(
   purpose: Option[Purpose] = None
 ) {
   def isCreate: Boolean = purpose.fold(false)(_ == Purpose.Create)
+  def isQuery: Boolean = purpose.fold(false)(_ == Purpose.Query)
+  def isUpdate: Boolean = purpose.fold(false)(_ == Purpose.Update)
 
   def withEntityValue = copy(classKind = Some(ClassKind.EntityValue))
   def withPurpose(purpose: Purpose) = copy(purpose = Some(purpose))
