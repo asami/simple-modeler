@@ -2,7 +2,8 @@ package org.simplemodeling.model
 
 /*
  * @since   Feb. 18, 2026
- * @version Feb. 19, 2026
+ *  version Feb. 19, 2026
+ * @version Mar. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MEntityValue(
@@ -29,7 +30,7 @@ object MEntityValue {
   sealed trait QueryAction extends Action
   object Kind {
     case object Create extends Kind with Input with CommandAction
-    case object Store extends Kind with Input with CommandAction
+    case object Save extends Kind with Input with CommandAction
     case object Update extends Kind with Input with CommandAction
     case object Query extends Kind with Input with QueryAction
     case object Whole extends Kind with Output
@@ -37,7 +38,7 @@ object MEntityValue {
   }
 
   def create(p: MEntity): MEntityValue = MEntityValue(p, Kind.Create)
-  def store(p: MEntity): MEntityValue = MEntityValue(p, Kind.Store)
+  def save(p: MEntity): MEntityValue = MEntityValue(p, Kind.Save)
   def update(p: MEntity): MEntityValue = MEntityValue(p, Kind.Update)
   def query(p: MEntity): MEntityValue = MEntityValue(p, Kind.Query)
   def whole(p: MEntity): MEntityValue = MEntityValue(p, Kind.Whole)

@@ -14,7 +14,7 @@ import model._
  *  version Sep. 26, 2025
  *  version Oct. 17, 2025
  *  version Feb. 17, 2026
- * @version Mar. 10, 2026
+ * @version Mar. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 trait Generator[A, R] {
@@ -213,7 +213,7 @@ object Generator {
       _ <- indent
       r <- body
       _ <- outdent
-      _ <- print("} yield {")
+      _ <- println("} yield {")
       _ <- indent
       _ <- output
       _ <- outdent

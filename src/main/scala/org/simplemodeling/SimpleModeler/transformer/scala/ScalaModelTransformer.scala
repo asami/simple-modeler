@@ -12,7 +12,8 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  * @since   Sep. 19, 2025
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
- * @version Feb. 27, 2026
+ *  version Feb. 27, 2026
+ * @version Mar. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -206,8 +207,8 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       case MEntityValue.Kind.Create =>
         val tx = new EntityValueCreateScalaModelTransformer()
         _to_class(tx(p.entity))
-      case MEntityValue.Kind.Store =>
-        val tx = new EntityValueCreateScalaModelTransformer()
+      case MEntityValue.Kind.Save =>
+        val tx = new EntityValueCreateScalaModelTransformer() // CHECK
         _to_class(tx(p.entity))
       case MEntityValue.Kind.Update =>
         val tx = new EntityValueUpdateScalaModelTransformer()
@@ -219,7 +220,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
         val tx = new EntityValueReadScalaModelTransformer()
         _to_class(tx(p.entity))
       case MEntityValue.Kind.Summary =>
-        val tx = new EntityValueReadScalaModelTransformer()
+        val tx = new EntityValueReadScalaModelTransformer() // CHECK
         _to_class(tx(p.entity))
     }
 

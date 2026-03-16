@@ -13,7 +13,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Aug.  8, 2019
  *  version Dec. 14, 2019
  *  version Apr. 25, 2020
- * @version Feb. 27, 2026
+name, List(param), result) *  version Feb. 27, 2026
+name, List(param), result) * @version Mar. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class MOperation extends MElement
@@ -67,6 +68,21 @@ object MOperation {
       MElement.Core(name),
       Core(Descriptor.query, params, result)
     )
+
+  def queryBody(
+    name: String,
+    param: MParameter,
+    result: MResult
+  )(body: GenM[Unit]): MOperation = queryBody(name, List(param), result)(body)
+
+  def queryBody(
+    name: String,
+    params: List[MParameter],
+    result: MResult
+  )(body: GenM[Unit]): MOperation = Instance(
+    MElement.Core(name),
+    Core(Descriptor.query, params, result, Some(() => body))
+  )
 
   // def query(name: String, param: MParameter, result: MDataType): MOperation =
   //   query(name, param, MResult(result))
