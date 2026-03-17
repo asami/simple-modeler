@@ -10,7 +10,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Sep. 19, 2025
  *  version Sep. 23, 2025
- * @version Feb. 27, 2026
+ *  version Feb. 27, 2026
+ * @version Mar. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -26,4 +27,33 @@ class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModel
       case m => super.to_typename(p)
     }
 //    TypeName.Primitive.createMarshalling(p)
+
+  override protected def to_parameter(p: MAttribute): Parameter = {
+    val base = super.to_parameter(p)
+    if (_is_autocomplement_target(p))
+      base.typeName match {
+        case m: TypeName.Container if m.isOption => base
+        case _ => base.copy(typeName = TypeName.option(base.typeName))
+      }
+    else
+      base
+  }
+
+  private def _is_autocomplement_target(p: MAttribute): Boolean = {
+    val key = p.name.toLowerCase(java.util.Locale.ROOT)
+    p.isRequired && _autocomplement_target_keys.contains(key)
+  }
+
+  private val _autocomplement_target_keys: Set[String] = Set(
+    "id",
+    "name",
+    "createdat",
+    "updatedat",
+    "createdby",
+    "updatedby",
+    "poststatus",
+    "aliveness",
+    "traceid",
+    "correlationid"
+  )
 }

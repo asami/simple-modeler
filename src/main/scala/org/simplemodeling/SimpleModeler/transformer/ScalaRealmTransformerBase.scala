@@ -12,6 +12,7 @@ import org.simplemodeling.SimpleModeler.transformer.maker.ScalaClassDefinition
 import org.simplemodeling.SimpleModeler.transformer.maker._
 import org.simplemodeling.SimpleModeler.transformer.maker.mobject.MPEntity
 import org.simplemodeling.SimpleModeler.generators.scala._
+import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
 
 /*
  * Derived from SimpleModel2ScalaRealmTransformerBase (Nov. 19, 2012)
@@ -21,11 +22,21 @@ import org.simplemodeling.SimpleModeler.generators.scala._
  *  version May. 16, 2020
  *  version May. 18, 2025
  *  version Sep. 21, 2025
- * @version Feb. 28, 2026
+ *  version Feb. 28, 2026
+ * @version Mar. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
   val fileSuffix = "scala"
+
+  override def transform(model: SimpleModel): TransformResult = {
+    ScalaModelTransformer.clearObjectRegistry()
+    model.elements.foreach {
+      case m: MObject => ScalaModelTransformer.registerObject(m)
+      case _ =>
+    }
+    super.transform(model)
+  }
 
   protected def make_Entity(model: PModel, p: PEntity): String = {
     val aspects = Nil

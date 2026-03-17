@@ -13,7 +13,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- * @version Mar. 14, 2026
+ * @version Mar. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -44,8 +44,9 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     val classname = ClassName(p.name)
     val parentclass = to_scala_core_parent(p)
     val traits = to_scala_core_traits(p)
-    val parameters = to_parameters(p.attributes)
-    val fields = to_fields(p.attributes)
+    val attrs = effective_attributes(p)
+    val parameters = to_parameters(attrs)
+    val fields = to_fields(attrs)
     val methods = to_methods(p.operations)
     val receptions = ReceptionCompartment.empty // TODO
     val directive = Directive.default
@@ -63,6 +64,34 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     )
   }
 
+  protected def effective_attributes(p: MObject): List[MAttribute] =
+    _collect_effective_attributes(p, Set.empty)
+
+  private def _collect_effective_attributes(
+    p: MObject,
+    visited: Set[String]
+  ): List[MAttribute] = {
+    val key = p.qualifiedName
+    if (visited.contains(key))
+      p.attributes
+    else {
+      val baseattrs = p.base.flatMap(ScalaModelTransformer.resolveObject(_, p)).
+        map(_collect_effective_attributes(_, visited + key)).
+        getOrElse(Nil)
+      _merge_attributes(baseattrs, p.attributes)
+    }
+  }
+
+  private def _merge_attributes(
+    base: List[MAttribute],
+    own: List[MAttribute]
+  ): List[MAttribute] = {
+    val m = scala.collection.mutable.LinkedHashMap[String, MAttribute]()
+    base.foreach(x => m.update(x.name, x))
+    own.foreach(x => m.update(x.name, x))
+    m.values.toList
+  }
+
   protected def to_scala_core_declaration(p: MObject) = p match {
     case m: MComponent => ClassDeclaration.Control
     case _ => ClassDeclaration.CaseClass
@@ -78,13 +107,29 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   }
 
   protected final def to_scala_core_parent_default(p: MObject) =
-    p.base.map(_to_type)
+    p.base.flatMap(_to_parent_type(p, _))
 
   protected def to_scala_core_traits(p: MObject) = 
     p.traits.map(_to_type)
 
-  private def _to_type(p: MObjectRef): TypeName =
-    TypeName(PackageName(p.packageName), p.name)
+  private def _to_parent_type(
+    scope: MObject,
+    p: MObjectRef
+  ): Option[TypeName] =
+    if (_is_simple_entity(p.targetName)) {
+      ScalaModelTransformer.resolveObject(p, scope) match {
+        case Some(_) =>
+          // A model-defined SimpleEntity is flattened into current class attributes.
+          None
+        case None =>
+          Some(TypeName(PackageName("org.goldenport.model"), "SimpleEntity"))
+      }
+    } else {
+      Some(TypeName(PackageName(p.targetPackageName), p.targetName))
+    }
+
+  private def _is_simple_entity(p: String): Boolean =
+    p.equalsIgnoreCase("SimpleEntity") || p.equalsIgnoreCase("simple_entity")
 
   private def _to_type(p: MTraitRef): TypeName =
     TypeName(PackageName(p.packageRef.packageName), p.name)
@@ -299,6 +344,56 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
 }
 
 object ScalaModelTransformer {
+  private val _object_registry =
+    scala.collection.concurrent.TrieMap.empty[String, MObject]
+  private val _object_registry_by_name =
+    scala.collection.concurrent.TrieMap.empty[String, Vector[MObject]]
+
+  def clearObjectRegistry(): Unit = synchronized {
+    _object_registry.clear()
+    _object_registry_by_name.clear()
+  }
+
+  def registerObject(p: MObject): Unit = synchronized {
+    _object_registry.update(p.qualifiedName, p)
+    val xs = _object_registry_by_name.getOrElse(p.name, Vector.empty)
+    val ys = (xs.filterNot(_.qualifiedName == p.qualifiedName) :+ p)
+    _object_registry_by_name.update(p.name, ys)
+  }
+
+  def resolveObject(ref: MObjectRef, scope: MObject): Option[MObject] = {
+    val qnamecandidates = _qualified_name_candidates(ref, scope)
+    qnamecandidates.toStream.flatMap(_object_registry.get).headOption.orElse {
+      _resolve_by_name(ref.objectName, ref.packageName, scope.packageName)
+    }
+  }
+
+  private def _qualified_name_candidates(ref: MObjectRef, scope: MObject): Vector[String] = {
+    val local = _qualified_name(scope.packageName, ref.objectName)
+    val target = _qualified_name(ref.packageName, ref.objectName)
+    Vector(local, target, ref.objectName).distinct
+  }
+
+  private def _qualified_name(pkg: String, name: String): String =
+    if (pkg == null || pkg.isEmpty)
+      name
+    else
+      s"$pkg.$name"
+
+  private def _resolve_by_name(
+    name: String,
+    targetPackage: String,
+    scopePackage: String
+  ): Option[MObject] =
+    _object_registry_by_name.get(name).flatMap {
+      case Vector(single) =>
+        Some(single)
+      case xs =>
+        xs.find(_.packageName == scopePackage).
+          orElse(xs.find(_.packageName == targetPackage)).
+          orElse(xs.headOption)
+    }
+
   sealed trait Purpose
   object Purpose {
     val elements = Vector(

@@ -17,7 +17,7 @@ import Generator.{State => GState, _}
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 17, 2026
+ * @version Mar. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -171,10 +171,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
               case xs => " with " + xs.mkString(" with ")
             }
           )
-        val ts = clazz.traitList.map(_.name) ++ _augument_traits
+        val ts = clazz.traitList.map(_typename_for_extends) ++ _augument_traits
         val s = (clazz.parentClass, ts) match {
-          case (Some(s), Nil) => s" extends ${s.name} "
-          case (Some(s), xs) => _extends_(s.name, xs)
+          case (Some(s), Nil) => s" extends ${_typename_for_extends(s)} "
+          case (Some(s), xs) => _extends_(_typename_for_extends(s), xs)
           case (None, Nil) => " "
           case (None, x :: xs) => _extends_(x, xs)
         }
@@ -206,6 +206,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       List("EntityPersistable")
     else
       Nil
+  }
+
+  private def _typename_for_extends(p: TypeName): String = p match {
+    case TypeName.Plain(pkg, name, _) if pkg.name == "org.goldenport.model" && name == "SimpleEntity" =>
+      p.fullName
+    case _ =>
+      p.name
   }
 
   protected def declare_derives: GenM[Unit] =
@@ -937,15 +944,25 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   private def _builder_buildc_method_body(body: => GenM[Unit]): GenM[Unit] = {
+    val arity = clazz.parameterSequence.parameters.size
     for {
-      _ <- println("(")
-      _ <- indent
-      _ <- body
-      _ <- outdent
-      _ <- print(").mapN(")
-      _ <- print(clazz.className.name)
-      _ <- print(".apply")
-      _ <- println(")")
+      _ <- if (arity == 0) {
+        println(s"Consequence.success(${clazz.className.name}.apply())")
+      } else {
+        for {
+          _ <- println("(")
+          _ <- indent
+          _ <- body
+          _ <- outdent
+          _ <- if (arity == 1)
+            print(").map(")
+          else
+            print(").mapN(")
+          _ <- print(clazz.className.name)
+          _ <- print(".apply")
+          _ <- println(")")
+        } yield ()
+      }
     } yield ()
   }
 
@@ -1170,11 +1187,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val withs = params.map(_with_).mkString
     for {
       _ <- println("val builder = Builder()")
-      _ <- indent
-      _ <- print("builder")
-      _ <- println(withs)
-      _ <- outdent
-      _ <- println("builder.buildC()")
+      _ <- if (withs.nonEmpty)
+        for {
+          _ <- println(s"val builder2 = builder$withs")
+          _ <- println("builder2.buildC()")
+        } yield ()
+      else
+        println("builder.buildC()")
     } yield ()
   }
 
@@ -1224,12 +1243,17 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("// Domain semantic equality = equality of identity")
         _ <- if (clazz.directive.isQuery || clazz.directive.isUpdate)
           println(s"given Eq[", name, "] = Eq.fromUniversalEquals")
-        else
+        else if (_has_id_parameter)
           println(s"given Eq[", name, "] = Eq.by(_.id)")
+        else
+          println(s"given Eq[", name, "] = Eq.fromUniversalEquals")
       } yield ()
     } else {
       unit
     }
+
+  private def _has_id_parameter: Boolean =
+    clazz.parameterSequence.parameters.exists(_.name.name == "id")
 
   private def _entity(name: String): GenM[Unit] =
     if (is_query) {
