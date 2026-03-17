@@ -1249,7 +1249,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       } yield ()
     } else if (is_entity_value) {
       for {
-        _ <- println("val collectionId: EntityCollectionId = ???")
+        _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
         _ <- println(s"given EntityPersistent[$name] = EntityPersistent.derived(createC)")
       } yield ()
     } else {
