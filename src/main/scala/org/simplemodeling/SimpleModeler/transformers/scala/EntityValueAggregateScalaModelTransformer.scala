@@ -7,30 +7,29 @@ import org.simplemodeling.SimpleModeler.transformer.scala.EntityCaseClassScalaMo
 import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
- * @since   Sep. 20, 2025
- *  version Mar. 17, 2026
+ * @since   Mar. 17, 2026
  * @version Mar. 17, 2026
  * @author  ASAMI, Tomoharu
  */
-class EntityValueViewScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
-  protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.View)
+class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
+  protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Aggregate)
   def apply(p: MObject): Consequence[Vector[SClassBase]] =
-    apply(p, Purpose.View)
+    apply(p, Purpose.Aggregate)
 
-  // NOTE: View-specific DSL/model is not available yet.
-  // Default: view.<Entity>
-  // Non-default: view.<view-name>.<Entity>
+  // NOTE: Aggregate-specific DSL/model is not available yet.
+  // Default: aggregate.<Entity>
+  // Non-default: aggregate.<aggregate-name>.<Entity>
   override protected def transform_entity(p: MEntity, purpose: Purpose): Consequence[Vector[SClassBase]] = Consequence {
-    val subpkg = _view_package(_view_name(p))
+    val subpkg = _aggregate_package(_aggregate_name(p))
     val core = to_scala_core_subpackage(p, subpkg)
     Vector(SCaseClass(core.withEntityValue.withPurpose(purpose)))
   }
 
-  // Future: resolve view name from model metadata.
-  private def _view_name(p: MEntity): Option[String] = None
+  // Future: resolve aggregate name from model metadata.
+  private def _aggregate_name(p: MEntity): Option[String] = None
 
-  private def _view_package(name: Option[String]): String =
-    name.flatMap(_token_opt).fold("view")(x => s"view.$x")
+  private def _aggregate_package(name: Option[String]): String =
+    name.flatMap(_token_opt).fold("aggregate")(x => s"aggregate.$x")
 
   private def _token_opt(name: String): Option[String] =
     Option(name).map(_.trim).filter(_.nonEmpty).map(_package_token)

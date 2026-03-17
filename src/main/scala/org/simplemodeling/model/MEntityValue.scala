@@ -34,6 +34,10 @@ object MEntityValue {
     case object Update extends Kind with Input with CommandAction
     case object Query extends Kind with Input with QueryAction
     case object Whole extends Kind with Output
+    // NOTE: Aggregate model DSL is not available yet. Use entity-shaped value for now.
+    case object Aggregate extends Kind with Output
+    // NOTE: View model DSL is not available yet. Use entity-shaped value for now.
+    case object View extends Kind with Output
     case object Summary extends Kind with Output
   }
 
@@ -42,5 +46,7 @@ object MEntityValue {
   def update(p: MEntity): MEntityValue = MEntityValue(p, Kind.Update)
   def query(p: MEntity): MEntityValue = MEntityValue(p, Kind.Query)
   def whole(p: MEntity): MEntityValue = MEntityValue(p, Kind.Whole)
+  def aggregate(p: MEntity): MEntityValue = MEntityValue(p, Kind.Aggregate)
+  def view(p: MEntity): MEntityValue = MEntityValue(p, Kind.View)
   def summary(p: MEntity): MEntityValue = MEntityValue(p, Kind.Summary)
 }

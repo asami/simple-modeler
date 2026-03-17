@@ -25,6 +25,7 @@ class Scala3EntityFamilyGenerator(
       new EntityValueCreateScalaModelTransformer(),
       new EntityValueReadScalaModelTransformer(),
       new EntityValueUpdateScalaModelTransformer(),
+      new EntityValueAggregateScalaModelTransformer(),
       new EntityValueViewScalaModelTransformer(),
       new EntityValueOperationScalaModelTransformer(),
       new EntityValueQueryScalaModelTransformer()

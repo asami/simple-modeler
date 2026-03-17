@@ -176,10 +176,14 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
 
   final protected def to_parameter(p: MParameter): Parameter = {
     import MParameter._
-    val tname = p.parameterType match {
+    val t0 = p.parameterType match {
       case MDataTypeParameterType(dt) => to_typename(dt)
       case MObjectParameterType(o) => to_typename(o)
       case MObjectRefParameterType(ref) => to_typename(ref)
+    }
+    val tname = p.multiplicity match {
+      case MZeroOne => TypeName.option(t0)
+      case _ => t0
     }
     val value = _get_value(p.parameterType)
     Parameter(ParameterName(p.name), tname, value = value)
@@ -218,6 +222,12 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
         _to_class(tx(p.entity))
       case MEntityValue.Kind.Whole =>
         val tx = new EntityValueReadScalaModelTransformer()
+        _to_class(tx(p.entity))
+      case MEntityValue.Kind.Aggregate =>
+        val tx = new EntityValueAggregateScalaModelTransformer()
+        _to_class(tx(p.entity))
+      case MEntityValue.Kind.View =>
+        val tx = new EntityValueViewScalaModelTransformer()
         _to_class(tx(p.entity))
       case MEntityValue.Kind.Summary =>
         val tx = new EntityValueReadScalaModelTransformer() // CHECK
@@ -299,6 +309,7 @@ object ScalaModelTransformer {
       Delete,
       Operation,
       View,
+      Aggregate,
       Query
     )
 
@@ -309,6 +320,7 @@ object ScalaModelTransformer {
     case object Delete extends Purpose
     case object Operation extends Purpose
     case object View extends Purpose
+    case object Aggregate extends Purpose
     case object Query extends Purpose
   }
 }

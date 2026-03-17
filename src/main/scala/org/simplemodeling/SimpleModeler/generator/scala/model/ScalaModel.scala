@@ -830,6 +830,10 @@ object SComponent {
         val relativeSegments = _relative_package_segments(pkg)
         if (relativeSegments.isEmpty)
           name
+        // Keep aggregate/view entity-value references absolute to avoid collisions
+        // with imported CNCF symbols such as org.goldenport.cncf.entity.aggregate.
+        else if (relativeSegments.head == "aggregate" || relativeSegments.head == "view")
+          s"_root_.${pkg.name}.$name"
         else
           s"${relativeSegments.mkString(".")}.$name"
       }

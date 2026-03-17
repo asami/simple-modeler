@@ -165,13 +165,22 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         case SMethod.Kind.Query => "QueryAction"
         case SMethod.Kind.Command => "CommandAction"
       }
-      val (paramname, paramclasstype) = _param_descriptor(op)
+      val params = _param_descriptors(op)
       for {
         _ <- separator
         _ <- block(s"final case class ${actionclassname}(") {
           for {
-            _ <- println("request: Request,")
-            _ <- println(s"${paramname}: ${typename_relative_name(paramclasstype)}")
+            _ <- if (params.nonEmpty)
+              println("request: Request,")
+            else
+              println("request: Request")
+            _ <- params.zipWithIndex.traverse { case ((paramname, paramclasstype), i) =>
+              val isLast = i == params.length - 1
+              if (isLast)
+                println(s"${paramname}: ${typename_relative_name(paramclasstype)}")
+              else
+                println(s"${paramname}: ${typename_relative_name(paramclasstype)},")
+            }
           } yield ()
         }
         _ <- block(s") extends ${opkind}()") {
@@ -186,68 +195,91 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
             } yield ()
           }
         }
-        _ <- _action_companion_object(op, paramname, paramclasstype)
+        _ <- _action_companion_object(op, params)
       } yield ()
     }
 
-    private def _param_descriptor(op: SMethod): (String, TypeName) =
+    private def _param_descriptors(op: SMethod): Vector[(String, TypeName)] =
       op.parameters.parameters.headOption match {
         case Some(s) => s.value match {
-          case Some(v) => _action_descriptor(v)
-          case None => (s.name.name, s.typeName)
+          case Some(v) => _action_descriptors(v)
+          case None => Vector((s.name.name, s.typeName))
         }
-        case None => ("p", TypeName.parse("Record")) // TODO
+        case None => Vector(("p", TypeName.parse("Record"))) // TODO
       }
 
+    private def _param_descriptor(op: SMethod): (String, TypeName) =
+      _param_descriptors(op).head
+
     private def _action_descriptor(action: SClassBase): (String, TypeName) =
+      _action_descriptors(action).head
+
+    private def _action_descriptors(action: SClassBase): Vector[(String, TypeName)] =
       action.parameterSequence.parameters.headOption match {
-        case Some(s) => s.value match {
-          case Some(v) => (s.name.name, TypeName.create(v))
-          case None => (s.name.name, s.typeName)
-        }
-        case None => ("p", TypeName.create(action))
+        case Some(_) =>
+          action.parameterSequence.parameters.map { s =>
+            s.value match {
+              case Some(v) => (s.name.name, TypeName.create(v))
+              case None => (s.name.name, s.typeName)
+            }
+          }
+        case None => Vector(("p", TypeName.create(action)))
       }
 
     private def _action_companion_object(
       op: SMethod,
-      paramname: String,
-      paramtype: TypeName
+      params: Vector[(String, TypeName)]
     ): GenM[Unit] = {
       val actionclassname = action_class_name(op)
       block(s"object $actionclassname") {
         block(s"def create(request: Request): Consequence[$actionclassname] =") {
-          _action_companion_object_create_body(paramname, paramtype, actionclassname)
+          _action_companion_object_create_body(params, actionclassname)
         }
       }
     }
 
     private def _action_companion_object_create_body(
-      paramname: String,
-      paramtype: TypeName,
+      params: Vector[(String, TypeName)],
       actionclassname: String
-    ): GenM[Unit] = paramtype match {
-      case m if m.fullName == "org.goldenport.record.Record" =>
-        println(s"Consequence.success($actionclassname(request, request.toRecord))")
-      case m if m.isPlatform =>
-        block(s"""Consequence.successOrRecordNotFound[${paramtype.name}]("${paramname}", request.toRecord).""") {
+    ): GenM[Unit] = params match {
+      case Vector() =>
+        println(s"Consequence.success($actionclassname(request))")
+      case Vector((paramname, paramtype)) =>
+        block(s"${_action_companion_object_create_expr(paramname, paramtype)}.") {
           println(s"map($actionclassname(request, _))")
         }
+      case xs =>
+        for {
+          _ <- println("for {")
+          _ <- indent
+          _ <- xs.traverse { case (name, tpe) =>
+            println(s"$name <- ${_action_companion_object_create_expr(name, tpe)}")
+          }.map(_ => ())
+          _ <- outdent
+          _ <- println(s"} yield $actionclassname(request, ${xs.map(_._1).mkString(", ")})")
+        } yield ()
+    }
+
+    private def _action_companion_object_create_expr(
+      paramname: String,
+      paramtype: TypeName
+    ): String = paramtype match {
+      case m if m.fullName == "org.goldenport.record.Record" =>
+        "Consequence.success(request.toRecord)"
+      case m if m.isPlatform =>
+        s"""Consequence.successOrRecordNotFound[${paramtype.name}]("${paramname}", request.toRecord)"""
+      case TypeName.Container(container, containee) if container.name == "Option" && containee.isString =>
+        s"""Consequence.success(request.toRecord.getString("${paramname}"))"""
       case TypeName.Container(container, containee) => containee match {
         case mm if mm.fullName == "org.goldenport.record.Record" =>
-          println(s"Consequence.success($actionclassname(request, ${container.name}(request.toRecord)))")
-        case mm if mm.isPlatform => 
-          block(s"""Consequence.successOrRecordNotFound[${paramtype.name}]("${paramname}", request.toRecord).""") {
-            println(s"map(x => $actionclassname(request, ${container.name}(x)))")
-          }
-        case _ => 
-          block(s"${containee.fullName}.createC(request.toRecord).") {
-            println(s"map(${container.name}(_)).map($actionclassname(request, _))")
-          }
+          s"Consequence.success(${container.name}(request.toRecord))"
+        case mm if mm.isPlatform =>
+          s"""Consequence.successOrRecordNotFound[${containee.name}]("${paramname}", request.toRecord).map(x => ${container.name}(x))"""
+        case _ =>
+          s"${containee.fullName}.createC(request.toRecord).map(${container.name}(_))"
       }
       case _ =>
-        block(s"${paramtype.fullName}.createC(request.toRecord).") {
-          println(s"map($actionclassname(request, _))")
-        }
+        s"${paramtype.fullName}.createC(request.toRecord)"
     }
 
     private def _action_call(op: SMethod): GenM[ActionCallDescriptor] = {
