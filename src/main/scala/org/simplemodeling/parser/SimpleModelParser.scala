@@ -26,7 +26,8 @@ import org.simplemodeling.model.domain._
  *  version Nov. 19, 2020
  *  version Dec. 27, 2020
  *  version Jun. 20, 2021
- * @version Feb. 27, 2026
+ *  version Feb. 27, 2026
+ * @version Mar. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 case class SimpleModelParser(config: SimpleModelParser.Config) {
@@ -59,7 +60,10 @@ object SimpleModelParser {
     datatypeNames: NonEmptyVector[String],
     multiplicityNames: NonEmptyVector[String],
     labelNames: NonEmptyVector[String],
-    constraintNames: NonEmptyVector[String]
+    constraintNames: NonEmptyVector[String],
+    dbColumnNameNames: NonEmptyVector[String],
+    dbColumnTypeNames: NonEmptyVector[String],
+    externalNameNames: NonEmptyVector[String]
   ) {
     lazy val _block_kind_vector = blockKindMap.toVector
 
@@ -94,7 +98,10 @@ object SimpleModelParser {
       _datatype_names,
       _multiplicity_names,
       _label_names,
-      _constraint_names
+      _constraint_names,
+      _db_column_name_names,
+      _db_column_type_names,
+      _external_name_names
     )
   }
 
@@ -133,6 +140,18 @@ object SimpleModelParser {
   private val _label_names = NonEmptyVector("ラベル")
 
   private val _constraint_names = NonEmptyVector("制約")
+
+  private val _db_column_name_names = NonEmptyVector.create(
+    "DBカラム名", "dbカラム名", "dbcolumnname", "db_column_name", "db column name", "column_name"
+  )
+
+  private val _db_column_type_names = NonEmptyVector.create(
+    "DBカラム型", "dbカラム型", "dbcolumntype", "db_column_type", "db column type", "column_type"
+  )
+
+  private val _external_name_names = NonEmptyVector.create(
+    "外部連携属性名", "external_name", "external name", "externalName"
+  )
 
   private val _spec_table_names: Set[String] = (_feature_table_names.vector ++ _property_table_names.vector).map(_.toLowerCase).toSet
 

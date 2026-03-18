@@ -17,7 +17,7 @@ import Generator.{State => GState, _}
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 18, 2026
+ * @version Mar. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -141,6 +141,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import org.goldenport.Consequence")
       _ <- println("import org.goldenport.ConsequenceT")
       _ <- println("import org.goldenport.datatype.*")
+      _ <- println("import org.goldenport.schema.Schema")
 //      _ <- println("import org.goldenport.value.*")
       _ <- println("import org.goldenport.record.Record")
       _ <- println("import org.goldenport.protocol.*")
@@ -235,13 +236,27 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected def section_utility: GenM[Unit] =
     for {
+      _ <- schema_accessor_method
+      _ <- separator
       _ <- with_methods
       _ <- lenslikeupdate_methods
       _ <- validate_method
       _ <- iri_method
       _ <- properties_method
       _ <- to_record_method
+      _ <- to_data_store_method
+      _ <- value_convert_methods
     } yield ()
+
+  protected def schema_accessor_method: GenM[Unit] =
+    if (is_entity_value) {
+      val m = SMethod.query("schema", TypeName.create("org.goldenport.schema", "Schema")) {
+        println(s"${clazz.className.name}.schema")
+      }
+      define_method(m)
+    } else {
+      unit
+    }
 
   protected def with_methods: GenM[Unit] = {
     val params = clazz.parameterSequence.parameters
@@ -296,6 +311,49 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       unit
     }
 
+  protected def to_data_store_method: GenM[Unit] =
+    if (is_entity_value) {
+      val m = SMethod.query("toDataStore", TypeName.create("org.goldenport.record", "Record")) {
+        for {
+          _ <- println("Record.dataAuto(")
+          _ <- indent
+          _ <- _to_data_store
+          _ <- outdent
+          _ <- println(")")
+        } yield ()
+      }
+      define_method(m)
+    } else {
+      unit
+    }
+
+  protected def value_convert_methods: GenM[Unit] =
+    if (is_entity_value || is_value) {
+      for {
+        _ <- println("private def _to_external_value(v: Any): Any = v match {")
+        _ <- indent
+        _ <- println("case null => null")
+        _ <- println("case m: String => m")
+        _ <- println("case m: java.lang.Number => m")
+        _ <- println("case m: java.lang.Boolean => m")
+        _ <- println("case m: java.lang.Character => m.toString")
+        _ <- println("case m: Record => m")
+        _ <- println("case m: Option[?] => m.map(_to_external_value)")
+        _ <- println("case m: Seq[?] => m.map(_to_external_value)")
+        _ <- println("case m: Set[?] => m.toVector.map(_to_external_value)")
+        _ <- println("case m: Array[?] => m.toVector.map(_to_external_value)")
+        _ <- println("""case m: Map[?, ?] => m.iterator.map { case (k, value) => k.toString -> _to_external_value(value) }.toMap""")
+        _ <- println("case m: org.goldenport.text.Presentable => m.print")
+        _ <- println("case other => other.toString")
+        _ <- outdent
+        _ <- println("}")
+        _ <- println()
+        _ <- println("private def _to_data_store_value(v: Any): Any = _to_external_value(v)")
+      } yield ()
+    } else {
+      unit
+    }
+
   private def _to_record: GenM[Unit] =
     FoldTraverseUtil.intercalateTraverseWithEnd_(
       attributes_vector,
@@ -304,7 +362,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     )(_to_record)
 
   private def _to_record(p: Attribute): GenM[Unit] =
-    print(property_name(p.name.name), " -> ", p.name.name)
+    print("\"", _record_external_key(p), "\" -> _to_external_value(", p.name.name, ")")
+
+  private def _to_data_store: GenM[Unit] =
+    FoldTraverseUtil.intercalateTraverseWithEnd_(
+      attributes_vector,
+      println(", "),
+      println()
+    )(_to_data_store)
+
+  private def _to_data_store(p: Attribute): GenM[Unit] = {
+    val key = p.dbColumnName.getOrElse(StringUtils.camelToUnderscore(p.name.name))
+    print("\"", key, "\" -> _to_data_store_value(", p.name.name, ")")
+  }
 
   // protected final def traverse_with_separator[T](ps: Vector[T]): GenM[Unit] =
   //   ???
@@ -332,6 +402,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- schema
       _ <- separator
       _ <- given_typeclasses
+      _ <- separator
+      _ <- record_reader_methods
       _ <- builder_part
       _ <- component_object_part
       _ <- outdent
@@ -339,8 +411,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } yield ()
 
   protected def property_name_definitions: GenM[Unit] = {
-    val names = clazz.attributeSequence.attributes.map(_.name.name)
-    names.traverse_(property_name_definition)
+    val attrs = clazz.attributeSequence.attributes
+    attrs.traverse_(property_name_definition)
   }
 
   // protected def property_name_definitions(p: T): GenM[Unit] = {
@@ -359,11 +431,180 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected def property_name(p: String): String =
     s"PROP_${StringUtils.camelToUnderscore(p).toUpperCase}"
 
-  protected def property_name_definition(p: String): GenM[Unit] =
-    println(s"""final val ${property_name(p)} = "${p}"""")
+  protected def property_name_definition(p: Attribute): GenM[Unit] =
+    for {
+      _ <- println(s"""final val ${property_name(p.name.name)} = "${p.name.name}"""")
+      _ <- property_input_keys_definition(p)
+    } yield ()
+
+  protected def input_keys_name(p: String): String =
+    s"INPUT_KEYS_${StringUtils.camelToUnderscore(p).toUpperCase}"
+
+  protected def property_input_keys_definition(p: Attribute): GenM[Unit] = {
+    val xs = _record_input_keys(p).map(x => s""""$x"""").mkString(", ")
+    println(s"final val ${input_keys_name(p.name.name)}: List[String] = List($xs).distinct")
+  }
+
+  private def _record_input_keys(p: Attribute): Vector[String] = {
+    val external = p.externalName.toVector
+    val camel = Vector(p.name.name)
+    val snake = Vector(StringUtils.camelToUnderscore(p.name.name))
+    (external ++ camel ++ snake).filterNot(_.isEmpty).distinct
+  }
+
+  private def _record_external_key(p: Attribute): String =
+    p.externalName.getOrElse(StringUtils.camelToUnderscore(p.name.name))
 
   protected def schema: GenM[Unit] =
-    println("// Schema")
+    if (is_entity_value)
+      if (clazz.directive.isPlain)
+        schema_canonical
+      else
+        schema_delegate
+    else
+      println("// Schema")
+
+  protected def schema_canonical: GenM[Unit] =
+    for {
+      _ <- println("val schema: org.goldenport.schema.Schema = org.goldenport.schema.Schema(")
+      _ <- indent
+      _ <- println("columns = Vector(")
+      _ <- indent
+      _ <- _schema_columns
+      _ <- outdent
+      _ <- println(")")
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
+
+  protected def schema_delegate: GenM[Unit] =
+    println(s"val schema: org.goldenport.schema.Schema = ${_canonical_schema_owner}.schema")
+
+  private def _canonical_schema_owner: String =
+    clazz.directive.canonicalSchemaOwner.map(_.fullName).getOrElse(clazz.className.name)
+
+  private def _schema_columns: GenM[Unit] = {
+    val n = attributes_vector.length
+    attributes_vector.zipWithIndex.traverse_ { case (a, i) =>
+      for {
+        _ <- _schema_column(a)
+        _ <- if (i + 1 < n) println(",") else println()
+      } yield ()
+    }
+  }
+
+  private def _schema_column(p: Attribute): GenM[Unit] =
+    for {
+      _ <- println("org.goldenport.schema.Column(")
+      _ <- indent
+      _ <- println(s"""baseContent = org.goldenport.model.value.BaseContent.simple("${p.name.name}"),""")
+      _ <- println("domain = org.goldenport.schema.ValueDomain(")
+      _ <- indent
+      _ <- println(s"datatype = ${_schema_datatype_expr(p.typeName)},")
+      _ <- println(s"multiplicity = ${_schema_multiplicity_expr(p.typeName)}")
+      _ <- outdent
+      _ <- println(")")
+      _ <- outdent
+      _ <- print(")")
+    } yield ()
+
+  private def _schema_datatype_expr(p: TypeName): String = {
+    val base = _schema_base_type(p)
+    base match {
+      case m: TypeName.Primitive => _schema_datatype_expr_by_name(m.datatype.name)
+      case m: TypeName.Plain => _schema_datatype_expr_by_name(m.name)
+      case _ => "org.goldenport.schema.XString"
+    }
+  }
+
+  private def _schema_datatype_expr_by_name(name: String): String = {
+    val key = Option(name).getOrElse("").trim.toLowerCase(java.util.Locale.ROOT)
+    val schema = "org.goldenport.schema."
+    key match {
+      case "string" => s"${schema}XString"
+      case "boolean" => s"${schema}XBoolean"
+      case "byte" => s"${schema}XInt"
+      case "short" => s"${schema}XInt"
+      case "int" => s"${schema}XInt"
+      case "long" => s"${schema}XLong"
+      case "float" => s"${schema}XFloat"
+      case "double" => s"${schema}XDouble"
+      case "integer" => s"${schema}XInteger"
+      case "nonnegativeinteger" => s"${schema}XNonNegativeInteger"
+      case "positiveinteger" => s"${schema}XPositiveInteger"
+      case "decimal" => s"${schema}XDecimal"
+      case "datetime" => s"${schema}XDateTime"
+      case "localdatetime" => s"${schema}XLocalDateTime"
+      case "yearmonth" => s"${schema}XYearMonth"
+      case "age" => s"${schema}XInt"
+      case _ => s"${schema}XString"
+    }
+  }
+
+  private def _schema_base_type(p: TypeName): TypeName = p match {
+    case m: TypeName.Container => _schema_base_type(m.containee)
+    case m => m
+  }
+
+  private def _schema_multiplicity_expr(p: TypeName): String = p match {
+    case m: TypeName.Container if m.isOption =>
+      "org.goldenport.schema.Multiplicity.ZeroOne"
+    case m: TypeName.Container if _is_non_empty_collection(m.container) =>
+      "org.goldenport.schema.Multiplicity.OneMore"
+    case m: TypeName.Container if _is_collection(m.container) =>
+      "org.goldenport.schema.Multiplicity.ZeroMore"
+    case _ =>
+      "org.goldenport.schema.Multiplicity.One"
+  }
+
+  private def _is_collection(p: TypeName): Boolean = p match {
+    case m: TypeName.Plain =>
+      m.fullName match {
+        case "scala.List" => true
+        case "scala.collection.immutable.List" => true
+        case "scala.Vector" => true
+        case "scala.collection.immutable.Vector" => true
+        case "scala.Seq" => true
+        case "scala.collection.immutable.Seq" => true
+        case "scala.Set" => true
+        case "scala.collection.immutable.Set" => true
+        case "cats.data.NonEmptyVector" => true
+        case _ => false
+      }
+    case _ => false
+  }
+
+  private def _is_non_empty_collection(p: TypeName): Boolean = p match {
+    case m: TypeName.Plain =>
+      m.fullName match {
+        case "cats.data.NonEmptyVector" => true
+        case _ => false
+      }
+    case _ => false
+  }
+
+  protected def record_reader_methods: GenM[Unit] =
+    for {
+      _ <- println("private def _record_get_as_c[A](")
+      _ <- indent
+      _ <- println("record: Record,")
+      _ <- println("keys: List[String]")
+      _ <- outdent
+      _ <- println(")(using vr: org.goldenport.convert.ValueReader[A]): Consequence[Option[A]] = {")
+      _ <- indent
+      _ <- println("keys.foldLeft(Consequence.success(Option.empty[A])) { (z, key) =>")
+      _ <- indent
+      _ <- println("z.flatMap {")
+      _ <- indent
+      _ <- println("case s @ Some(_) => Consequence.success(s)")
+      _ <- println("case None => record.getAsC[A](key)")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("}")
+    } yield ()
 
   protected def builder_part: GenM[Unit] =
     if (is_value)
@@ -1061,9 +1302,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _build_param_or_var_raw(p: Parameter)(param: => GenM[Unit]): GenM[Unit] =
     for {
-      _ <- print("Consequence.successOrRecordNotFound(", property_name(p.name.name), ", ")
-      _ <- print("record") // print(param)
-      _ <- print(", ", p.name.name, ")")
+      _ <- print("_record_get_as_c[", p.toRawType.typeName.name, "](record, ", input_keys_name(p.name.name), ").flatMap {")
+      _ <- println()
+      _ <- indent
+      _ <- println("case Some(s) => Consequence.success(s)")
+      _ <- println("case None => Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", ", p.name.name, ")")
+      _ <- outdent
+      _ <- print("}")
     } yield ()
 
   private def _build_param_or_var_container(
@@ -1093,8 +1338,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     container: TypeName.Container
   ): GenM[Unit] = {
     val propname = property_name(p.name.name)
+    val keyname = input_keys_name(p.name.name)
     for {
-      _ <- print("record.getAsC[", container.containee.name, "](", propname, ").flatMap {")
+      _ <- print("_record_get_as_c[", container.containee.name, "](record, ", keyname, ").flatMap {")
       _ <- println()
       _ <- indent
       _ <- println("case Some(s) => Consequence.success(Condition.is(s))")
@@ -1108,9 +1354,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     p: Parameter,
     container: TypeName.Container
   ): GenM[Unit] = {
-    val propname = property_name(p.name.name)
+    val keyname = input_keys_name(p.name.name)
     for {
-      _ <- print("record.getAsC[", container.containee.name, "](", propname, ").flatMap {")
+      _ <- print("_record_get_as_c[", container.containee.name, "](record, ", keyname, ").flatMap {")
       _ <- println()
       _ <- indent
       _ <- println("case Some(s) => Consequence.success(Update.set(s))")
@@ -1121,7 +1367,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   private def _get_record_param(p: Parameter): GenM[Unit] =
-    print("record.getAsC[", p.toRawType.typeName.name, "](", property_name(p.name.name), ")")
+    print("_record_get_as_c[", p.toRawType.typeName.name, "](record, ", input_keys_name(p.name.name), ")")
 
   // protected def builder_build_recordc_method(p: T): GenM[Unit] = {
   //   val m = SMethod.create("buildC", TypeName.consequence(p), Parameter.record) {
@@ -1269,12 +1515,18 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } else if (is_entity_value_create) {
       for {
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
-        _ <- println(s"given EntityPersistentCreate[$name] = EntityPersistentCreate.derived(collectionId)")
+        _ <- println(s"given EntityPersistentCreate[$name] with")
+        _ <- println(s"  def id(e: $name): Option[EntityId] = e.id")
+        _ <- println(s"  def collection(e: $name): EntityCollectionId = collectionId")
+        _ <- println(s"  def toRecord(e: $name): Record = e.toDataStore()")
       } yield ()
     } else if (is_entity_value) {
       for {
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
-        _ <- println(s"given EntityPersistent[$name] = EntityPersistent.derived(createC)")
+        _ <- println(s"given EntityPersistent[$name] with")
+        _ <- println(s"  def id(e: $name): EntityId = e.id")
+        _ <- println(s"  def toRecord(e: $name): Record = e.toDataStore()")
+        _ <- println(s"  def fromRecord(r: Record): Consequence[$name] = createC(r)")
       } yield ()
     } else {
       unit

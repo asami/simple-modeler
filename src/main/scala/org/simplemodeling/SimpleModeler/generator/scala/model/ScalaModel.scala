@@ -21,7 +21,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Oct.  7, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 17, 2026
+ * @version Mar. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -401,7 +401,10 @@ case class Parameter(
   typeName: TypeName,
   isAttribute: Boolean = false,
   isDefault: Boolean = false,
-  value: Option[SClassBase] = None
+  value: Option[SClassBase] = None,
+  dbColumnName: Option[String] = None,
+  dbColumnType: Option[String] = None,
+  externalName: Option[String] = None
 ) {
   def isRequired: Boolean = typeName.isRequired
   def titleName = name.toTitle
@@ -430,7 +433,15 @@ case class ParameterSequence(
 ) {
   def distillAttributes: AttributeSequence = AttributeSequence(
     parameters.flatMap {
-      case m if (m.isAttribute) => Some(Attribute(m.name.name, m.typeName))
+      case m if (m.isAttribute) => Some(
+        Attribute(
+          m.name.name,
+          m.typeName,
+          m.dbColumnName,
+          m.dbColumnType,
+          m.externalName
+        )
+      )
       case _ => None
     }
   )
@@ -443,12 +454,42 @@ object ParameterSequence {
 
 case class Attribute(
   name: AttributeName,
-  typeName: TypeName
+  typeName: TypeName,
+  dbColumnName: Option[String] = None,
+  dbColumnType: Option[String] = None,
+  externalName: Option[String] = None
 ) {
 }
 object Attribute {
   def apply(name: String, typeName: TypeName): Attribute = Attribute(
     AttributeName(name), typeName
+  )
+
+  def apply(
+    name: String,
+    typeName: TypeName,
+    dbColumnName: Option[String],
+    dbColumnType: Option[String]
+  ): Attribute = Attribute(
+    AttributeName(name),
+    typeName,
+    dbColumnName,
+    dbColumnType,
+    None
+  )
+
+  def apply(
+    name: String,
+    typeName: TypeName,
+    dbColumnName: Option[String],
+    dbColumnType: Option[String],
+    externalName: Option[String]
+  ): Attribute = Attribute(
+    AttributeName(name),
+    typeName,
+    dbColumnName,
+    dbColumnType,
+    externalName
   )
 }
 
@@ -540,14 +581,17 @@ object ReceptionCompartment {
 
 case class Directive(
   classKind: Option[ClassKind] = None,
-  purpose: Option[Purpose] = None
+  purpose: Option[Purpose] = None,
+  canonicalSchemaOwner: Option[TypeName.Plain] = None
 ) {
+  def isPlain: Boolean = purpose.fold(true)(_ == Purpose.Plain)
   def isCreate: Boolean = purpose.fold(false)(_ == Purpose.Create)
   def isQuery: Boolean = purpose.fold(false)(_ == Purpose.Query)
   def isUpdate: Boolean = purpose.fold(false)(_ == Purpose.Update)
 
   def withEntityValue = copy(classKind = Some(ClassKind.EntityValue))
   def withPurpose(purpose: Purpose) = copy(purpose = Some(purpose))
+  def withCanonicalSchemaOwner(owner: TypeName.Plain) = copy(canonicalSchemaOwner = Some(owner))
 }
 object Directive {
   val default = Directive()

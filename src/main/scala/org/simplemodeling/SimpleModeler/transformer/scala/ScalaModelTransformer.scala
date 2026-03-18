@@ -13,7 +13,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- * @version Mar. 18, 2026
+ * @version Mar. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -49,7 +49,9 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     val fields = to_fields(attrs)
     val methods = to_methods(p.operations)
     val receptions = ReceptionCompartment.empty // TODO
-    val directive = Directive.default
+    val directive = Directive.default.withCanonicalSchemaOwner(
+      TypeName.Plain(packagename, p.name)
+    )
     ClassCore(
       packagename,
       declaration,
@@ -145,7 +147,18 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
 
   protected def to_parameter(p: MAttribute): Parameter = {
     val typename = to_typename(p)
-    Parameter(ParameterName(p.name), typename, false, false)
+    val dbcolumnname = p.column.flatMap(x => Option(x.sql.name).map(_.trim).filterNot(_.isEmpty))
+    val dbcolumntype = p.column.flatMap(_.sql.datatype.map(_.fullName))
+    val externalname = p.column.flatMap(_.aliases.headOption).map(_.trim).filterNot(_.isEmpty)
+    Parameter(
+      ParameterName(p.name),
+      typename,
+      isAttribute = true,
+      isDefault = false,
+      dbColumnName = dbcolumnname,
+      dbColumnType = dbcolumntype,
+      externalName = externalname
+    )
   }
 
   protected def to_fields(ps: List[MAttribute]): FieldCompartment =
@@ -161,7 +174,10 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
 
   protected def to_attribute(p: MAttribute): Attribute = {
     val typename = to_typename(p)
-    Attribute(AttributeName(p.name), typename)
+    val dbcolumnname = p.column.flatMap(x => Option(x.sql.name).map(_.trim).filterNot(_.isEmpty))
+    val dbcolumntype = p.column.flatMap(_.sql.datatype.map(_.fullName))
+    val externalname = p.column.flatMap(_.aliases.headOption).map(_.trim).filterNot(_.isEmpty)
+    Attribute(AttributeName(p.name), typename, dbcolumnname, dbcolumntype, externalname)
   }
 
   def to_typename(p: MAttribute): TypeName = p.multiplicity match {

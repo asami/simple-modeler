@@ -4,7 +4,8 @@ import org.goldenport.RAISE
 import org.goldenport.i18n.I18NString
 import org.goldenport.values.Designation
 import org.goldenport.record.v3.{Table => _, _}
-import org.goldenport.record.v2.Column
+import org.goldenport.record.v2.{Column, SqlColumn, NullSqlColumn}
+import org.goldenport.record.sql
 import org.smartdox.Description
 import org.simplemodeling.parser.SimpleModelParser
 
@@ -28,7 +29,8 @@ import org.simplemodeling.parser.SimpleModelParser
  *  version Aug.  1, 2020
  *  version Jun. 20, 2021
  *  version Sep. 23, 2025
- * @version Feb. 10, 2026
+ *  version Feb. 10, 2026
+ * @version Mar. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MAttribute(
@@ -61,8 +63,68 @@ object MAttribute {
     val constraints = p.getStringCaseInsensitive(config.constraintNames).
       map(MConstraint.create).
       toList
-    val column = None // XXX
+    val dbcolumnname = p.getStringCaseInsensitive(config.dbColumnNameNames).map(_.trim).filterNot(_.isEmpty)
+    val dbcolumntype = p.getStringCaseInsensitive(config.dbColumnTypeNames).map(_.trim).filterNot(_.isEmpty)
+    val externalname = p.getStringCaseInsensitive(config.externalNameNames).map(_.trim).filterNot(_.isEmpty)
+    val column = Some(
+      Column(
+        name,
+        datatype = datatype match {
+          case m: MDataType => m.datatype
+          case _ => org.goldenport.record.v2.XString
+        },
+        multiplicity = multiplicity.multiplicity,
+        aliases = externalname.toList,
+        sql = _sql_column(dbcolumnname, dbcolumntype)
+      )
+    )
     val designation = Designation.nameLabel(name, label)
     MAttribute(designation, datatype, multiplicity, constraints, column)
+  }
+
+  private def _sql_column(
+    dbcolumnname: Option[String],
+    dbcolumntype: Option[String]
+  ): SqlColumn = {
+    val n = dbcolumnname.map(_.trim).filterNot(_.isEmpty)
+    val t = dbcolumntype.flatMap(_to_sql_datatype)
+    if (n.isEmpty && t.isEmpty)
+      NullSqlColumn
+    else
+      SqlColumn(
+        name = n.orNull,
+        datatype = t
+      )
+  }
+
+  private def _to_sql_datatype(p: String): Option[sql.SqlDatatype] = {
+    val trimmed = p.trim
+    if (trimmed.isEmpty)
+      None
+    else {
+      val upper = trimmed.toUpperCase
+      val onearg = """^([A-Z_]+)\((\d+)\)$""".r
+      upper match {
+        case onearg("VARCHAR", length) => Some(sql.VARCHAR(length.toInt))
+        case onearg("NVARCHAR", length) => Some(sql.NVARCHAR(length.toInt))
+        case onearg("CHAR", length) => Some(sql.CHAR(length.toInt))
+        case "INT" => Some(sql.INT())
+        case "INTEGER" => Some(sql.INTEGER())
+        case "BIGINT" => Some(sql.BIGINT())
+        case "REAL" => Some(sql.REAL())
+        case "FLOAT" => Some(sql.FLOAT())
+        case "DOUBLE" => Some(sql.DOUBLE())
+        case "BOOLEAN" => Some(sql.BOOLEAN())
+        case "TEXT" => Some(sql.CLOB())
+        case "DATE" => Some(sql.DATE())
+        case "TIME" => Some(sql.TIME())
+        case "TIMESTAMP" => Some(sql.TIMESTAMP())
+        case "NUMERIC" => Some(sql.NUMERIC())
+        case "DECIMAL" => Some(sql.DECIMAL())
+        case "BLOB" => Some(sql.BLOB())
+        case "CLOB" => Some(sql.CLOB())
+        case _ => None
+      }
+    }
   }
 }
