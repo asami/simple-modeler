@@ -23,7 +23,7 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
  *  version May. 18, 2025
  *  version Sep. 21, 2025
  *  version Feb. 28, 2026
- * @version Mar. 18, 2026
+ * @version Mar. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {

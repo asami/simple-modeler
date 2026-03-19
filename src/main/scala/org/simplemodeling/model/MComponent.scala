@@ -16,14 +16,48 @@ trait MComponent extends MObject {
 }
 
 object MComponent {
+  sealed trait TransitionTrigger
+  object TransitionTrigger {
+    case object Save extends TransitionTrigger
+    case object Update extends TransitionTrigger
+  }
+
+  sealed trait RuleGuard
+  object RuleGuard {
+    final case class Ref(name: String) extends RuleGuard
+    final case class Expression(expr: String) extends RuleGuard
+  }
+
+  final case class RuleAction(
+    script: String
+  )
+
+  final case class RulePlan(
+    exit: Vector[RuleAction] = Vector.empty,
+    transition: Option[RuleAction] = None,
+    entry: Vector[RuleAction] = Vector.empty
+  )
+
+  final case class StateMachineTransitionRule(
+    collectionName: String,
+    trigger: TransitionTrigger,
+    eventName: String,
+    priority: Int = 0,
+    declarationOrder: Int = 0,
+    guard: Option[RuleGuard] = None,
+    plan: RulePlan = RulePlan()
+  )
+
   case class Core(
-    entities: Vector[MEntity]
+    entities: Vector[MEntity],
+    stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty
   )
   object Core {
     trait Holder {
       def componentCore: Core
 
       def entities = componentCore.entities
+      def stateMachineTransitionRules = componentCore.stateMachineTransitionRules
     }
   }
 }

@@ -808,9 +808,42 @@ case class SComponent(
 ) extends SClassBaseWithCore with SComponent.ComponentCore.Holder {
 }
 object SComponent {
+  sealed trait TransitionTrigger
+  object TransitionTrigger {
+    case object Save extends TransitionTrigger
+    case object Update extends TransitionTrigger
+  }
+
+  sealed trait RuleGuard
+  object RuleGuard {
+    final case class Ref(name: String) extends RuleGuard
+    final case class Expression(expr: String) extends RuleGuard
+  }
+
+  final case class RuleAction(
+    script: String
+  )
+
+  final case class RulePlan(
+    exit: Vector[RuleAction] = Vector.empty,
+    transition: Option[RuleAction] = None,
+    entry: Vector[RuleAction] = Vector.empty
+  )
+
+  final case class StateMachineTransitionRule(
+    collectionName: String,
+    trigger: TransitionTrigger,
+    eventName: String,
+    priority: Int = 0,
+    declarationOrder: Int = 0,
+    guard: Option[RuleGuard] = None,
+    plan: RulePlan = RulePlan()
+  )
+
   case class ComponentCore(
     componentName: String,
-    services: List[SService]
+    services: List[SService],
+    stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty
   )
   object ComponentCore {
     trait Holder {
@@ -818,6 +851,7 @@ object SComponent {
 
       def componentName = componentCore.componentName
       def services = componentCore.services
+      def stateMachineTransitionRules = componentCore.stateMachineTransitionRules
     }
   }
 

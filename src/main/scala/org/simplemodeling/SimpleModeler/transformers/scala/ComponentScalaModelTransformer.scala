@@ -44,12 +44,65 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
 
     def build(): SComponent = {
       val services = to_services(source.services)
+      val rules = source match {
+        case m: MComponent.Core.Holder => to_transition_rules(m.stateMachineTransitionRules)
+        case _ => Vector.empty
+      }
       val ccore = SComponent.ComponentCore(
         componentName,
-        services
+        services,
+        rules
       )
       SComponent(core, ccore)
     }
+
+    private def to_transition_rules(
+      ps: Vector[MComponent.StateMachineTransitionRule]
+    ): Vector[SComponent.StateMachineTransitionRule] =
+      ps.map(to_transition_rule)
+
+    private def to_transition_rule(
+      p: MComponent.StateMachineTransitionRule
+    ): SComponent.StateMachineTransitionRule =
+      SComponent.StateMachineTransitionRule(
+        collectionName = p.collectionName,
+        trigger = to_transition_trigger(p.trigger),
+        eventName = p.eventName,
+        priority = p.priority,
+        declarationOrder = p.declarationOrder,
+        guard = p.guard.map(to_rule_guard),
+        plan = to_rule_plan(p.plan)
+      )
+
+    private def to_transition_trigger(
+      p: MComponent.TransitionTrigger
+    ): SComponent.TransitionTrigger =
+      p match {
+        case MComponent.TransitionTrigger.Save => SComponent.TransitionTrigger.Save
+        case MComponent.TransitionTrigger.Update => SComponent.TransitionTrigger.Update
+      }
+
+    private def to_rule_guard(
+      p: MComponent.RuleGuard
+    ): SComponent.RuleGuard =
+      p match {
+        case MComponent.RuleGuard.Ref(name) => SComponent.RuleGuard.Ref(name)
+        case MComponent.RuleGuard.Expression(expr) => SComponent.RuleGuard.Expression(expr)
+      }
+
+    private def to_rule_plan(
+      p: MComponent.RulePlan
+    ): SComponent.RulePlan =
+      SComponent.RulePlan(
+        exit = p.exit.map(to_rule_action),
+        transition = p.transition.map(to_rule_action),
+        entry = p.entry.map(to_rule_action)
+      )
+
+    private def to_rule_action(
+      p: MComponent.RuleAction
+    ): SComponent.RuleAction =
+      SComponent.RuleAction(p.script)
 
     final protected def to_services(ps: Seq[MService]): List[SService] =
       ps.map(to_service).toList

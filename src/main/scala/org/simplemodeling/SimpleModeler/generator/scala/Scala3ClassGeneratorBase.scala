@@ -17,7 +17,7 @@ import Generator.{State => GState, _}
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 19, 2026
+ * @version Mar. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -151,6 +151,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import org.goldenport.cncf.directive.*")
       _ <- println("import org.goldenport.cncf.action.*")
       _ <- println("import org.goldenport.cncf.component.*")
+      _ <- println("import org.goldenport.cncf.statemachine.*")
       _ <- println("import org.goldenport.cncf.unitofwork.ExecUowM")
       _ <- println("import org.goldenport.cncf.unitofwork.UnitOfWork.uowmNotImplemented")
       _ <- println("import org.goldenport.cncf.entity.*")
@@ -203,6 +204,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       List("EntityPersistableUpdate")
     else if (is_entity_value_create)
       List("EntityPersistableCreate")
+    else if (classKind == ClassKind.Component)
+      List("CollectionTransitionRuleProvider")
     else if (is_entity_value)
       List("EntityPersistable")
     else
@@ -243,6 +246,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- validate_method
       _ <- iri_method
       _ <- properties_method
+      _ <- component_class_part()
       _ <- to_record_method
       _ <- to_data_store_method
       _ <- value_convert_methods

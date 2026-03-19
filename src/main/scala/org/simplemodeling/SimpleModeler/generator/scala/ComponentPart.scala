@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Mar.  9, 2026
+ * @version Mar. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -24,8 +24,164 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
   protected final def component_class_part(
   ): GenM[Unit] = {
-    unit
+    _component match {
+      case Some(s) =>
+        for {
+          _ <- println("// StateMachine transition rule provider")
+          _ <- println("protected def stateMachineGuardResolver: GuardBindingResolver[Any, TransitionEvent] = new GuardBindingResolver[Any, TransitionEvent] {")
+          _ <- indent
+          _ <- println("def resolve(name: String): Consequence[Guard[Any, TransitionEvent]] =")
+          _ <- indent
+          _ <- println("Consequence.failure(s\"Missing state machine guard binding: $name\")")
+          _ <- outdent
+          _ <- outdent
+          _ <- println("}")
+          _ <- _state_machine_rules_method(s.stateMachineTransitionRules)
+        } yield ()
+      case None =>
+        unit
+    }
   }
+
+  private def _state_machine_rules_method(
+    rules: Vector[SComponent.StateMachineTransitionRule]
+  ): GenM[Unit] =
+    if (rules.isEmpty) {
+      println("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector.empty")
+    } else {
+      for {
+        _ <- println("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector(")
+        _ <- indent
+        _ <- rules.zipWithIndex.foldLeft(unit) { case (z, (r, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- _state_machine_rule_expr(r)
+              _ <- if (i < rules.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _state_machine_rule_expr(
+    p: SComponent.StateMachineTransitionRule
+  ): GenM[Unit] = {
+    val f = p.trigger match {
+      case SComponent.TransitionTrigger.Save => "saveRule"
+      case SComponent.TransitionTrigger.Update => "updateRule"
+    }
+    for {
+      _ <- println(s"StateMachineRuleBuilder.${f}[Any](")
+      _ <- indent
+      _ <- println(s"collectionName = ${_string_literal(p.collectionName)},")
+      _ <- println(s"eventName = ${_string_literal(p.eventName)},")
+      _ <- println(s"priority = ${p.priority},")
+      _ <- println(s"declarationOrder = ${p.declarationOrder},")
+      _ <- println(s"guard = ${_guard_expr(p.guard)},")
+      _ <- _plan_expr(p.plan)
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
+  }
+
+  private def _plan_expr(
+    p: SComponent.RulePlan
+  ): GenM[Unit] = {
+    for {
+      _ <- println("plan = StateMachineRuleBuilder.plan[Any](")
+      _ <- indent
+      _ <- _action_vector_expr("exit", p.exit)
+      _ <- _transition_action_expr(p.transition)
+      _ <- _action_vector_expr("entry", p.entry, isLast = true)
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
+  }
+
+  private def _action_vector_expr(
+    label: String,
+    p: Vector[SComponent.RuleAction],
+    isLast: Boolean = false
+  ): GenM[Unit] = {
+    val suffix = if (isLast) "" else ","
+    if (p.isEmpty)
+      println(s"${label} = Vector.empty${suffix}")
+    else {
+      for {
+        _ <- println(s"${label} = Vector(")
+        _ <- indent
+        _ <- p.zipWithIndex.foldLeft(unit) { case (z, (x, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- _action_expr(x)
+              _ <- if (i < p.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(s")${suffix}")
+      } yield ()
+    }
+  }
+
+  private def _transition_action_expr(
+    p: Option[SComponent.RuleAction]
+  ): GenM[Unit] =
+    p match {
+      case Some(s) =>
+        for {
+          _ <- println("transition = Some(")
+          _ <- indent
+          _ <- _action_expr(s)
+          _ <- outdent
+          _ <- println("),")
+        } yield ()
+      case None =>
+        println("transition = None,")
+    }
+
+  private def _action_expr(
+    p: SComponent.RuleAction
+  ): GenM[Unit] = {
+    val script = _string_literal(p.script)
+    for {
+      _ <- println("StateMachineRuleBuilder.action[Any] { (state, event) =>")
+      _ <- indent
+      _ <- println("val _ = (state, event)")
+      _ <- println(s"val _script = ${script}")
+      _ <- println("Consequence.unit")
+      _ <- outdent
+      _ <- println("}")
+    } yield ()
+  }
+
+  private def _guard_expr(
+    p: Option[SComponent.RuleGuard]
+  ): String =
+    p match {
+      case None => "None"
+      case Some(SComponent.RuleGuard.Ref(name)) =>
+        s"Some(StateMachineRuleBuilder.guardRef[Any](${_string_literal(name)}, stateMachineGuardResolver))"
+      case Some(SComponent.RuleGuard.Expression(expr)) =>
+        s"""Some(StateMachineRuleBuilder.guardExpression[Any](${_string_literal(expr)})((state, event) => Map("state" -> state, "event" -> event, "ctx" -> Map.empty[String, Any])))"""
+    }
+
+  private def _string_literal(p: String): String = {
+    val escaped = _escape_string(Option(p).getOrElse(""))
+    "\"" + escaped + "\""
+  }
+
+  private def _escape_string(p: String): String =
+    p.flatMap {
+      case '\\' => "\\\\"
+      case '"' => "\\\""
+      case '\n' => "\\n"
+      case '\r' => "\\r"
+      case '\t' => "\\t"
+      case c => c.toString
+    }
 
   protected final def component_object_part(
   ): GenM[Unit] =
