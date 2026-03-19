@@ -332,7 +332,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       for {
         _ <- println("private def _to_external_value(v: Any): Any = v match {")
         _ <- indent
-        _ <- println("case null => null")
+        _ <- println("case m if java.util.Objects.isNull(m) => null")
         _ <- println("case m: String => m")
         _ <- println("case m: java.lang.Number => m")
         _ <- println("case m: java.lang.Boolean => m")
@@ -348,7 +348,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- outdent
         _ <- println("}")
         _ <- println()
-        _ <- println("private def _to_data_store_value(v: Any): Any = _to_external_value(v)")
+        _ <- println("private def _to_data_store_value(v: Any): Any = v match {")
+        _ <- println("  case m: org.goldenport.cncf.directive.Update[?] => m")
+        _ <- println("  case other => _to_external_value(other)")
+        _ <- println("}")
       } yield ()
     } else {
       unit
@@ -1510,7 +1513,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } else if (is_update) {
       for {
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
-        _ <- println(s"given EntityPersistentUpdate[$name] = EntityPersistentUpdate.derived(createC, collectionId)")
+        _ <- println(s"given EntityPersistentUpdate[$name] with")
+        _ <- println(s"  def toRecord(e: $name): Record = e.toDataStore()")
+        _ <- println(s"  def fromRecord(r: Record): Consequence[$name] = createC(r)")
+        _ <- println(s"  def collection(e: $name): EntityCollectionId = collectionId")
       } yield ()
     } else if (is_entity_value_create) {
       for {

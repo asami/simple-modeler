@@ -206,7 +206,7 @@ lazy val root = project
     libraryDependencies += "io.circe" %% "circe-core" % "0.14.3",
     libraryDependencies += "io.circe" %% "circe-generic" % "0.14.3",
     libraryDependencies += "io.circe" %% "circe-parser" % "0.14.3",
-    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % "0.3.7-SNAPSHOT",
+    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % "0.3.8-SNAPSHOT",
 
     Compile / unmanagedSourceDirectories += (Compile / sourceManaged).value
   )
