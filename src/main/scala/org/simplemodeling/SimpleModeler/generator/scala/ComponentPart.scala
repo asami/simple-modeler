@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Mar. 19, 2026
+ * @version Mar. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -37,6 +37,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           _ <- outdent
           _ <- println("}")
           _ <- _state_machine_rules_method(s.stateMachineTransitionRules)
+          _ <- _event_reception_definitions_method(s.eventReceptionDefinitions)
+          _ <- _event_routing_definitions_method(s.eventRoutingDefinitions)
+          _ <- _event_subscription_definitions_method(s.eventSubscriptionDefinitions)
         } yield ()
       case None =>
         unit
@@ -63,6 +66,179 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- outdent
         _ <- println(")")
       } yield ()
+    }
+
+  private def _event_reception_definitions_method(
+    defs: Vector[SComponent.EventReceptionDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty) {
+      println("override def eventReceptionDefinitions: Vector[org.goldenport.cncf.event.CmlEventDefinition] = Vector.empty")
+    } else {
+      for {
+        _ <- println("override def eventReceptionDefinitions: Vector[org.goldenport.cncf.event.CmlEventDefinition] = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- _event_reception_definition_expr(d)
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _event_routing_definitions_method(
+    defs: Vector[SComponent.EventRoutingDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty) {
+      println("override def eventRoutingDefinitions: Vector[org.goldenport.cncf.event.CmlRoutingDefinition] = Vector.empty")
+    } else {
+      for {
+        _ <- println("override def eventRoutingDefinitions: Vector[org.goldenport.cncf.event.CmlRoutingDefinition] = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- _event_routing_definition_expr(d)
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _event_subscription_definitions_method(
+    defs: Vector[SComponent.EventSubscriptionDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty) {
+      println("override def eventSubscriptionDefinitions: Vector[org.goldenport.cncf.event.CmlSubscriptionDefinition] = Vector.empty")
+    } else {
+      for {
+        _ <- println("override def eventSubscriptionDefinitions: Vector[org.goldenport.cncf.event.CmlSubscriptionDefinition] = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- _event_subscription_definition_expr(d)
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _event_reception_definition_expr(
+    p: SComponent.EventReceptionDefinition
+  ): GenM[Unit] = {
+    val category = _event_category_expr(p.category)
+    val kind = p.kind.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+    val actionname = p.actionName.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+    val selectors =
+      if (p.selectors.isEmpty)
+        "Map.empty"
+      else
+        p.selectors.toVector.map { case (k, v) =>
+          s"${_string_literal(k)} -> ${_string_literal(v)}"
+        }.mkString("Map(", ", ", ")")
+    for {
+      _ <- println("org.goldenport.cncf.event.CmlEventDefinition(")
+      _ <- indent
+      _ <- println(s"name = ${_string_literal(p.name)},")
+      _ <- println(s"category = ${category},")
+      _ <- println(s"kind = ${kind},")
+      _ <- println(s"selectors = ${selectors},")
+      _ <- println(s"actionName = ${actionname},")
+      _ <- println(s"priority = ${p.priority}")
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
+  }
+
+  private def _event_routing_definition_expr(
+    p: SComponent.EventRoutingDefinition
+  ): GenM[Unit] = {
+    val whenexpr = p.when.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+    val topic = p.topic.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+    val service = p.service.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+    val partition = p.partition.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+    for {
+      _ <- println("org.goldenport.cncf.event.CmlRoutingDefinition(")
+      _ <- indent
+      _ <- println(s"name = ${_string_literal(p.name)},")
+      _ <- println(s"when = ${whenexpr},")
+      _ <- println(s"topic = ${topic},")
+      _ <- println(s"service = ${service},")
+      _ <- println(s"partition = ${partition}")
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
+  }
+
+  private def _event_subscription_definition_expr(
+    p: SComponent.EventSubscriptionDefinition
+  ): GenM[Unit] = {
+    val route = _dispatch_route_expr(p.route)
+    val entity = p.entityName.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+    val target = p.target.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+    val targets =
+      if (p.targets.isEmpty)
+        "Vector.empty"
+      else
+        p.targets.map(_string_literal).mkString("Vector(", ", ", ")")
+    val selector = p.selector.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+    val activation = _activation_expr(p.activation)
+    for {
+      _ <- println("org.goldenport.cncf.event.CmlSubscriptionDefinition(")
+      _ <- indent
+      _ <- println(s"name = ${_string_literal(p.name)},")
+      _ <- println(s"eventName = ${_string_literal(p.eventName)},")
+      _ <- println(s"route = ${route},")
+      _ <- println(s"entityName = ${entity},")
+      _ <- println(s"target = ${target},")
+      _ <- println(s"targets = ${targets},")
+      _ <- println(s"selector = ${selector},")
+      _ <- println(s"actionName = ${_string_literal(p.actionName)},")
+      _ <- println(s"declaredTargetUpperBound = ${p.declaredTargetUpperBound},")
+      _ <- println(s"activation = ${activation}")
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
+  }
+
+  private def _event_category_expr(
+    p: String
+  ): String =
+    p match {
+      case "ActionEvent" => "org.goldenport.cncf.event.CmlEventCategory.ActionEvent"
+      case _ => "org.goldenport.cncf.event.CmlEventCategory.NonActionEvent"
+    }
+
+  private def _dispatch_route_expr(
+    p: String
+  ): String =
+    p.toLowerCase match {
+      case "multicast" => "org.goldenport.cncf.event.DispatchRoute.Multicast"
+      case "broadcast" => "org.goldenport.cncf.event.DispatchRoute.Broadcast"
+      case _ => "org.goldenport.cncf.event.DispatchRoute.Unicast"
+    }
+
+  private def _activation_expr(
+    p: Option[String]
+  ): String =
+    p.map(_.toLowerCase) match {
+      case Some("keepresident") =>
+        "Some(org.goldenport.cncf.event.EntityActivationMode.KeepResident)"
+      case Some("activateonreceive") =>
+        "Some(org.goldenport.cncf.event.EntityActivationMode.ActivateOnReceive)"
+      case _ =>
+        "None"
     }
 
   private def _state_machine_rule_expr(

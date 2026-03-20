@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version Mar. 10, 2026
+ * @version Mar. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -48,10 +48,25 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         case m: MComponent.Core.Holder => to_transition_rules(m.stateMachineTransitionRules)
         case _ => Vector.empty
       }
+      val eventdefs = source match {
+        case m: MComponent.Core.Holder => to_event_reception_definitions(m.eventReceptionDefinitions)
+        case _ => Vector.empty
+      }
+      val eventroutes = source match {
+        case m: MComponent.Core.Holder => to_event_routing_definitions(m.eventRoutingDefinitions)
+        case _ => Vector.empty
+      }
+      val eventsubs = source match {
+        case m: MComponent.Core.Holder => to_event_subscription_definitions(m.eventSubscriptionDefinitions)
+        case _ => Vector.empty
+      }
       val ccore = SComponent.ComponentCore(
         componentName,
         services,
-        rules
+        rules,
+        eventdefs,
+        eventroutes,
+        eventsubs
       )
       SComponent(core, ccore)
     }
@@ -73,6 +88,54 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         guard = p.guard.map(to_rule_guard),
         plan = to_rule_plan(p.plan)
       )
+
+    private def to_event_reception_definitions(
+      ps: Vector[MComponent.EventReceptionDefinition]
+    ): Vector[SComponent.EventReceptionDefinition] =
+      ps.map(to_event_reception_definition)
+
+    private def to_event_reception_definition(
+      p: MComponent.EventReceptionDefinition
+    ): SComponent.EventReceptionDefinition =
+      SComponent.EventReceptionDefinition(
+        name = p.name,
+        category = p.category,
+        kind = p.kind,
+        selectors = p.selectors,
+        actionName = p.actionName,
+        priority = p.priority
+      )
+
+    private def to_event_routing_definitions(
+      ps: Vector[MComponent.EventRoutingDefinition]
+    ): Vector[SComponent.EventRoutingDefinition] =
+      ps.map { p =>
+        SComponent.EventRoutingDefinition(
+          name = p.name,
+          when = p.when,
+          topic = p.topic,
+          service = p.service,
+          partition = p.partition
+        )
+      }
+
+    private def to_event_subscription_definitions(
+      ps: Vector[MComponent.EventSubscriptionDefinition]
+    ): Vector[SComponent.EventSubscriptionDefinition] =
+      ps.map { p =>
+        SComponent.EventSubscriptionDefinition(
+          name = p.name,
+          eventName = p.eventName,
+          route = p.route,
+          entityName = p.entityName,
+          target = p.target,
+          targets = p.targets,
+          selector = p.selector,
+          actionName = p.actionName,
+          declaredTargetUpperBound = p.declaredTargetUpperBound,
+          activation = p.activation
+        )
+      }
 
     private def to_transition_trigger(
       p: MComponent.TransitionTrigger

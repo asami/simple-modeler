@@ -8,7 +8,8 @@ import org.simplemodeling.model._
  * @since   Jan.  5, 2009
     version Aug.  7, 2009
  *  version Jul. 24, 2020
- * @version Feb.  9, 2026
+ *  version Feb.  9, 2026
+ * @version Mar. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -48,9 +49,42 @@ object MComponent {
     plan: RulePlan = RulePlan()
   )
 
+  final case class EventReceptionDefinition(
+    name: String,
+    category: String = "NonActionEvent",
+    kind: Option[String] = None,
+    selectors: Map[String, String] = Map.empty,
+    actionName: Option[String] = None,
+    priority: Int = 0
+  )
+
+  final case class EventRoutingDefinition(
+    name: String,
+    when: Option[String] = None,
+    topic: Option[String] = None,
+    service: Option[String] = None,
+    partition: Option[String] = None
+  )
+
+  final case class EventSubscriptionDefinition(
+    name: String,
+    eventName: String,
+    route: String = "Unicast",
+    entityName: Option[String] = None,
+    target: Option[String] = None,
+    targets: Vector[String] = Vector.empty,
+    selector: Option[String] = None,
+    actionName: String,
+    declaredTargetUpperBound: Int = 1,
+    activation: Option[String] = None
+  )
+
   case class Core(
     entities: Vector[MEntity],
-    stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty
+    stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty,
+    eventReceptionDefinitions: Vector[EventReceptionDefinition] = Vector.empty,
+    eventRoutingDefinitions: Vector[EventRoutingDefinition] = Vector.empty,
+    eventSubscriptionDefinitions: Vector[EventSubscriptionDefinition] = Vector.empty
   )
   object Core {
     trait Holder {
@@ -58,6 +92,9 @@ object MComponent {
 
       def entities = componentCore.entities
       def stateMachineTransitionRules = componentCore.stateMachineTransitionRules
+      def eventReceptionDefinitions = componentCore.eventReceptionDefinitions
+      def eventRoutingDefinitions = componentCore.eventRoutingDefinitions
+      def eventSubscriptionDefinitions = componentCore.eventSubscriptionDefinitions
     }
   }
 }

@@ -21,7 +21,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Oct.  7, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 19, 2026
+ * @version Mar. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -840,10 +840,43 @@ object SComponent {
     plan: RulePlan = RulePlan()
   )
 
+  final case class EventReceptionDefinition(
+    name: String,
+    category: String = "NonActionEvent",
+    kind: Option[String] = None,
+    selectors: Map[String, String] = Map.empty,
+    actionName: Option[String] = None,
+    priority: Int = 0
+  )
+
+  final case class EventRoutingDefinition(
+    name: String,
+    when: Option[String] = None,
+    topic: Option[String] = None,
+    service: Option[String] = None,
+    partition: Option[String] = None
+  )
+
+  final case class EventSubscriptionDefinition(
+    name: String,
+    eventName: String,
+    route: String = "Unicast",
+    entityName: Option[String] = None,
+    target: Option[String] = None,
+    targets: Vector[String] = Vector.empty,
+    selector: Option[String] = None,
+    actionName: String,
+    declaredTargetUpperBound: Int = 1,
+    activation: Option[String] = None
+  )
+
   case class ComponentCore(
     componentName: String,
     services: List[SService],
-    stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty
+    stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty,
+    eventReceptionDefinitions: Vector[EventReceptionDefinition] = Vector.empty,
+    eventRoutingDefinitions: Vector[EventRoutingDefinition] = Vector.empty,
+    eventSubscriptionDefinitions: Vector[EventSubscriptionDefinition] = Vector.empty
   )
   object ComponentCore {
     trait Holder {
@@ -852,6 +885,9 @@ object SComponent {
       def componentName = componentCore.componentName
       def services = componentCore.services
       def stateMachineTransitionRules = componentCore.stateMachineTransitionRules
+      def eventReceptionDefinitions = componentCore.eventReceptionDefinitions
+      def eventRoutingDefinitions = componentCore.eventRoutingDefinitions
+      def eventSubscriptionDefinitions = componentCore.eventSubscriptionDefinitions
     }
   }
 
