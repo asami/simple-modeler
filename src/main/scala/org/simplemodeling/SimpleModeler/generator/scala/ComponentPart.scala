@@ -40,6 +40,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           _ <- _event_reception_definitions_method(s.eventReceptionDefinitions)
           _ <- _event_routing_definitions_method(s.eventRoutingDefinitions)
           _ <- _event_subscription_definitions_method(s.eventSubscriptionDefinitions)
+          _ <- _aggregate_definitions_method(s.aggregateDefinitions)
+          _ <- _view_definitions_method(s.viewDefinitions)
         } yield ()
       case None =>
         unit
@@ -211,6 +213,69 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(")")
     } yield ()
   }
+
+  private def _aggregate_definitions_method(
+    defs: Vector[SComponent.AggregateDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty) {
+      println("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.CmlAggregateDefinition] = Vector.empty")
+    } else {
+      for {
+        _ <- println("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.CmlAggregateDefinition] = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- println("org.goldenport.cncf.entity.aggregate.CmlAggregateDefinition(")
+              _ <- indent
+              _ <- println(s"name = ${_string_literal(d.name)},")
+              _ <- println(s"entityName = ${_string_literal(d.entityName)}")
+              _ <- outdent
+              _ <- println(")")
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _view_definitions_method(
+    defs: Vector[SComponent.ViewDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty) {
+      println("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.CmlViewDefinition] = Vector.empty")
+    } else {
+      for {
+        _ <- println("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.CmlViewDefinition] = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- println("org.goldenport.cncf.entity.view.CmlViewDefinition(")
+              _ <- indent
+              _ <- println(s"name = ${_string_literal(d.name)},")
+              _ <- println(s"entityName = ${_string_literal(d.entityName)},")
+              _ <- println(s"viewNames = ${_string_vector_expr(d.viewNames)}")
+              _ <- outdent
+              _ <- println(")")
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _string_vector_expr(
+    p: Vector[String]
+  ): String =
+    if (p.isEmpty)
+      "Vector.empty"
+    else
+      p.map(_string_literal).mkString("Vector(", ", ", ")")
 
   private def _event_category_expr(
     p: String

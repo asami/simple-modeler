@@ -60,13 +60,23 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         case m: MComponent.Core.Holder => to_event_subscription_definitions(m.eventSubscriptionDefinitions)
         case _ => Vector.empty
       }
+      val aggregates = source match {
+        case m: MComponent.Core.Holder => to_aggregate_definitions(m.aggregateDefinitions)
+        case _ => Vector.empty
+      }
+      val views = source match {
+        case m: MComponent.Core.Holder => to_view_definitions(m.viewDefinitions)
+        case _ => Vector.empty
+      }
       val ccore = SComponent.ComponentCore(
         componentName,
         services,
         rules,
         eventdefs,
         eventroutes,
-        eventsubs
+        eventsubs,
+        aggregates,
+        views
       )
       SComponent(core, ccore)
     }
@@ -134,6 +144,27 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
           actionName = p.actionName,
           declaredTargetUpperBound = p.declaredTargetUpperBound,
           activation = p.activation
+        )
+      }
+
+    private def to_aggregate_definitions(
+      ps: Vector[MComponent.AggregateDefinition]
+    ): Vector[SComponent.AggregateDefinition] =
+      ps.map { p =>
+        SComponent.AggregateDefinition(
+          name = p.name,
+          entityName = p.entityName
+        )
+      }
+
+    private def to_view_definitions(
+      ps: Vector[MComponent.ViewDefinition]
+    ): Vector[SComponent.ViewDefinition] =
+      ps.map { p =>
+        SComponent.ViewDefinition(
+          name = p.name,
+          entityName = p.entityName,
+          viewNames = p.viewNames
         )
       }
 

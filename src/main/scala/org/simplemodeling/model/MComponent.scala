@@ -79,12 +79,25 @@ object MComponent {
     activation: Option[String] = None
   )
 
+  final case class AggregateDefinition(
+    name: String,
+    entityName: String
+  )
+
+  final case class ViewDefinition(
+    name: String,
+    entityName: String,
+    viewNames: Vector[String] = Vector.empty
+  )
+
   case class Core(
     entities: Vector[MEntity],
     stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty,
     eventReceptionDefinitions: Vector[EventReceptionDefinition] = Vector.empty,
     eventRoutingDefinitions: Vector[EventRoutingDefinition] = Vector.empty,
-    eventSubscriptionDefinitions: Vector[EventSubscriptionDefinition] = Vector.empty
+    eventSubscriptionDefinitions: Vector[EventSubscriptionDefinition] = Vector.empty,
+    aggregateDefinitions: Vector[AggregateDefinition] = Vector.empty,
+    viewDefinitions: Vector[ViewDefinition] = Vector.empty
   )
   object Core {
     trait Holder {
@@ -95,6 +108,8 @@ object MComponent {
       def eventReceptionDefinitions = componentCore.eventReceptionDefinitions
       def eventRoutingDefinitions = componentCore.eventRoutingDefinitions
       def eventSubscriptionDefinitions = componentCore.eventSubscriptionDefinitions
+      def aggregateDefinitions = componentCore.aggregateDefinitions
+      def viewDefinitions = componentCore.viewDefinitions
     }
   }
 }
