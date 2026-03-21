@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version Mar. 21, 2026
+ * @version Mar. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -68,6 +68,10 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         case m: MComponent.Core.Holder => to_view_definitions(m.viewDefinitions)
         case _ => Vector.empty
       }
+      val operations = source match {
+        case m: MComponent.Core.Holder => to_operation_definitions(m.operationDefinitions)
+        case _ => Vector.empty
+      }
       val ccore = SComponent.ComponentCore(
         componentName,
         services,
@@ -76,7 +80,8 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         eventroutes,
         eventsubs,
         aggregates,
-        views
+        views,
+        operations
       )
       SComponent(core, ccore)
     }
@@ -165,6 +170,26 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
           name = p.name,
           entityName = p.entityName,
           viewNames = p.viewNames
+        )
+      }
+
+    private def to_operation_definitions(
+      ps: Vector[MComponent.OperationDefinition]
+    ): Vector[SComponent.OperationDefinition] =
+      ps.map { p =>
+        SComponent.OperationDefinition(
+          name = p.name,
+          kind = p.kind,
+          inputType = p.inputType,
+          outputType = p.outputType,
+          inputValueKind = p.inputValueKind,
+          parameters = p.parameters.map { x =>
+            SComponent.OperationField(
+              name = x.name,
+              datatype = x.datatype,
+              multiplicity = x.multiplicity
+            )
+          }
         )
       }
 

@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Mar. 21, 2026
+ * @version Mar. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -42,6 +42,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           _ <- _event_subscription_definitions_method(s.eventSubscriptionDefinitions)
           _ <- _aggregate_definitions_method(s.aggregateDefinitions)
           _ <- _view_definitions_method(s.viewDefinitions)
+          _ <- _operation_definitions_method(s.operationDefinitions)
         } yield ()
       case None =>
         unit
@@ -268,6 +269,47 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- println(")")
       } yield ()
     }
+
+  private def _operation_definitions_method(
+    defs: Vector[SComponent.OperationDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty) {
+      println("override def operationDefinitions: Vector[org.goldenport.cncf.operation.CmlOperationDefinition] = Vector.empty")
+    } else {
+      for {
+        _ <- println("override def operationDefinitions: Vector[org.goldenport.cncf.operation.CmlOperationDefinition] = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- println("org.goldenport.cncf.operation.CmlOperationDefinition(")
+              _ <- indent
+              _ <- println(s"name = ${_string_literal(d.name)},")
+              _ <- println(s"kind = ${_string_literal(d.kind)},")
+              _ <- println(s"inputType = ${_string_literal(d.inputType)},")
+              _ <- println(s"outputType = ${_string_literal(d.outputType)},")
+              _ <- println(s"inputValueKind = ${_string_literal(d.inputValueKind)},")
+              _ <- println(s"parameters = ${_operation_fields_expr(d.parameters)}")
+              _ <- outdent
+              _ <- println(")")
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _operation_fields_expr(
+    p: Vector[SComponent.OperationField]
+  ): String =
+    if (p.isEmpty)
+      "Vector.empty"
+    else
+      p.map { x =>
+        s"""org.goldenport.cncf.operation.CmlOperationField(name = ${_string_literal(x.name)}, datatype = ${_string_literal(x.datatype)}, multiplicity = ${_string_literal(x.multiplicity)})"""
+      }.mkString("Vector(", ", ", ")")
 
   private def _string_vector_expr(
     p: Vector[String]

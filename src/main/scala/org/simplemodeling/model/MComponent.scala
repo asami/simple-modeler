@@ -9,7 +9,7 @@ import org.simplemodeling.model._
     version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version Mar. 21, 2026
+ * @version Mar. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -90,6 +90,21 @@ object MComponent {
     viewNames: Vector[String] = Vector.empty
   )
 
+  final case class OperationDefinition(
+    name: String,
+    kind: String,
+    inputType: String,
+    outputType: String,
+    inputValueKind: String,
+    parameters: Vector[OperationField] = Vector.empty
+  )
+
+  final case class OperationField(
+    name: String,
+    datatype: String,
+    multiplicity: String = "1"
+  )
+
   case class Core(
     entities: Vector[MEntity],
     stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty,
@@ -97,7 +112,8 @@ object MComponent {
     eventRoutingDefinitions: Vector[EventRoutingDefinition] = Vector.empty,
     eventSubscriptionDefinitions: Vector[EventSubscriptionDefinition] = Vector.empty,
     aggregateDefinitions: Vector[AggregateDefinition] = Vector.empty,
-    viewDefinitions: Vector[ViewDefinition] = Vector.empty
+    viewDefinitions: Vector[ViewDefinition] = Vector.empty,
+    operationDefinitions: Vector[OperationDefinition] = Vector.empty
   )
   object Core {
     trait Holder {
@@ -110,6 +126,7 @@ object MComponent {
       def eventSubscriptionDefinitions = componentCore.eventSubscriptionDefinitions
       def aggregateDefinitions = componentCore.aggregateDefinitions
       def viewDefinitions = componentCore.viewDefinitions
+      def operationDefinitions = componentCore.operationDefinitions
     }
   }
 }

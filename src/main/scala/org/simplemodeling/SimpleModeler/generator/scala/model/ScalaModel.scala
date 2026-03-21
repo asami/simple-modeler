@@ -21,7 +21,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Oct.  7, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 21, 2026
+ * @version Mar. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -881,6 +881,21 @@ object SComponent {
     viewNames: Vector[String] = Vector.empty
   )
 
+  final case class OperationDefinition(
+    name: String,
+    kind: String,
+    inputType: String,
+    outputType: String,
+    inputValueKind: String,
+    parameters: Vector[OperationField] = Vector.empty
+  )
+
+  final case class OperationField(
+    name: String,
+    datatype: String,
+    multiplicity: String = "1"
+  )
+
   case class ComponentCore(
     componentName: String,
     services: List[SService],
@@ -889,7 +904,8 @@ object SComponent {
     eventRoutingDefinitions: Vector[EventRoutingDefinition] = Vector.empty,
     eventSubscriptionDefinitions: Vector[EventSubscriptionDefinition] = Vector.empty,
     aggregateDefinitions: Vector[AggregateDefinition] = Vector.empty,
-    viewDefinitions: Vector[ViewDefinition] = Vector.empty
+    viewDefinitions: Vector[ViewDefinition] = Vector.empty,
+    operationDefinitions: Vector[OperationDefinition] = Vector.empty
   )
   object ComponentCore {
     trait Holder {
@@ -903,6 +919,7 @@ object SComponent {
       def eventSubscriptionDefinitions = componentCore.eventSubscriptionDefinitions
       def aggregateDefinitions = componentCore.aggregateDefinitions
       def viewDefinitions = componentCore.viewDefinitions
+      def operationDefinitions = componentCore.operationDefinitions
     }
   }
 
