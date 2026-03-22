@@ -881,6 +881,29 @@ object SComponent {
     viewNames: Vector[String] = Vector.empty
   )
 
+  final case class ComponentCoordinate(
+    group: String,
+    artifact: String,
+    version: String
+  ) {
+    def asString: String = s"${group}:${artifact}:${version}"
+  }
+
+  final case class ComponentDefinition(
+    name: String,
+    coordinates: Vector[ComponentCoordinate] = Vector.empty,
+    componentlets: Vector[String] = Vector.empty,
+    extensionPoints: Vector[String] = Vector.empty,
+    extensionBindings: Map[String, String] = Map.empty
+  )
+
+  final case class SubsystemDefinition(
+    name: String,
+    components: Vector[ComponentCoordinate] = Vector.empty,
+    extensionBindings: Map[String, String] = Map.empty,
+    config: Map[String, String] = Map.empty
+  )
+
   final case class OperationDefinition(
     name: String,
     kind: String,
@@ -905,7 +928,9 @@ object SComponent {
     eventSubscriptionDefinitions: Vector[EventSubscriptionDefinition] = Vector.empty,
     aggregateDefinitions: Vector[AggregateDefinition] = Vector.empty,
     viewDefinitions: Vector[ViewDefinition] = Vector.empty,
-    operationDefinitions: Vector[OperationDefinition] = Vector.empty
+    operationDefinitions: Vector[OperationDefinition] = Vector.empty,
+    componentDefinitions: Vector[ComponentDefinition] = Vector.empty,
+    subsystemDefinitions: Vector[SubsystemDefinition] = Vector.empty
   )
   object ComponentCore {
     trait Holder {
@@ -920,6 +945,8 @@ object SComponent {
       def aggregateDefinitions = componentCore.aggregateDefinitions
       def viewDefinitions = componentCore.viewDefinitions
       def operationDefinitions = componentCore.operationDefinitions
+      def componentDefinitions = componentCore.componentDefinitions
+      def subsystemDefinitions = componentCore.subsystemDefinitions
     }
   }
 

@@ -43,6 +43,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           _ <- _aggregate_definitions_method(s.aggregateDefinitions)
           _ <- _view_definitions_method(s.viewDefinitions)
           _ <- _operation_definitions_method(s.operationDefinitions)
+          _ <- _component_definitions_method(s.componentDefinitions)
+          _ <- _subsystem_definitions_method(s.subsystemDefinitions)
         } yield ()
       case None =>
         unit
@@ -300,6 +302,106 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- println(")")
       } yield ()
     }
+
+  private def _component_definitions_method(
+    defs: Vector[SComponent.ComponentDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty) {
+      println("def componentDefinitionRecords: Vector[Record] = Vector.empty")
+    } else {
+      for {
+        _ <- println("def componentDefinitionRecords: Vector[Record] = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- _component_definition_record_expr(d)
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _subsystem_definitions_method(
+    defs: Vector[SComponent.SubsystemDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty) {
+      println("def subsystemDefinitionRecords: Vector[Record] = Vector.empty")
+    } else {
+      for {
+        _ <- println("def subsystemDefinitionRecords: Vector[Record] = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- _subsystem_definition_record_expr(d)
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _component_definition_record_expr(
+    p: SComponent.ComponentDefinition
+  ): GenM[Unit] = {
+    val coordinates = _string_vector_expr(p.coordinates.map(_.asString))
+    val componentlets = _string_vector_expr(p.componentlets)
+    val extensionpoints = _string_vector_expr(p.extensionPoints)
+    val extensionbindings =
+      if (p.extensionBindings.isEmpty)
+        "Record.empty"
+      else
+        "Record.data(" + p.extensionBindings.toVector.sortBy(_._1).map { case (k, v) =>
+          s"${_string_literal(k)} -> ${_string_literal(v)}"
+        }.mkString(", ") + ")"
+    for {
+      _ <- println("Record.data(")
+      _ <- indent
+      _ <- println(s"${_string_literal("name")} -> ${_string_literal(p.name)},")
+      _ <- println(s"${_string_literal("coordinates")} -> ${coordinates},")
+      _ <- println(s"${_string_literal("componentlets")} -> ${componentlets},")
+      _ <- println(s"${_string_literal("extension_points")} -> ${extensionpoints},")
+      _ <- println(s"${_string_literal("extension_bindings")} -> ${extensionbindings}")
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
+  }
+
+  private def _subsystem_definition_record_expr(
+    p: SComponent.SubsystemDefinition
+  ): GenM[Unit] = {
+    val components = _string_vector_expr(p.components.map(_.asString))
+    val extensionbindings =
+      if (p.extensionBindings.isEmpty)
+        "Record.empty"
+      else
+        "Record.data(" + p.extensionBindings.toVector.sortBy(_._1).map { case (k, v) =>
+          s"${_string_literal(k)} -> ${_string_literal(v)}"
+        }.mkString(", ") + ")"
+    val config =
+      if (p.config.isEmpty)
+        "Record.empty"
+      else
+        "Record.data(" + p.config.toVector.sortBy(_._1).map { case (k, v) =>
+          s"${_string_literal(k)} -> ${_string_literal(v)}"
+        }.mkString(", ") + ")"
+    for {
+      _ <- println("Record.data(")
+      _ <- indent
+      _ <- println(s"${_string_literal("name")} -> ${_string_literal(p.name)},")
+      _ <- println(s"${_string_literal("components")} -> ${components},")
+      _ <- println(s"${_string_literal("extension_bindings")} -> ${extensionbindings},")
+      _ <- println(s"${_string_literal("config")} -> ${config}")
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
+  }
 
   private def _operation_fields_expr(
     p: Vector[SComponent.OperationField]

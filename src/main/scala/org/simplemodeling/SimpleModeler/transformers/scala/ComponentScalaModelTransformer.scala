@@ -72,6 +72,14 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         case m: MComponent.Core.Holder => to_operation_definitions(m.operationDefinitions)
         case _ => Vector.empty
       }
+      val components = source match {
+        case m: MComponent.Core.Holder => to_component_definitions(m.componentDefinitions)
+        case _ => Vector.empty
+      }
+      val subsystems = source match {
+        case m: MComponent.Core.Holder => to_subsystem_definitions(m.subsystemDefinitions)
+        case _ => Vector.empty
+      }
       val ccore = SComponent.ComponentCore(
         componentName,
         services,
@@ -81,7 +89,9 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         eventsubs,
         aggregates,
         views,
-        operations
+        operations,
+        components,
+        subsystems
       )
       SComponent(core, ccore)
     }
@@ -190,6 +200,43 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               multiplicity = x.multiplicity
             )
           }
+        )
+      }
+
+    private def to_component_definitions(
+      ps: Vector[MComponent.ComponentDefinition]
+    ): Vector[SComponent.ComponentDefinition] =
+      ps.map { p =>
+        SComponent.ComponentDefinition(
+          name = p.name,
+          coordinates = p.coordinates.map { c =>
+            SComponent.ComponentCoordinate(
+              group = c.group,
+              artifact = c.artifact,
+              version = c.version
+            )
+          },
+          componentlets = p.componentlets,
+          extensionPoints = p.extensionPoints,
+          extensionBindings = p.extensionBindings
+        )
+      }
+
+    private def to_subsystem_definitions(
+      ps: Vector[MComponent.SubsystemDefinition]
+    ): Vector[SComponent.SubsystemDefinition] =
+      ps.map { p =>
+        SComponent.SubsystemDefinition(
+          name = p.name,
+          components = p.components.map { c =>
+            SComponent.ComponentCoordinate(
+              group = c.group,
+              artifact = c.artifact,
+              version = c.version
+            )
+          },
+          extensionBindings = p.extensionBindings,
+          config = p.config
         )
       }
 
