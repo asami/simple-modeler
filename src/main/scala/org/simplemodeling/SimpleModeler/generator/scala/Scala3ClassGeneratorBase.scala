@@ -17,7 +17,7 @@ import Generator.{State => GState, _}
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 20, 2026
+ * @version Mar. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -147,7 +147,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import org.goldenport.protocol.*")
       _ <- println("import org.goldenport.protocol.spec.*")
       _ <- println("import org.goldenport.protocol.operation.*")
-      _ <- println("import org.goldenport.cncf.datatype.*")
+      _ <- println("import org.goldenport.model.datatype.*")
       _ <- println("import org.goldenport.cncf.directive.*")
       _ <- println("import org.goldenport.cncf.action.*")
       _ <- println("import org.goldenport.cncf.component.*")

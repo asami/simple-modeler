@@ -20,7 +20,8 @@ import org.goldenport.RAISE
  *  version Apr. 25, 2020
  *  version May. 17, 2020
  *  version Sep. 26, 2020
- * @version Feb. 14, 2026
+ *  version Feb. 14, 2026
+ * @version Mar. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MObject extends MElement { // Classifier
@@ -112,7 +113,7 @@ object MObject {
   ) extends MObject with MElement.Core.Holder with MObject.Core.Holder {
   }
 
-  val entityId = MObject(MPackageRef.datatype, "EntityId")
+  val entityId = MObject(MPackageRef.modeldatatype, "EntityId")
   val record = MObject(MPackageRef.record, "Record")
 
   def apply(pkg: MPackageRef, name: String): MObject = Instance(

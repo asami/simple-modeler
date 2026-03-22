@@ -12,7 +12,8 @@ import org.goldenport.values.PathName
  *  version Oct.  4, 2020
  *  version Sep. 17, 2023
  *  version Oct.  9, 2023
- * @version Feb. 19, 2026
+ *  version Feb. 19, 2026
+ * @version Mar. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MPackageRef(
@@ -39,7 +40,7 @@ object MPackageRef {
   val datatype = MPackageRef("org.goldenport.datatype")
   val value = MPackageRef("org.goldenport.value")
   val record = MPackageRef("org.goldenport.record")
-  val cncfdatatype = MPackageRef("org.goldenport.cncf.datatype")
+  val modeldatatype = MPackageRef("org.goldenport.model.datatype")
   val directive = MPackageRef("org.goldenport.cncf.directive")
 
   def apply(pkg: MPackage): MPackageRef = MPackageRef(pkg.name)

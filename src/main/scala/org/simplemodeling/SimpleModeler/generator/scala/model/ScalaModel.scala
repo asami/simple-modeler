@@ -21,7 +21,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Oct.  7, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 22, 2026
+ * @version Mar. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -142,7 +142,7 @@ sealed abstract class TypeName {
 }
 object TypeName {
   val datatypePkg = PackageName("org.goldenport.datatype")
-  val cncfDatatypePkg = PackageName("org.goldenport.cncf.datatype")
+  val modelDatatypePkg = PackageName("org.goldenport.model.datatype")
 
   case class Unit() extends TypeName {
     val name = "unit"
@@ -298,7 +298,7 @@ object TypeName {
 
   def create(p: DataType): TypeName = Primitive.createOption(p).getOrElse {
     p match {
-      case XEntityId => Plain(cncfDatatypePkg, "EntityId")
+      case XEntityId => Plain(modelDatatypePkg, "EntityId")
       case _ => Plain(datatypePkg, StringUtils.makeTitle(p.name))
     }
   }
