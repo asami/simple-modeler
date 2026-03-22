@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Mar. 22, 2026
+ * @version Mar. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -221,15 +221,15 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     defs: Vector[SComponent.AggregateDefinition]
   ): GenM[Unit] =
     if (defs.isEmpty) {
-      println("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.CmlAggregateDefinition] = Vector.empty")
+      println("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.AggregateDefinition] = Vector.empty")
     } else {
       for {
-        _ <- println("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.CmlAggregateDefinition] = Vector(")
+        _ <- println("override def aggregateDefinitions: Vector[org.goldenport.cncf.entity.aggregate.AggregateDefinition] = Vector(")
         _ <- indent
         _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
           z.flatMap { _ =>
             for {
-              _ <- println("org.goldenport.cncf.entity.aggregate.CmlAggregateDefinition(")
+              _ <- println("org.goldenport.cncf.entity.aggregate.AggregateDefinition(")
               _ <- indent
               _ <- println(s"name = ${_string_literal(d.name)},")
               _ <- println(s"entityName = ${_string_literal(d.entityName)}")
@@ -248,15 +248,15 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     defs: Vector[SComponent.ViewDefinition]
   ): GenM[Unit] =
     if (defs.isEmpty) {
-      println("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.CmlViewDefinition] = Vector.empty")
+      println("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.ViewDefinition] = Vector.empty")
     } else {
       for {
-        _ <- println("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.CmlViewDefinition] = Vector(")
+        _ <- println("override def viewDefinitions: Vector[org.goldenport.cncf.entity.view.ViewDefinition] = Vector(")
         _ <- indent
         _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
           z.flatMap { _ =>
             for {
-              _ <- println("org.goldenport.cncf.entity.view.CmlViewDefinition(")
+              _ <- println("org.goldenport.cncf.entity.view.ViewDefinition(")
               _ <- indent
               _ <- println(s"name = ${_string_literal(d.name)},")
               _ <- println(s"entityName = ${_string_literal(d.entityName)},")
