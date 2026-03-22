@@ -912,11 +912,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected val package_type = clazz.packageName
 
-  protected val companion_package = PackageName(clazz.packageName, clazz.className.name)
-
   protected def consequence_type(p: TypeName): TypeName = TypeName.consequence(p)
 
-  protected val builder_type = TypeName(companion_package, "Builder")
+  protected val builder_type = TypeName(clazz.packageName, s"${clazz.className.name}.Builder")
 
   protected val consequence_builder_type = consequence_type(builder_type)
 

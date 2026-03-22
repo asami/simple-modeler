@@ -342,7 +342,13 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   final protected def make_title_name(
     p: String,
     ps: String*
-  ): String = (p +: ps).map(StringUtils.makeTitle).mkString
+  ): String = {
+    val raw = (p +: ps).map(StringUtils.makeTitle).mkString
+    if (raw.length <= 32)
+      raw
+    else
+      raw.take(32)
+  }
 
   protected def project_dir = "scala.d"
 

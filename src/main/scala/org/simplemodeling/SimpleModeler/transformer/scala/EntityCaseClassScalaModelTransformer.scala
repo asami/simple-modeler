@@ -24,11 +24,19 @@ abstract class EntityCaseClassScalaModelTransformer() extends CaseClassScalaMode
     Vector(_to_scala(p, purpose))
   }
 
+  protected final def to_entity_value_core(
+    p: MEntity,
+    subpkg: Option[String]
+  ): ClassCore = {
+    val entitysubpkg = subpkg.fold("entity")(x => s"entity.$x")
+    val ownerpkg = if (p.packageName.isEmpty) "entity" else s"${p.packageName}.entity"
+    val core = to_scala_core_subpackage(p, entitysubpkg)
+    val owner = TypeName.Plain(PackageName(ownerpkg), p.name)
+    core.copy(directive = core.directive.withCanonicalSchemaOwner(owner))
+  }
+
   private def _to_scala(p: MEntity, purpose: Purpose): SCaseClass = {
-    val core = sub_Package_Name match {
-      case Some(s) => to_scala_core_subpackage(p, s)
-      case None => to_scala_core(p)
-    }
+    val core = to_entity_value_core(p, sub_Package_Name)
     SCaseClass(core.withEntityValue.withPurpose(purpose))
   }
 }

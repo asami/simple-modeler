@@ -18,11 +18,11 @@ class EntityValueViewScalaModelTransformer() extends EntityCaseClassScalaModelTr
     apply(p, Purpose.View)
 
   // NOTE: View-specific DSL/model is not available yet.
-  // Default: view.<Entity>
-  // Non-default: view.<view-name>.<Entity>
+  // Default: entity.view.<Entity>
+  // Non-default: entity.view.<view-name>.<Entity>
   override protected def transform_entity(p: MEntity, purpose: Purpose): Consequence[Vector[SClassBase]] = Consequence {
     val subpkg = _view_package(_view_name(p))
-    val core = to_scala_core_subpackage(p, subpkg)
+    val core = to_entity_value_core(p, Some(subpkg))
     Vector(SCaseClass(core.withEntityValue.withPurpose(purpose)))
   }
 

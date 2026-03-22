@@ -17,11 +17,11 @@ class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaMo
     apply(p, Purpose.Aggregate)
 
   // NOTE: Aggregate-specific DSL/model is not available yet.
-  // Default: aggregate.<Entity>
-  // Non-default: aggregate.<aggregate-name>.<Entity>
+  // Default: entity.aggregate.<Entity>
+  // Non-default: entity.aggregate.<aggregate-name>.<Entity>
   override protected def transform_entity(p: MEntity, purpose: Purpose): Consequence[Vector[SClassBase]] = Consequence {
     val subpkg = _aggregate_package(_aggregate_name(p))
-    val core = to_scala_core_subpackage(p, subpkg)
+    val core = to_entity_value_core(p, Some(subpkg))
     Vector(SCaseClass(core.withEntityValue.withPurpose(purpose)))
   }
 

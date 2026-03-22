@@ -1003,9 +1003,13 @@ object SComponent {
         val relativeSegments = _relative_package_segments(pkg)
         if (relativeSegments.isEmpty)
           name
-        // Keep aggregate/view entity-value references absolute to avoid collisions
-        // with imported CNCF symbols such as org.goldenport.cncf.entity.aggregate.
-        else if (relativeSegments.head == "aggregate" || relativeSegments.head == "view")
+        // Keep entity-family references absolute to avoid collisions with
+        // local parameter names such as `entity` and imported CNCF symbols.
+        else if (
+          relativeSegments.head == "entity" ||
+          relativeSegments.head == "aggregate" ||
+          relativeSegments.head == "view"
+        )
           s"_root_.${pkg.name}.$name"
         else
           s"${relativeSegments.mkString(".")}.$name"
@@ -1032,6 +1036,12 @@ object SComponent {
       if (pkg.name.isEmpty) Vector.empty
       else pkg.name.split('.').toVector
 
-    final protected def make_title(s: String) = StringUtils.makeTitle(s)
+    final protected def make_title(s: String) = {
+      val raw = StringUtils.makeTitle(s)
+      if (raw.length <= 32)
+        raw
+      else
+        raw.take(32)
+    }
   }
 }
