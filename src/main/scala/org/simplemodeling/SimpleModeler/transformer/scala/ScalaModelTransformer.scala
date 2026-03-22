@@ -13,7 +13,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- * @version Mar. 19, 2026
+ * @version Mar. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -119,13 +119,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     p: MObjectRef
   ): Option[TypeName] =
     if (_is_simple_entity(p.targetName)) {
-      ScalaModelTransformer.resolveObject(p, scope) match {
-        case Some(_) =>
-          // A model-defined SimpleEntity is flattened into current class attributes.
-          None
-        case None =>
-          Some(TypeName(PackageName("org.goldenport.model"), "SimpleEntity"))
-      }
+      Some(TypeName(PackageName("org.goldenport.model"), "SimpleEntity"))
     } else {
       Some(TypeName(PackageName(p.targetPackageName), p.targetName))
     }

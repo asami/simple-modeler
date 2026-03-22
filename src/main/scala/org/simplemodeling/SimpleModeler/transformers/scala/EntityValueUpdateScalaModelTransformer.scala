@@ -11,12 +11,19 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Sep. 20, 2025
  *  version Sep. 23, 2025
  *  version Feb. 18, 2026
- * @version Mar. 17, 2026
+ * @version Mar. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
   protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Update)
   override protected def sub_Package_Name: Option[String] = Some("update")
+
+  override protected def to_scala_core_parent(p: MObject): Option[TypeName] =
+    super.to_scala_core_parent(p).map {
+      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.goldenport.model" =>
+        TypeName.Plain(PackageName("org.goldenport.model"), "SimpleEntityUpdate")
+      case m => m
+    }
 
   override protected def to_parameters(ps: List[MAttribute]): ParameterSequence = {
     val xs = ps.filterNot(_is_id_attribute).toVector.map(to_parameter)

@@ -164,7 +164,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     for {
       _ <- printws(clazz.declaration)
       _ <- print(clazz.className)
-      _ <- parameter_list(clazz.parameterSequence)
+      _ <- class_parameter_list(clazz.parameterSequence)
       _ <- {
         def _extends_(c: String, ts: List[String]) =
           s" extends ${c}" + (
@@ -214,6 +214,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _typename_for_extends(p: TypeName): String = p match {
     case TypeName.Plain(pkg, name, _) if pkg.name == "org.goldenport.model" && name == "SimpleEntity" =>
+      p.fullName
+    case TypeName.Plain(pkg, name, _) if pkg.name == "org.goldenport.model" &&
+      (name == "SimpleEntityCreate" || name == "SimpleEntityUpdate" || name == "SimpleEntityQuery") =>
       p.fullName
     case _ =>
       p.name
@@ -1550,8 +1553,35 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   protected def parameter_item(p: Parameter): String = {
-    val s = p.name.name + ": " + p.typeName.name
-    val d = if (p.isDefault) {
+    s"${p.name.name}: ${p.typeName.name}${_parameter_default_suffix(p)}"
+  }
+
+  protected def class_parameter_list(p: ParameterSequence): GenM[Unit] =
+    class_parameter_list(p.parameters)
+
+  protected def class_parameter_list(ps: Seq[Parameter]): GenM[Unit] = {
+    val s = ps.map(class_parameter_item).mkString("(", ", ", ")")
+    print(s)
+  }
+
+  protected def class_parameter_item(p: Parameter): String = {
+    val n = p.name.name
+    val prefix =
+      if (_is_simple_entity_parent && (n == "id" || n == "name"))
+        "override val "
+      else
+        ""
+    s"$prefix$n: ${p.typeName.name}${_parameter_default_suffix(p)}"
+  }
+
+  private def _is_simple_entity_parent: Boolean =
+    clazz.parentClass.exists {
+      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.goldenport.model" => true
+      case _ => false
+    }
+
+  private def _parameter_default_suffix(p: Parameter): String =
+    if (p.isDefault) {
       val a = p.typeName match {
         case m: TypeName.Container if m.isOption => "None"
         case m: TypeName.Container if m.isList => "Nil"
@@ -1569,8 +1599,6 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } else {
       ""
     }
-    s + d
-  }
 
   protected final def required_parameter_list(p: ParameterSequence): GenM[Unit] = {
     val xs = p.requiredPatameters.map(parameter_item)
