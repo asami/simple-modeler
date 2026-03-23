@@ -91,7 +91,8 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         views,
         operations,
         components,
-        subsystems
+        subsystems,
+        description = _description_text(source)
       )
       SComponent(core, ccore)
     }
@@ -273,10 +274,13 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
     final protected def to_services(ps: Seq[MService]): List[SService] =
       ps.map(to_service).toList
 
+    private def _description_text(p: MElement): Option[String] =
+      Option(p.description.content.toText).map(_.trim).filter(_.nonEmpty)
+
     final protected def to_service(p: MService): SService = {
       val name = p.name
       val (ops, actions) = to_actions(p.operations)
-      SService(p.packageName, name, ops, actions)
+      SService(p.packageName, name, ops, actions, _description_text(p))
     }
 
     final protected def to_actions(
@@ -305,7 +309,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       val rtype = to_result(p.result)
       val ap = Parameter.create("action", action)
       val aps = ParameterSequence(Vector(ap))
-      val method = SMethod(MethodName(p.name), descriptor, aps, rtype, p.body)
+      val method = SMethod(MethodName(p.name), descriptor, aps, rtype, p.body, _description_text(p))
       (method, Vector(action))
     }
 

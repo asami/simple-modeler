@@ -528,7 +528,8 @@ case class SMethod(
   descriptor: SMethod.Descriptor,
   parameters: ParameterSequence,
   returnType: TypeName,
-  body: Option[() => GenM[Unit]] = None
+  body: Option[() => GenM[Unit]] = None,
+  description: Option[String] = None
 ) {
 }
 object SMethod {
@@ -778,7 +779,8 @@ case class SService(
 object SService {
   case class ServiceCore(
     serviceName: String,
-    actions: Vector[SCaseClass]
+    actions: Vector[SCaseClass],
+    description: Option[String] = None
   )
   object ServiceCore {
     trait Holder {
@@ -786,6 +788,7 @@ object SService {
 
       def serviceName = serviceCore.serviceName
       def actions = serviceCore.actions
+      def description = serviceCore.description
     }
   }
 
@@ -793,11 +796,12 @@ object SService {
     pkg: String,
     name: String,
     methods: MethodCompartment,
-    actions: Seq[SCaseClass]
+    actions: Seq[SCaseClass],
+    description: Option[String] = None
   ): SService = {
     SService(
       ClassCore.service(pkg, name, methods),
-      ServiceCore(name, actions.toVector)
+      ServiceCore(name, actions.toVector, description)
     )
   }
 }
@@ -930,7 +934,8 @@ object SComponent {
     viewDefinitions: Vector[ViewDefinition] = Vector.empty,
     operationDefinitions: Vector[OperationDefinition] = Vector.empty,
     componentDefinitions: Vector[ComponentDefinition] = Vector.empty,
-    subsystemDefinitions: Vector[SubsystemDefinition] = Vector.empty
+    subsystemDefinitions: Vector[SubsystemDefinition] = Vector.empty,
+    description: Option[String] = None
   )
   object ComponentCore {
     trait Holder {
@@ -947,6 +952,7 @@ object SComponent {
       def operationDefinitions = componentCore.operationDefinitions
       def componentDefinitions = componentCore.componentDefinitions
       def subsystemDefinitions = componentCore.subsystemDefinitions
+      def description = componentCore.description
     }
   }
 

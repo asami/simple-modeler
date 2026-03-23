@@ -568,6 +568,18 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       case c => c.toString
     }
 
+  private def _normalize_text(p: Option[String]): Option[String] =
+    p.map(_.trim).filter(_.nonEmpty)
+
+  private def _summary_text(p: Option[String]): Option[String] =
+    _normalize_text(p).map(_.linesIterator.map(_.trim).find(_.nonEmpty).getOrElse("")).filter(_.nonEmpty)
+
+  private def _comment_lines(p: Option[String]): Vector[String] =
+    _normalize_text(p).toVector.flatMap(_.split("\r?\n").toVector.map(_.trim).filter(_.nonEmpty))
+
+  private def _comment(p: Option[String]): GenM[Unit] =
+    _comment_lines(p).traverse_(x => println(s"// $x"))
+
   protected final def component_object_part(
   ): GenM[Unit] =
     _component match {
@@ -590,6 +602,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     private def _factory(actioncalldescs: ActionCallDescriptorCollection): GenM[Unit] = {
       val servicedefs = services.map(service_object_name)
       for {
+        _ <- _comment(component.description)
         _ <- println(s"""val name = "${component_name}"""")
         _ <- println(s"val componentId = ComponentId(name) // TODO")
         _ <- separator
@@ -649,23 +662,28 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       val serviceobjectname = service_object_name(service)
       val ops = service.methods.map(operation_object_name)
       for {
+        _ <- _comment(service.description)
         ds <- blockR(s"object ${serviceobjectname} extends ServiceDefinition {") {
           for {
             _ <- block(s"""val specification = ServiceDefinition.Specification.Builder("${servicename}").""") {
-              ops.toList match {
-                case Nil => unit
-                case x :: xs => for {
-                  _ <- block("operation(") {
-                    println(x)
-                  }
-                  _ <- xs.traverse(x =>
-                    block(").operation(") {
+              for {
+                _ <- _summary_text(service.description).fold(unit)(x => println(s"summary(${_string_literal(x)})."))
+                _ <- _normalize_text(service.description).fold(unit)(x => println(s"description(${_string_literal(x)})."))
+                _ <- ops.toList match {
+                  case Nil => println("build()")
+                  case x :: xs => for {
+                    _ <- block("operation(") {
                       println(x)
                     }
-                  )
-                  _ <- println(s").build()")
-                } yield ()
-              }
+                    _ <- xs.traverse(x =>
+                      block(").operation(") {
+                        println(x)
+                      }
+                    )
+                    _ <- println(s").build()")
+                  } yield ()
+                }
+              } yield ()
             }
             ds <- service.methods.traverse(_operation(servicename))
           } yield ds
@@ -677,12 +695,24 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       val operationobject = operation_object_name(op)
       val operationname = operation_name(op)
       val actionclassname = action_class_name(op)
+      val summary = _summary_text(op.description)
+      val description = _normalize_text(op.description)
       for {
+        _ <- _comment(op.description)
         _ <- separator
         _ <- block(s"object ${operationobject} extends OperationDefinition") {
           for {
             _ <- block(s"""val specification = OperationDefinition.Specification.Builder("$operationname").""") {
-              println(s"build()")
+              description match {
+                case Some(desc) =>
+                  val summaryExpr = summary.getOrElse(desc)
+                  for {
+                    _ <- println(s"""copy(content = BaseContent.Builder("$operationname").summary(${_string_literal(summaryExpr)}).description(${_string_literal(desc)})).""")
+                    _ <- println(s"build()")
+                  } yield ()
+                case None =>
+                  println(s"build()")
+              }
             }
             _ <- separator
             _ <- block("override def createOperationRequest(") {

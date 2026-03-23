@@ -1,6 +1,7 @@
 package org.simplemodeling.model
 
 import org.simplemodeling.model._
+import org.smartdox.Description
 
 /*
  * Derived from SService and SMService.
@@ -36,8 +37,11 @@ object MService {
   }
 
   def apply(pkg: MPackage, name: String, ops: Seq[MOperation]): MService =
+    apply(pkg, name, ops, Description.name(name))
+
+  def apply(pkg: MPackage, name: String, ops: Seq[MOperation], description: Description): MService =
     Instance(
-      MElement.Core(name),
+      MElement.Core(description),
       MObject.Core.create(pkg, ops),
       Core()
     )

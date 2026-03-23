@@ -63,9 +63,15 @@ object MOperation {
   def query(name: String, param: MParameter, result: MResult): MOperation =
     query(name, List(param), result)
 
+  def query(name: String, param: MParameter, result: MResult, description: Description): MOperation =
+    query(name, List(param), result, description)
+
   def query(name: String, params: List[MParameter], result: MResult): MOperation =
+    query(name, params, result, Description.name(name))
+
+  def query(name: String, params: List[MParameter], result: MResult, description: Description): MOperation =
     Instance(
-      MElement.Core(name),
+      MElement.Core(description),
       Core(Descriptor.query, params, result)
     )
 
@@ -77,10 +83,24 @@ object MOperation {
 
   def queryBody(
     name: String,
+    param: MParameter,
+    result: MResult,
+    description: Description
+  )(body: GenM[Unit]): MOperation = queryBody(name, List(param), result, description)(body)
+
+  def queryBody(
+    name: String,
     params: List[MParameter],
     result: MResult
+  )(body: GenM[Unit]): MOperation = queryBody(name, params, result, Description.name(name))(body)
+
+  def queryBody(
+    name: String,
+    params: List[MParameter],
+    result: MResult,
+    description: Description
   )(body: GenM[Unit]): MOperation = Instance(
-    MElement.Core(name),
+    MElement.Core(description),
     Core(Descriptor.query, params, result, Some(() => body))
   )
 
@@ -96,21 +116,41 @@ object MOperation {
   def command(name: String, param: MParameter): MOperation =
     command(name, List(param))
 
+  def command(name: String, param: MParameter, description: Description): MOperation =
+    command(name, List(param), MResult.unit, description)
+
   def command(name: String, params: List[MParameter]): MOperation =
     command(name, params, MResult.unit)
 
+  def command(name: String, params: List[MParameter], description: Description): MOperation =
+    command(name, params, MResult.unit, description)
+
   def command(name: String, params: List[MParameter], result: MResult): MOperation =
+    command(name, params, result, Description.name(name))
+
+  def command(name: String, params: List[MParameter], result: MResult, description: Description): MOperation =
     Instance(
-      MElement.Core(name),
+      MElement.Core(description),
       Core(Descriptor.command, params, result)
     )
 
   def commandBody(name: String, param: MParameter)(body: GenM[Unit]): MOperation =
     commandBody(name, List(param), MResult.unit)(body)
 
+  def commandBody(name: String, param: MParameter, description: Description)(body: GenM[Unit]): MOperation =
+    commandBody(name, List(param), MResult.unit, description)(body)
+
   def commandBody(name: String, params: List[MParameter], result: MResult)(body: GenM[Unit]): MOperation =
+    commandBody(name, params, result, Description.name(name))(body)
+
+  def commandBody(
+    name: String,
+    params: List[MParameter],
+    result: MResult,
+    description: Description
+  )(body: GenM[Unit]): MOperation =
     Instance(
-      MElement.Core(name),
+      MElement.Core(description),
       Core(Descriptor.command, params, result, Some(() => body))
     )
 }
