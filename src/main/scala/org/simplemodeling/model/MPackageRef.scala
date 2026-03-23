@@ -41,7 +41,7 @@ object MPackageRef {
   val value = MPackageRef("org.goldenport.value")
   val record = MPackageRef("org.goldenport.record")
   val modeldatatype = MPackageRef("org.goldenport.model.datatype")
-  val directive = MPackageRef("org.goldenport.cncf.directive")
+  val directive = MPackageRef("org.simplemodeling.model.directive")
 
   def apply(pkg: MPackage): MPackageRef = MPackageRef(pkg.name)
 

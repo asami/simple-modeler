@@ -113,7 +113,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected def section_package: GenM[Unit] =
     for {
       _ <- print("package ")
-      _ <- println(clazz.packageName)
+      _ <- println(clazz.packageName.name)
     } yield ()
 
   // protected def section_import_bak(p: T): GenM[Unit] =
@@ -148,6 +148,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import org.goldenport.protocol.spec.*")
       _ <- println("import org.goldenport.protocol.operation.*")
       _ <- println("import org.goldenport.model.datatype.*")
+      _ <- println("import org.goldenport.model.value.*")
+      _ <- println("import org.simplemodeling.model.directive.*")
       _ <- println("import org.goldenport.cncf.directive.*")
       _ <- println("import org.goldenport.cncf.action.*")
       _ <- println("import org.goldenport.cncf.component.*")
@@ -224,15 +226,23 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected def declare_derives: GenM[Unit] =
     classKind match { // TODO Eq
-      case ClassKind.EntityValue => print(" derives Codec.AsObject ") // Case class
-      case ClassKind.Value => print(" derives Eq, Codec.AsObject ") // Case class
+      case ClassKind.EntityValue if _is_codec_derives_supported =>
+        print(" derives Codec.AsObject ") // Case class
+      case ClassKind.Value if _is_codec_derives_supported =>
+        print(" derives Eq, Codec.AsObject ") // Case class
+      case ClassKind.Value =>
+        print(" derives Eq ") // Case class
       case _ => unit
     }
+
+  private def _is_codec_derives_supported: Boolean =
+    !clazz.parameterSequence.parameters.exists(p => _is_simple_object_attribute_type(p.typeName))
 
   protected def section_import_in_class: GenM[Unit] =
     println(s"import ${clazz.className}.*")
 
-  protected def section_variables: GenM[Unit] = unit
+  protected def section_variables: GenM[Unit] =
+    _simple_object_attribute_alias_definitions
 
   protected def section_methods: GenM[Unit] = unit
 
@@ -276,7 +286,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val rtype = TypeName.create(clazz)
     val m = SMethod.query(name, rtype, param) {
       val paramname = p.name.name
-      println(s"copy($paramname = $paramname)")
+      val targetname = _class_constructor_parameter_name(paramname)
+      println(s"copy($targetname = $paramname)")
     }
     define_method(m)
   }
@@ -356,7 +367,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("}")
         _ <- println()
         _ <- println("private def _to_data_store_value(v: Any): Any = v match {")
-        _ <- println("  case m: org.goldenport.cncf.directive.Update[?] => m")
+        _ <- println("  case m: org.simplemodeling.model.directive.Update[?] => m")
         _ <- println("  case other => _to_external_value(other)")
         _ <- println("}")
       } yield ()
@@ -624,11 +635,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- separator
         _ <- createc_method_required
         _ <- separator
+        _ <- createc_method_required_with_execution_context
+        _ <- separator
         _ <- create_method
+        _ <- separator
+        _ <- create_method_with_execution_context
         _ <- separator
         _ <- create_recordc_method
         _ <- separator
+        _ <- create_recordc_method_with_execution_context
+        _ <- separator
         _ <- create_record_method
+        _ <- separator
+        _ <- create_record_method_with_execution_context
       } yield {}
     else
       unit
@@ -643,9 +662,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- separator
       _ <- builder_buildc_method
       _ <- separator
+      _ <- builder_buildc_with_execution_context_method
+      _ <- separator
       _ <- builder_build_method
       _ <- separator
       _ <- builder_build_recordc_method
+      _ <- separator
+      _ <- builder_build_recordc_with_execution_context_method
       _ <- separator
       _ <- builder_build_record_method
       _ <- outdent
@@ -677,7 +700,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected final def is_condition_type(p: TypeName): Boolean = p match {
     case m: TypeName.Container =>
       m.container.name == "Condition" ||
-      m.container.fullName == "org.goldenport.cncf.directive.Condition"
+      m.container.fullName == "org.simplemodeling.model.directive.Condition"
     case _ => false
   }
 
@@ -689,7 +712,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected final def is_update_type(p: TypeName): Boolean = p match {
     case m: TypeName.Container =>
       m.container.name == "Update" ||
-      m.container.fullName == "org.goldenport.cncf.directive.Update"
+      m.container.fullName == "org.simplemodeling.model.directive.Update"
     case _ => false
   }
 
@@ -992,6 +1015,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _builder_with_methods_parse(p: Parameter): GenM[Unit] =
     if (
       p.typeName.isString ||
+      _is_simple_object_attribute_type(p.typeName) ||
       is_condition_type(p.typeName) ||
       is_option_condition_type(p.typeName) ||
       is_update_type(p.typeName) ||
@@ -1003,6 +1027,44 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- _builder_with_method_parse(p.name.name, p.typeName, string_parameter(p))
         _ <- _builder_with_methods_parse_number(p)
       } yield ()
+    }
+
+  private val _simple_object_attribute_type_names: Set[String] = Set(
+    "NameAttributes",
+    "DescriptiveAttributes",
+    "LifecycleAttributes",
+    "PublicationAttributes",
+    "SecurityAttributes",
+    "ResourceAttributes",
+    "AuditAttributes",
+    "MediaAttributes",
+    "ContextualAttributes",
+    "NameAttributesUpdate",
+    "DescriptiveAttributesUpdate",
+    "LifecycleAttributesUpdate",
+    "PublicationAttributesUpdate",
+    "SecurityAttributesUpdate",
+    "ResourceAttributesUpdate",
+    "AuditAttributesUpdate",
+    "MediaAttributesUpdate",
+    "ContextualAttributesUpdate",
+    "NameAttributesQuery",
+    "DescriptiveAttributesQuery",
+    "LifecycleAttributesQuery",
+    "PublicationAttributesQuery",
+    "SecurityAttributesQuery",
+    "ResourceAttributesQuery",
+    "AuditAttributesQuery",
+    "MediaAttributesQuery",
+    "ContextualAttributesQuery"
+  )
+
+  private def _is_simple_object_attribute_type(p: TypeName): Boolean =
+    p.contentType match {
+      case TypeName.Plain(pkg, name, _) =>
+        pkg.name == "org.goldenport.model.value" && _simple_object_attribute_type_names.contains(name)
+      case _ =>
+        false
     }
 
   private def _builder_with_methods_parse_number(p: Parameter): GenM[Unit] =
@@ -1192,6 +1254,20 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     define_method(m)
   }
 
+  protected def builder_buildc_with_execution_context_method: GenM[Unit] =
+    if (clazz.directive.isCreate)
+      for {
+        _ <- print("def buildCWithExecutionContext(using ctx: org.goldenport.cncf.context.ExecutionContext): ")
+        _ <- print(TypeName.consequence(clazz).name)
+        _ <- println(" = {")
+        _ <- indent
+        _ <- _builder_buildc_method_body(builder_parameters_with_execution_context)
+        _ <- outdent
+        _ <- println("}")
+      } yield ()
+    else
+      unit
+
   private def _builder_buildc_method_body(body: => GenM[Unit]): GenM[Unit] = {
     val arity = clazz.parameterSequence.parameters.size
     for {
@@ -1226,6 +1302,17 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
   }
 
+  protected def builder_parameters_with_execution_context: GenM[Unit] = {
+    val a = clazz.parameterSequence
+    a.parameters.lastOption match {
+      case Some(s) => for {
+        _ <- a.parameters.init.traverse_(builder_parameter_with_execution_context)
+        _ <- builder_parameter_with_execution_context_last(s)
+      } yield ()
+      case None => unit
+    }
+  }
+
   protected def builder_parameter(p: Parameter): GenM[Unit] =
     for {
       _ <- print(builder_parameter_line(p))
@@ -1235,17 +1322,37 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected def builder_parameter_last(p: Parameter): GenM[Unit] =
     println(builder_parameter_line(p))
 
+  protected def builder_parameter_with_execution_context(p: Parameter): GenM[Unit] =
+    for {
+      _ <- print(builder_parameter_line_with_execution_context(p))
+      _ <- println(",")
+    } yield ()
+
+  protected def builder_parameter_with_execution_context_last(p: Parameter): GenM[Unit] =
+    println(builder_parameter_line_with_execution_context(p))
+
   protected def builder_parameter_line(p: Parameter): String =
     p.typeName match {
       case m: TypeName.Container => builder_parameter_line_container(p, m)
       case m => builder_parameter_line_raw(p)
     }
 
+  protected def builder_parameter_line_with_execution_context(p: Parameter): String =
+    p.typeName match {
+      case m: TypeName.Container => builder_parameter_line_container_with_execution_context(p, m)
+      case _ => builder_parameter_line_raw(p)
+    }
+
   protected def builder_parameter_line_raw(p: Parameter): String =
     builder_parameter_line_raw(p.name.name)
 
   protected def builder_parameter_line_raw(p: String): String =
-    s"Consequence.successOrPropertyNotFound(${property_name(p)}, $p)"
+    _builder_default_expression_raw(p) match {
+      case Some(expr) =>
+        s"Consequence.success($p.getOrElse($expr))"
+      case None =>
+        s"Consequence.successOrPropertyNotFound(${property_name(p)}, $p)"
+    }
 
   protected def builder_parameter_line_container(
     p: Parameter,
@@ -1265,6 +1372,18 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       s"???"
     else
       RAISE.noReachDefect
+
+  protected def builder_parameter_line_container_with_execution_context(
+    p: Parameter,
+    container: TypeName.Container
+  ): String =
+    if (container.isOption)
+      _context_default_expression(p) match {
+        case Some(expr) => s"Consequence.success(${p.name.name}.orElse($expr))"
+        case None => builder_parameter_line_container_option(p)
+      }
+    else
+      builder_parameter_line_container(p, container)
 
   protected def builder_parameter_line_container_option(
     p: Parameter
@@ -1288,6 +1407,20 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     define_method(m)
   }
 
+  protected def builder_build_recordc_with_execution_context_method: GenM[Unit] =
+    if (clazz.directive.isCreate)
+      for {
+        _ <- print("def buildCWithExecutionContext(record: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): ")
+        _ <- print(TypeName.consequence(clazz).name)
+        _ <- println(" = {")
+        _ <- indent
+        _ <- _builder_buildc_method_body(_builder_record_parameters_with_execution_context)
+        _ <- outdent
+        _ <- println("}")
+      } yield ()
+    else
+      unit
+
   private def _builder_record_parameters: GenM[Unit] = {
     val params = clazz.parameterSequence.parameters
     for {
@@ -1299,8 +1432,35 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } yield ()
   }
 
+  private def _builder_record_parameters_with_execution_context: GenM[Unit] = {
+    val params = clazz.parameterSequence.parameters
+    for {
+      _ <- FoldTraverseUtil.intercalateTraverseWithEnd_(
+        params,
+        println(", "),
+        println()
+      )(_build_record_param_with_execution_context)
+    } yield ()
+  }
+
   private def _build_record_param(p: Parameter): GenM[Unit] =
     _build_param_or_var(p)(_get_record_param(p))
+
+  private def _build_record_param_with_execution_context(p: Parameter): GenM[Unit] =
+    p.typeName match {
+      case m: TypeName.Container if m.isOption =>
+        _context_default_expression(p) match {
+          case Some(expr) =>
+            for {
+              _ <- print("_record_get_as_c[", p.toRawType.typeName.name, "](record, ", input_keys_name(p.name.name), ")")
+              _ <- print(".map(_  orElse ", p.name.name, ".orElse(", expr, "))")
+            } yield ()
+          case None =>
+            _build_record_param(p)
+        }
+      case _ =>
+        _build_record_param(p)
+    }
 
   private def _build_param_or_var(p: Parameter)(param: => GenM[Unit]): GenM[Unit] =
     p.typeName match {
@@ -1309,14 +1469,56 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _build_param_or_var_raw(p: Parameter)(param: => GenM[Unit]): GenM[Unit] =
+    if (_is_name_attributes_raw_parameter(p))
+      _build_param_or_var_name_attributes(p)
+    else if (_is_simple_object_attribute_parameter(p))
+      _build_param_or_var_simple_object_attribute(p)
+    else
+      for {
+        _ <- print("_record_get_as_c[", p.toRawType.typeName.name, "](record, ", input_keys_name(p.name.name), ").flatMap {")
+        _ <- println()
+        _ <- indent
+        _ <- println("case Some(s) => Consequence.success(s)")
+        _ <- _build_param_or_var_raw_default(p)
+        _ <- outdent
+        _ <- print("}")
+      } yield ()
+
+  private def _build_param_or_var_raw_default(p: Parameter): GenM[Unit] =
+    _builder_default_expression_raw(p.name.name) match {
+      case Some(expr) =>
+        println("case None => Consequence.success(", p.name.name, ".getOrElse(", expr, "))")
+      case None =>
+        println("case None => Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", ", p.name.name, ")")
+    }
+
+  private def _is_name_attributes_raw_parameter(p: Parameter): Boolean =
+    p.name.name == "name_Attributes" && p.toRawType.typeName.name == "NameAttributes"
+
+  private def _is_simple_object_attribute_parameter(p: Parameter): Boolean =
+    _is_simple_object_attribute_type(p.toRawType.typeName)
+
+  private def _build_param_or_var_simple_object_attribute(p: Parameter): GenM[Unit] =
+    _builder_default_expression_raw(p.name.name) match {
+      case Some(expr) =>
+        print("Consequence.success(", p.name.name, ".getOrElse(", expr, "))")
+      case None =>
+        print("Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", ", p.name.name, ")")
+    }
+
+  private def _build_param_or_var_name_attributes(p: Parameter): GenM[Unit] =
     for {
-      _ <- print("_record_get_as_c[", p.toRawType.typeName.name, "](record, ", input_keys_name(p.name.name), ").flatMap {")
-      _ <- println()
+      _ <- println("(")
       _ <- indent
-      _ <- println("case Some(s) => Consequence.success(s)")
-      _ <- println("case None => Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", ", p.name.name, ")")
+      _ <- println("_record_get_as_c[Name](record, List(\"name\")),")
+      _ <- println("_record_get_as_c[String](record, List(\"title\"))")
       _ <- outdent
-      _ <- print("}")
+      _ <- println(").mapN { (namev, titlev) =>")
+      _ <- indent
+      _ <- println("val base = ", p.name.name, ".getOrElse(namev.map(NameAttributes.simple).getOrElse(NameAttributes.simple(Name(\"unknown\"))))")
+      _ <- println("titlev.fold(base)(t => base.copy(title = Some(I18nTitle(t))))")
+      _ <- outdent
+      _ <- println("}")
     } yield ()
 
   private def _build_param_or_var_container(
@@ -1377,6 +1579,72 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _get_record_param(p: Parameter): GenM[Unit] =
     print("_record_get_as_c[", p.toRawType.typeName.name, "](record, ", input_keys_name(p.name.name), ")")
 
+  private def _context_default_expression(p: Parameter): Option[String] = {
+    val key = p.name.name.toLowerCase(java.util.Locale.ROOT)
+    key match {
+      case "name" =>
+        Some("Some(Name(ctx.security.principal.id.value))")
+      case "createdat" =>
+        Some("Some(java.time.ZonedDateTime.now(ctx.clock.withZone(ctx.timezone)))")
+      case "updatedat" =>
+        Some("Some(java.time.ZonedDateTime.now(ctx.clock.withZone(ctx.timezone)))")
+      case "createdby" =>
+        Some("Some(Identifier(ctx.security.principal.id.value))")
+      case "updatedby" =>
+        Some("Some(Identifier(ctx.security.principal.id.value))")
+      case "poststatus" =>
+        Some("Some(org.goldenport.model.statemachine.PostStatus.default)")
+      case "aliveness" =>
+        Some("Some(org.goldenport.model.statemachine.Aliveness.default)")
+      case "traceid" =>
+        Some("Some(ctx.observability.traceId.value)")
+      case "correlationid" =>
+        Some("ctx.observability.correlationId.map(_.value)")
+      case _ =>
+        None
+    }
+  }
+
+  private def _builder_default_expression_raw(name: String): Option[String] = {
+    if (clazz.directive.isUpdate) {
+      name match {
+        case "name_Attributes" => Some("org.goldenport.model.value.NameAttributesUpdate()")
+        case "descriptive_Attributes" => Some("org.goldenport.model.value.DescriptiveAttributesUpdate()")
+        case "lifecycle_Attributes" => Some("org.goldenport.model.value.LifecycleAttributesUpdate()")
+        case "publication_Attributes" => Some("org.goldenport.model.value.PublicationAttributesUpdate()")
+        case "security_Attributes" => Some("org.goldenport.model.value.SecurityAttributesUpdate()")
+        case "resource_Attributes" => Some("org.goldenport.model.value.ResourceAttributesUpdate()")
+        case "audit_Attributes" => Some("org.goldenport.model.value.AuditAttributesUpdate()")
+        case "media_Attributes" => Some("org.goldenport.model.value.MediaAttributesUpdate()")
+        case "contextual_Attribute" => Some("org.goldenport.model.value.ContextualAttributesUpdate()")
+        case _ => None
+      }
+    } else {
+    name match {
+      case "name_Attributes" =>
+        Some("org.goldenport.model.value.NameAttributes.simple(Name(\"unknown\"))")
+      case "descriptive_Attributes" =>
+        Some("org.goldenport.model.value.DescriptiveAttributes.empty")
+      case "lifecycle_Attributes" =>
+        Some("org.goldenport.model.value.LifecycleAttributes(java.time.ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC), None, Identifier(\"system\"), None, org.goldenport.model.statemachine.PostStatus.default, org.goldenport.model.statemachine.Aliveness.default)")
+      case "publication_Attributes" =>
+        Some("org.goldenport.model.value.PublicationAttributes(None, None, None, None, None)")
+      case "security_Attributes" =>
+        Some("org.goldenport.model.value.SecurityAttributes(org.goldenport.datatype.ObjectId(Identifier(\"system\")), org.goldenport.datatype.ObjectId(Identifier(\"system\")), org.goldenport.model.value.SecurityAttributes.Rights(org.goldenport.model.value.SecurityAttributes.Rights.Permissions(read = true, write = true, execute = true), org.goldenport.model.value.SecurityAttributes.Rights.Permissions(read = true, write = false, execute = false), org.goldenport.model.value.SecurityAttributes.Rights.Permissions(read = true, write = false, execute = false)), org.goldenport.datatype.ObjectId(Identifier(\"system\")))")
+      case "resource_Attributes" =>
+        Some("org.goldenport.model.value.ResourceAttributes()")
+      case "audit_Attributes" =>
+        Some("org.goldenport.model.value.AuditAttributes()")
+      case "media_Attributes" =>
+        Some("org.goldenport.model.value.MediaAttributes(None, Vector.empty, Vector.empty, Vector.empty, Vector.empty)")
+      case "contextual_Attribute" =>
+        Some("org.goldenport.model.value.ContextualAttributes()")
+      case _ =>
+        None
+    }
+    }
+  }
+
   // protected def builder_build_recordc_method(p: T): GenM[Unit] = {
   //   val m = SMethod.create("buildC", TypeName.consequence(p), Parameter.record) {
   //     val attrs = p.attributeSequence.attributes
@@ -1424,6 +1692,12 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     createc_method(clazz.parameterSequence.requiredPatameters)
   }
 
+  protected def createc_method_required_with_execution_context: GenM[Unit] =
+    if (clazz.directive.isCreate)
+      createc_method_with_execution_context(clazz.parameterSequence.requiredPatameters)
+    else
+      unit
+
   protected def createc_method(params: Seq[Parameter]): GenM[Unit] = {
     for {
       _ <- print("def createC")
@@ -1431,6 +1705,18 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println(s": Consequence[${clazz.className.name}] = {")
       _ <- indent
       _ <- builder_build(params)
+      _ <- outdent
+      _ <- println("}")
+    } yield ()
+  }
+
+  protected def createc_method_with_execution_context(params: Seq[Parameter]): GenM[Unit] = {
+    for {
+      _ <- print("def createWithExecutionContextC")
+      _ <- parameter_list(params)
+      _ <- println(s"(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[${clazz.className.name}] = {")
+      _ <- indent
+      _ <- builder_build_with_execution_context(params)
       _ <- outdent
       _ <- println("}")
     } yield ()
@@ -1451,10 +1737,41 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } yield ()
   }
 
+  protected def builder_build_with_execution_context(params: Seq[Parameter]): GenM[Unit] = {
+    def _with_(p: Parameter) = s".with${StringUtils.makeTitle(p.name.name)}(${p.name})"
+    val withs = params.map(_with_).mkString
+    for {
+      _ <- println("val builder = Builder()")
+      _ <- if (withs.nonEmpty)
+        for {
+          _ <- println(s"val builder2 = builder$withs")
+          _ <- println("builder2.buildCWithExecutionContext")
+        } yield ()
+      else
+        println("builder.buildCWithExecutionContext")
+    } yield ()
+  }
+
   protected def create_record_method: GenM[Unit] = {
     val param = Parameter.record
     define_method_consequence_take("create", clazz, param)
   }
+
+  protected def create_method_with_execution_context: GenM[Unit] =
+    if (clazz.directive.isCreate)
+      for {
+        _ <- print("def createWithExecutionContext(")
+        _ <- required_parameter_list(clazz.parameterSequence)
+        _ <- println(s")(using ctx: org.goldenport.cncf.context.ExecutionContext): ${clazz.className.name} = {")
+        _ <- indent
+        _ <- print("createWithExecutionContextC(")
+        _ <- required_invoke_parameters(clazz.parameterSequence)
+        _ <- println(").take")
+        _ <- outdent
+        _ <- println("}")
+      } yield ()
+    else
+      unit
 
   protected def create_recordc_method: GenM[Unit] = {
     val m = SMethod.query("createC", TypeName.consequence(clazz), Parameter.record) {
@@ -1465,6 +1782,31 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
     define_method(m)
   }
+
+  protected def create_recordc_method_with_execution_context: GenM[Unit] =
+    if (clazz.directive.isCreate)
+      for {
+        _ <- println(s"def createWithExecutionContextC(record: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[${clazz.className.name}] = {")
+        _ <- indent
+        _ <- println("val builder = Builder()")
+        _ <- println("builder.buildCWithExecutionContext(record)")
+        _ <- outdent
+        _ <- println("}")
+      } yield ()
+    else
+      unit
+
+  protected def create_record_method_with_execution_context: GenM[Unit] =
+    if (clazz.directive.isCreate)
+      for {
+        _ <- println(s"def createWithExecutionContext(record: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): ${clazz.className.name} = {")
+        _ <- indent
+        _ <- println("createWithExecutionContextC(record).take")
+        _ <- outdent
+        _ <- println("}")
+      } yield ()
+    else
+      unit
 
   // object Age:
   //     given Eql[Age, Age] = Eql.derived
@@ -1566,19 +1908,99 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected def class_parameter_item(p: Parameter): String = {
     val n = p.name.name
+    val constructorname = _class_constructor_parameter_name(n)
     val prefix =
-      if (_is_simple_entity_parent && (n == "id" || n == "name"))
+      if (_is_override_parameter_for_parent(n) && constructorname == n)
         "override val "
       else
         ""
-    s"$prefix$n: ${p.typeName.name}${_parameter_default_suffix(p)}"
+    s"$prefix$constructorname: ${p.typeName.name}${_parameter_default_suffix(p)}"
   }
 
-  private def _is_simple_entity_parent: Boolean =
+  private def _is_override_parameter_for_parent(name: String): Boolean =
     clazz.parentClass.exists {
-      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.goldenport.model" => true
-      case _ => false
+      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.goldenport.model" =>
+        _simple_entity_override_keys.contains(name)
+      case TypeName.Plain(pkg, "SimpleEntityCreate", _) if pkg.name == "org.goldenport.model" =>
+        _simple_entity_create_override_keys.contains(name)
+      case TypeName.Plain(pkg, "SimpleEntityUpdate", _) if pkg.name == "org.goldenport.model" =>
+        _simple_entity_update_override_keys.contains(name)
+      case TypeName.Plain(pkg, "SimpleEntityQuery", _) if pkg.name == "org.goldenport.model" =>
+        _simple_entity_query_override_keys.contains(name)
+      case _ =>
+        false
     }
+
+  private val _simple_object_attribute_keys: Set[String] = Set(
+    "name_Attributes",
+    "descriptive_Attributes",
+    "lifecycle_Attributes",
+    "publication_Attributes",
+    "security_Attributes",
+    "resource_Attributes",
+    "audit_Attributes",
+    "media_Attributes",
+    "contextual_Attribute"
+  )
+
+  private val _simple_entity_override_keys: Set[String] =
+    _simple_object_attribute_keys ++ Set("id", "name", "title")
+
+  private val _simple_entity_create_override_keys: Set[String] =
+    _simple_object_attribute_keys + "id"
+
+  private val _simple_entity_update_override_keys: Set[String] =
+    _simple_object_attribute_keys + "id"
+
+  private val _simple_entity_query_override_keys: Set[String] =
+    _simple_object_attribute_keys + "id"
+
+  private val _simple_object_attribute_constructor_names: Map[String, String] = Map(
+    "name_Attributes" -> "nameAttributes",
+    "descriptive_Attributes" -> "descriptiveAttributes",
+    "lifecycle_Attributes" -> "lifecycleAttributes",
+    "publication_Attributes" -> "publicationAttributes",
+    "security_Attributes" -> "securityAttributes",
+    "resource_Attributes" -> "resourceAttributes",
+    "audit_Attributes" -> "auditAttributes",
+    "media_Attributes" -> "mediaAttributes",
+    "contextual_Attribute" -> "contextualAttribute"
+  )
+
+  private def _class_constructor_parameter_name(name: String): String =
+    _simple_object_attribute_constructor_names.getOrElse(name, name)
+
+  private def _simple_object_attribute_alias_definitions: GenM[Unit] = {
+    val aliases = clazz.parameterSequence.parameters.collect {
+      case p if _simple_object_attribute_keys.contains(p.name.name) =>
+        (p.name.name, p.typeName.name, _class_constructor_parameter_name(p.name.name))
+    }.filter { case (original, _, constructorname) => original != constructorname }
+    if (aliases.isEmpty)
+      unit
+    else
+      for {
+        _ <- aliases.traverse_ {
+          case (original, typename, constructorname) =>
+            _simple_object_attribute_alias_definition(original, typename, constructorname)
+        }
+        _ <- separator
+      } yield ()
+  }
+
+  private def _simple_object_attribute_alias_definition(
+    original: String,
+    typename: String,
+    constructorname: String
+  ): GenM[Unit] = {
+    val access =
+      clazz.parentClass match {
+        case Some(TypeName.Plain(pkg, "SimpleEntity", _)) if pkg.name == "org.goldenport.model" =>
+          "protected "
+        case _ =>
+          ""
+      }
+    println(s"override ${access}def $original: $typename = $constructorname")
+  }
 
   private def _parameter_default_suffix(p: Parameter): String =
     if (p.isDefault) {

@@ -86,7 +86,7 @@ case class SPackage(
   controlClasses: Vector[SControlClass] = Vector.empty
 )
 
-case class PackageName(name: String) extends datatype.Name {
+case class PackageName(name: String) {
   def moveToSubPackage(subpkg: String): PackageName = PackageName(s"$name.$subpkg")
 
   def toPathName: PathName = PathName(name.replace('.', '/'))

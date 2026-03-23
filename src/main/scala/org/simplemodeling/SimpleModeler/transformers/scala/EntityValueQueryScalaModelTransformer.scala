@@ -29,7 +29,7 @@ class EntityValueQueryScalaModelTransformer() extends EntityCaseClassScalaModelT
   }
 
   private def _condition_type(p: TypeName): TypeName = {
-    val cond = TypeName.Plain(PackageName("org.goldenport.cncf.directive"), "Condition")
+    val cond = TypeName.Plain(PackageName("org.simplemodeling.model.directive"), "Condition")
     TypeName.Container(cond, _unwrap_option(p))
   }
 

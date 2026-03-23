@@ -25,6 +25,12 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
       case m => m
     }
 
+  override protected def transform_entity(
+    p: MEntity,
+    purpose: Purpose
+  ): Consequence[Vector[SClassBase]] =
+    super.transform_entity(p, purpose).map(_.map(_normalize_update_parameters))
+
   override protected def to_parameters(ps: List[MAttribute]): ParameterSequence = {
     val xs = ps.filterNot(_is_id_attribute).toVector.map(to_parameter)
     ParameterSequence(xs)
@@ -42,7 +48,7 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
     })
 
   private def _update_type(p: TypeName): TypeName = {
-    val update = TypeName.Plain(PackageName("org.goldenport.cncf.directive"), "Update")
+    val update = TypeName.Plain(PackageName("org.simplemodeling.model.directive"), "Update")
     TypeName.Container(update, _unwrap_option(p))
   }
 
@@ -54,6 +60,60 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
 
   def apply(p: MObject): Consequence[Vector[SClassBase]] =
     apply(p, Purpose.Update)
+
+  private def _normalize_update_parameters(p: SClassBase): SClassBase =
+    p match {
+      case m: SCaseClass if _is_simple_entity_update_parent(m.core.parentClass) =>
+        val params = m.core.parameterSequence.parameters
+        val idparam = params.find(_.name.name == "id").getOrElse(_id_parameter())
+        val ownparams = params.filterNot(x => _inherited_simple_entity_keys.contains(x.name.name))
+        val compositeparams = Vector(
+          _simple_object_parameter("name_Attributes", "NameAttributesUpdate"),
+          _simple_object_parameter("descriptive_Attributes", "DescriptiveAttributesUpdate"),
+          _simple_object_parameter("lifecycle_Attributes", "LifecycleAttributesUpdate"),
+          _simple_object_parameter("publication_Attributes", "PublicationAttributesUpdate"),
+          _simple_object_parameter("security_Attributes", "SecurityAttributesUpdate"),
+          _simple_object_parameter("resource_Attributes", "ResourceAttributesUpdate"),
+          _simple_object_parameter("audit_Attributes", "AuditAttributesUpdate"),
+          _simple_object_parameter("media_Attributes", "MediaAttributesUpdate"),
+          _simple_object_parameter("contextual_Attribute", "ContextualAttributesUpdate")
+        )
+        val normalized = ParameterSequence(idparam +: (compositeparams ++ ownparams))
+        m.copy(core = m.core.copy(parameterSequence = normalized))
+      case _ =>
+        p
+    }
+
+  private def _is_simple_entity_update_parent(p: Option[TypeName]): Boolean =
+    p.exists {
+      case TypeName.Plain(pkg, "SimpleEntityUpdate", _) if pkg.name == "org.goldenport.model" => true
+      case _ => false
+    }
+
+  private def _simple_object_parameter(name: String, typename: String): Parameter =
+    Parameter(
+      ParameterName(name),
+      TypeName.Plain(PackageName("org.goldenport.model.value"), typename),
+      isAttribute = true,
+      isDefault = false
+    )
+
+  private def _id_parameter(): Parameter =
+    Parameter(
+      ParameterName("id"),
+      TypeName.Container(
+        TypeName.Plain(PackageName("org.simplemodeling.model.directive"), "Update"),
+        TypeName.Plain(PackageName("org.goldenport.model.datatype"), "EntityId")
+      ),
+      isAttribute = true,
+      isDefault = false
+    )
+
+  private val _inherited_simple_entity_keys: Set[String] = Set(
+    "id",
+    "name",
+    "title"
+  )
 
   // def isDefinedAt(p: (MObject, Purpose)): Boolean =
   //   p match {
