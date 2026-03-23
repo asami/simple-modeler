@@ -998,7 +998,10 @@ object SComponent {
 
     private def _relative_plain_name(pkg: PackageName, name: String): String = {
       if (!_is_component_subpackage(pkg))
-        name
+        if (_is_entity_family_package(pkg))
+          s"_root_.${pkg.name}.$name"
+        else
+          name
       else {
         val relativeSegments = _relative_package_segments(pkg)
         if (relativeSegments.isEmpty)
@@ -1014,6 +1017,11 @@ object SComponent {
         else
           s"${relativeSegments.mkString(".")}.$name"
       }
+    }
+
+    private def _is_entity_family_package(pkg: PackageName): Boolean = {
+      val segments = _package_segments(pkg)
+      segments.contains("entity") || segments.contains("aggregate") || segments.contains("view")
     }
 
     private def _relative_package_segments(pkg: PackageName): Vector[String] = {
