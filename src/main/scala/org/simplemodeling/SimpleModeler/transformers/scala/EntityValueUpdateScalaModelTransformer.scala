@@ -11,7 +11,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Sep. 20, 2025
  *  version Sep. 23, 2025
  *  version Feb. 18, 2026
- * @version Mar. 23, 2026
+ * @version Mar. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -20,8 +20,8 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
 
   override protected def to_scala_core_parent(p: MObject): Option[TypeName] =
     super.to_scala_core_parent(p).map {
-      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.goldenport.model" =>
-        TypeName.Plain(PackageName("org.goldenport.model"), "SimpleEntityUpdate")
+      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.simplemodeling.model" =>
+        TypeName.Plain(PackageName("org.simplemodeling.model"), "SimpleEntityUpdate")
       case m => m
     }
 
@@ -86,14 +86,14 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
 
   private def _is_simple_entity_update_parent(p: Option[TypeName]): Boolean =
     p.exists {
-      case TypeName.Plain(pkg, "SimpleEntityUpdate", _) if pkg.name == "org.goldenport.model" => true
+      case TypeName.Plain(pkg, "SimpleEntityUpdate", _) if pkg.name == "org.simplemodeling.model" => true
       case _ => false
     }
 
   private def _simple_object_parameter(name: String, typename: String): Parameter =
     Parameter(
       ParameterName(name),
-      TypeName.Plain(PackageName("org.goldenport.model.value"), typename),
+      TypeName.Plain(PackageName("org.simplemodeling.model.value"), typename),
       isAttribute = true,
       isDefault = false
     )
@@ -103,7 +103,7 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
       ParameterName("id"),
       TypeName.Container(
         TypeName.Plain(PackageName("org.simplemodeling.model.directive"), "Update"),
-        TypeName.Plain(PackageName("org.goldenport.model.datatype"), "EntityId")
+        TypeName.Plain(PackageName("org.simplemodeling.model.datatype"), "EntityId")
       ),
       isAttribute = true,
       isDefault = false

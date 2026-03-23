@@ -8,7 +8,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Sep. 19, 2025
- * @version Sep. 23, 2025
+ *  version Sep. 23, 2025
+ * @version Mar. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -64,14 +65,14 @@ class EntityValueScalaModelTransformer() extends EntityCaseClassScalaModelTransf
 
   private def _is_simple_entity_parent(p: Option[TypeName]): Boolean =
     p.exists {
-      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.goldenport.model" => true
+      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.simplemodeling.model" => true
       case _ => false
     }
 
   private def _simple_object_parameter(name: String, typename: String): Parameter =
     Parameter(
       ParameterName(name),
-      TypeName.Plain(PackageName("org.goldenport.model.value"), typename),
+      TypeName.Plain(PackageName("org.simplemodeling.model.value"), typename),
       isAttribute = true,
       isDefault = false
     )
@@ -79,7 +80,7 @@ class EntityValueScalaModelTransformer() extends EntityCaseClassScalaModelTransf
   private def _id_parameter(): Parameter =
     Parameter(
       ParameterName("id"),
-      TypeName.Plain(PackageName("org.goldenport.model.datatype"), "EntityId"),
+      TypeName.Plain(PackageName("org.simplemodeling.model.datatype"), "EntityId"),
       isAttribute = true,
       isDefault = false
     )

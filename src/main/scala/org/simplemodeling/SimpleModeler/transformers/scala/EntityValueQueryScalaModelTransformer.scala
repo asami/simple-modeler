@@ -9,7 +9,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 18, 2026
  *  version Feb. 19, 2026
- * @version Mar. 23, 2026
+ * @version Mar. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueQueryScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -18,8 +18,8 @@ class EntityValueQueryScalaModelTransformer() extends EntityCaseClassScalaModelT
 
   override protected def to_scala_core_parent(p: MObject): Option[TypeName] =
     super.to_scala_core_parent(p).map {
-      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.goldenport.model" =>
-        TypeName.Plain(PackageName("org.goldenport.model"), "SimpleEntityQuery")
+      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.simplemodeling.model" =>
+        TypeName.Plain(PackageName("org.simplemodeling.model"), "SimpleEntityQuery")
       case m => m
     }
 

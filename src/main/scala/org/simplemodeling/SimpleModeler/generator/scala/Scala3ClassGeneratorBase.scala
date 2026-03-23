@@ -17,7 +17,7 @@ import Generator.{State => GState, _}
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 23, 2026
+ * @version Mar. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -147,8 +147,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import org.goldenport.protocol.*")
       _ <- println("import org.goldenport.protocol.spec.*")
       _ <- println("import org.goldenport.protocol.operation.*")
-      _ <- println("import org.goldenport.model.datatype.*")
-      _ <- println("import org.goldenport.model.value.*")
+      _ <- println("import org.simplemodeling.model.datatype.*")
+      _ <- println("import org.simplemodeling.model.value.*")
       _ <- println("import org.simplemodeling.model.directive.*")
       _ <- println("import org.goldenport.cncf.directive.*")
       _ <- println("import org.goldenport.cncf.action.*")
@@ -215,9 +215,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   private def _typename_for_extends(p: TypeName): String = p match {
-    case TypeName.Plain(pkg, name, _) if pkg.name == "org.goldenport.model" && name == "SimpleEntity" =>
+    case TypeName.Plain(pkg, name, _) if pkg.name == "org.simplemodeling.model" && name == "SimpleEntity" =>
       p.fullName
-    case TypeName.Plain(pkg, name, _) if pkg.name == "org.goldenport.model" &&
+    case TypeName.Plain(pkg, name, _) if pkg.name == "org.simplemodeling.model" &&
       (name == "SimpleEntityCreate" || name == "SimpleEntityUpdate" || name == "SimpleEntityQuery") =>
       p.fullName
     case _ =>
@@ -518,7 +518,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     for {
       _ <- println("org.goldenport.schema.Column(")
       _ <- indent
-      _ <- println(s"""baseContent = org.goldenport.model.value.BaseContent.simple("${p.name.name}"),""")
+      _ <- println(s"""baseContent = org.simplemodeling.model.value.BaseContent.simple("${p.name.name}"),""")
       _ <- println("domain = org.goldenport.schema.ValueDomain(")
       _ <- indent
       _ <- println(s"datatype = ${_schema_datatype_expr(p.typeName)},")
@@ -1062,7 +1062,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _is_simple_object_attribute_type(p: TypeName): Boolean =
     p.contentType match {
       case TypeName.Plain(pkg, name, _) =>
-        pkg.name == "org.goldenport.model.value" && _simple_object_attribute_type_names.contains(name)
+        pkg.name == "org.simplemodeling.model.value" && _simple_object_attribute_type_names.contains(name)
       case _ =>
         false
     }
@@ -1593,9 +1593,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "updatedby" =>
         Some("Some(Identifier(ctx.security.principal.id.value))")
       case "poststatus" =>
-        Some("Some(org.goldenport.model.statemachine.PostStatus.default)")
+        Some("Some(org.simplemodeling.model.statemachine.PostStatus.default)")
       case "aliveness" =>
-        Some("Some(org.goldenport.model.statemachine.Aliveness.default)")
+        Some("Some(org.simplemodeling.model.statemachine.Aliveness.default)")
       case "traceid" =>
         Some("Some(ctx.observability.traceId.value)")
       case "correlationid" =>
@@ -1608,37 +1608,37 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _builder_default_expression_raw(name: String): Option[String] = {
     if (clazz.directive.isUpdate) {
       name match {
-        case "name_Attributes" => Some("org.goldenport.model.value.NameAttributesUpdate()")
-        case "descriptive_Attributes" => Some("org.goldenport.model.value.DescriptiveAttributesUpdate()")
-        case "lifecycle_Attributes" => Some("org.goldenport.model.value.LifecycleAttributesUpdate()")
-        case "publication_Attributes" => Some("org.goldenport.model.value.PublicationAttributesUpdate()")
-        case "security_Attributes" => Some("org.goldenport.model.value.SecurityAttributesUpdate()")
-        case "resource_Attributes" => Some("org.goldenport.model.value.ResourceAttributesUpdate()")
-        case "audit_Attributes" => Some("org.goldenport.model.value.AuditAttributesUpdate()")
-        case "media_Attributes" => Some("org.goldenport.model.value.MediaAttributesUpdate()")
-        case "contextual_Attribute" => Some("org.goldenport.model.value.ContextualAttributesUpdate()")
+        case "name_Attributes" => Some("org.simplemodeling.model.value.NameAttributesUpdate()")
+        case "descriptive_Attributes" => Some("org.simplemodeling.model.value.DescriptiveAttributesUpdate()")
+        case "lifecycle_Attributes" => Some("org.simplemodeling.model.value.LifecycleAttributesUpdate()")
+        case "publication_Attributes" => Some("org.simplemodeling.model.value.PublicationAttributesUpdate()")
+        case "security_Attributes" => Some("org.simplemodeling.model.value.SecurityAttributesUpdate()")
+        case "resource_Attributes" => Some("org.simplemodeling.model.value.ResourceAttributesUpdate()")
+        case "audit_Attributes" => Some("org.simplemodeling.model.value.AuditAttributesUpdate()")
+        case "media_Attributes" => Some("org.simplemodeling.model.value.MediaAttributesUpdate()")
+        case "contextual_Attribute" => Some("org.simplemodeling.model.value.ContextualAttributesUpdate()")
         case _ => None
       }
     } else {
     name match {
       case "name_Attributes" =>
-        Some("org.goldenport.model.value.NameAttributes.simple(Name(\"unknown\"))")
+        Some("org.simplemodeling.model.value.NameAttributes.simple(Name(\"unknown\"))")
       case "descriptive_Attributes" =>
-        Some("org.goldenport.model.value.DescriptiveAttributes.empty")
+        Some("org.simplemodeling.model.value.DescriptiveAttributes.empty")
       case "lifecycle_Attributes" =>
-        Some("org.goldenport.model.value.LifecycleAttributes(java.time.ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC), None, Identifier(\"system\"), None, org.goldenport.model.statemachine.PostStatus.default, org.goldenport.model.statemachine.Aliveness.default)")
+        Some("org.simplemodeling.model.value.LifecycleAttributes(java.time.ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC), None, Identifier(\"system\"), None, org.simplemodeling.model.statemachine.PostStatus.default, org.simplemodeling.model.statemachine.Aliveness.default)")
       case "publication_Attributes" =>
-        Some("org.goldenport.model.value.PublicationAttributes(None, None, None, None, None)")
+        Some("org.simplemodeling.model.value.PublicationAttributes(None, None, None, None, None)")
       case "security_Attributes" =>
-        Some("org.goldenport.model.value.SecurityAttributes(org.goldenport.datatype.ObjectId(Identifier(\"system\")), org.goldenport.datatype.ObjectId(Identifier(\"system\")), org.goldenport.model.value.SecurityAttributes.Rights(org.goldenport.model.value.SecurityAttributes.Rights.Permissions(read = true, write = true, execute = true), org.goldenport.model.value.SecurityAttributes.Rights.Permissions(read = true, write = false, execute = false), org.goldenport.model.value.SecurityAttributes.Rights.Permissions(read = true, write = false, execute = false)), org.goldenport.datatype.ObjectId(Identifier(\"system\")))")
+        Some("org.simplemodeling.model.value.SecurityAttributes(org.goldenport.datatype.ObjectId(Identifier(\"system\")), org.goldenport.datatype.ObjectId(Identifier(\"system\")), org.simplemodeling.model.value.SecurityAttributes.Rights(org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions(read = true, write = true, execute = true), org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions(read = true, write = false, execute = false), org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions(read = true, write = false, execute = false)), org.goldenport.datatype.ObjectId(Identifier(\"system\")))")
       case "resource_Attributes" =>
-        Some("org.goldenport.model.value.ResourceAttributes()")
+        Some("org.simplemodeling.model.value.ResourceAttributes()")
       case "audit_Attributes" =>
-        Some("org.goldenport.model.value.AuditAttributes()")
+        Some("org.simplemodeling.model.value.AuditAttributes()")
       case "media_Attributes" =>
-        Some("org.goldenport.model.value.MediaAttributes(None, Vector.empty, Vector.empty, Vector.empty, Vector.empty)")
+        Some("org.simplemodeling.model.value.MediaAttributes(None, Vector.empty, Vector.empty, Vector.empty, Vector.empty)")
       case "contextual_Attribute" =>
-        Some("org.goldenport.model.value.ContextualAttributes()")
+        Some("org.simplemodeling.model.value.ContextualAttributes()")
       case _ =>
         None
     }
@@ -1919,13 +1919,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _is_override_parameter_for_parent(name: String): Boolean =
     clazz.parentClass.exists {
-      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.goldenport.model" =>
+      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.simplemodeling.model" =>
         _simple_entity_override_keys.contains(name)
-      case TypeName.Plain(pkg, "SimpleEntityCreate", _) if pkg.name == "org.goldenport.model" =>
+      case TypeName.Plain(pkg, "SimpleEntityCreate", _) if pkg.name == "org.simplemodeling.model" =>
         _simple_entity_create_override_keys.contains(name)
-      case TypeName.Plain(pkg, "SimpleEntityUpdate", _) if pkg.name == "org.goldenport.model" =>
+      case TypeName.Plain(pkg, "SimpleEntityUpdate", _) if pkg.name == "org.simplemodeling.model" =>
         _simple_entity_update_override_keys.contains(name)
-      case TypeName.Plain(pkg, "SimpleEntityQuery", _) if pkg.name == "org.goldenport.model" =>
+      case TypeName.Plain(pkg, "SimpleEntityQuery", _) if pkg.name == "org.simplemodeling.model" =>
         _simple_entity_query_override_keys.contains(name)
       case _ =>
         false
@@ -1994,7 +1994,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   ): GenM[Unit] = {
     val access =
       clazz.parentClass match {
-        case Some(TypeName.Plain(pkg, "SimpleEntity", _)) if pkg.name == "org.goldenport.model" =>
+        case Some(TypeName.Plain(pkg, "SimpleEntity", _)) if pkg.name == "org.simplemodeling.model" =>
           "protected "
         case _ =>
           ""

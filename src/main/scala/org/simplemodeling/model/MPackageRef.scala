@@ -13,7 +13,7 @@ import org.goldenport.values.PathName
  *  version Sep. 17, 2023
  *  version Oct.  9, 2023
  *  version Feb. 19, 2026
- * @version Mar. 23, 2026
+ * @version Mar. 24, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MPackageRef(
@@ -40,7 +40,7 @@ object MPackageRef {
   val datatype = MPackageRef("org.goldenport.datatype")
   val value = MPackageRef("org.goldenport.value")
   val record = MPackageRef("org.goldenport.record")
-  val modeldatatype = MPackageRef("org.goldenport.model.datatype")
+  val modeldatatype = MPackageRef("org.simplemodeling.model.datatype")
   val directive = MPackageRef("org.simplemodeling.model.directive")
 
   def apply(pkg: MPackage): MPackageRef = MPackageRef(pkg.name)
