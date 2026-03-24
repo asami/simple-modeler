@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version Mar. 22, 2026
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -46,6 +46,10 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       val services = to_services(source.services)
       val rules = source match {
         case m: MComponent.Core.Holder => to_transition_rules(m.stateMachineTransitionRules)
+        case _ => Vector.empty
+      }
+      val statedefs = source match {
+        case m: MComponent.Core.Holder => to_state_machine_definitions(m.stateMachineDefinitions)
         case _ => Vector.empty
       }
       val eventdefs = source match {
@@ -84,6 +88,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         componentName,
         services,
         rules,
+        statedefs,
         eventdefs,
         eventroutes,
         eventsubs,
@@ -113,6 +118,20 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         declarationOrder = p.declarationOrder,
         guard = p.guard.map(to_rule_guard),
         plan = to_rule_plan(p.plan)
+      )
+
+    private def to_state_machine_definitions(
+      ps: Vector[MComponent.StateMachineDefinition]
+    ): Vector[SComponent.StateMachineDefinition] =
+      ps.map(to_state_machine_definition)
+
+    private def to_state_machine_definition(
+      p: MComponent.StateMachineDefinition
+    ): SComponent.StateMachineDefinition =
+      SComponent.StateMachineDefinition(
+        name = p.name,
+        states = p.states,
+        events = p.events
       )
 
     private def to_event_reception_definitions(

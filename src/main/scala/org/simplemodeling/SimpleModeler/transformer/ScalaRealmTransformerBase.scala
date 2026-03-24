@@ -23,7 +23,7 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
  *  version May. 18, 2025
  *  version Sep. 21, 2025
  *  version Feb. 28, 2026
- * @version Mar. 23, 2026
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
@@ -52,6 +52,22 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
 
   override protected def build_Entity(b: Realm.Builder, p: MEntity): Realm.Builder = {
     val g = new Scala3EntityFamilyGenerator()
+    g.generate(p) match {
+      case Consequence.Success(r, _) => r.build(b)
+      case Consequence.Error(c) => c.RAISE
+    }
+  }
+
+  override protected def build_Powertype(b: Realm.Builder, p: MPowertype): Realm.Builder = {
+    val g = new Scala3PowertypeFamilyGenerator()
+    g.generate(p) match {
+      case Consequence.Success(r, _) => r.build(b)
+      case Consequence.Error(c) => c.RAISE
+    }
+  }
+
+  override protected def build_StateMachine(b: Realm.Builder, p: MStateMachine): Realm.Builder = {
+    val g = new Scala3StateMachineFamilyGenerator()
     g.generate(p) match {
       case Consequence.Success(r, _) => r.build(b)
       case Consequence.Error(c) => c.RAISE

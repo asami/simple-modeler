@@ -9,7 +9,7 @@ import org.simplemodeling.model._
     version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version Mar. 22, 2026
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -47,6 +47,12 @@ object MComponent {
     declarationOrder: Int = 0,
     guard: Option[RuleGuard] = None,
     plan: RulePlan = RulePlan()
+  )
+
+  final case class StateMachineDefinition(
+    name: String,
+    states: Vector[String] = Vector.empty,
+    events: Vector[String] = Vector.empty
   )
 
   final case class EventReceptionDefinition(
@@ -131,6 +137,7 @@ object MComponent {
   case class Core(
     entities: Vector[MEntity],
     stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty,
+    stateMachineDefinitions: Vector[StateMachineDefinition] = Vector.empty,
     eventReceptionDefinitions: Vector[EventReceptionDefinition] = Vector.empty,
     eventRoutingDefinitions: Vector[EventRoutingDefinition] = Vector.empty,
     eventSubscriptionDefinitions: Vector[EventSubscriptionDefinition] = Vector.empty,
@@ -146,6 +153,7 @@ object MComponent {
 
       def entities = componentCore.entities
       def stateMachineTransitionRules = componentCore.stateMachineTransitionRules
+      def stateMachineDefinitions = componentCore.stateMachineDefinitions
       def eventReceptionDefinitions = componentCore.eventReceptionDefinitions
       def eventRoutingDefinitions = componentCore.eventRoutingDefinitions
       def eventSubscriptionDefinitions = componentCore.eventSubscriptionDefinitions

@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Mar. 23, 2026
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -37,6 +37,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           _ <- outdent
           _ <- println("}")
           _ <- _state_machine_rules_method(s.stateMachineTransitionRules)
+          _ <- _state_machine_definitions_method(s.stateMachineDefinitions)
           _ <- _event_reception_definitions_method(s.eventReceptionDefinitions)
           _ <- _event_routing_definitions_method(s.eventRoutingDefinitions)
           _ <- _event_subscription_definitions_method(s.eventSubscriptionDefinitions)
@@ -94,6 +95,41 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- println(")")
       } yield ()
     }
+
+  private def _state_machine_definitions_method(
+    defs: Vector[SComponent.StateMachineDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty) {
+      println("override def stateMachineDefinitions: Vector[org.goldenport.cncf.statemachine.CmlStateMachineDefinition] = Vector.empty")
+    } else {
+      for {
+        _ <- println("override def stateMachineDefinitions: Vector[org.goldenport.cncf.statemachine.CmlStateMachineDefinition] = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- _state_machine_definition_expr(d)
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _state_machine_definition_expr(
+    p: SComponent.StateMachineDefinition
+  ): GenM[Unit] =
+    for {
+      _ <- println("org.goldenport.cncf.statemachine.CmlStateMachineDefinition(")
+      _ <- indent
+      _ <- println(s"name = ${_string_literal(p.name)},")
+      _ <- println(s"states = ${_string_vector_expr(p.states)},")
+      _ <- println(s"events = ${_string_vector_expr(p.events)}")
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
 
   private def _event_routing_definitions_method(
     defs: Vector[SComponent.EventRoutingDefinition]

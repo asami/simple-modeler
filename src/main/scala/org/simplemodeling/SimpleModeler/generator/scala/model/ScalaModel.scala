@@ -21,7 +21,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Oct.  7, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 24, 2026
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -844,6 +844,12 @@ object SComponent {
     plan: RulePlan = RulePlan()
   )
 
+  final case class StateMachineDefinition(
+    name: String,
+    states: Vector[String] = Vector.empty,
+    events: Vector[String] = Vector.empty
+  )
+
   final case class EventReceptionDefinition(
     name: String,
     category: String = "NonActionEvent",
@@ -927,6 +933,7 @@ object SComponent {
     componentName: String,
     services: List[SService],
     stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty,
+    stateMachineDefinitions: Vector[StateMachineDefinition] = Vector.empty,
     eventReceptionDefinitions: Vector[EventReceptionDefinition] = Vector.empty,
     eventRoutingDefinitions: Vector[EventRoutingDefinition] = Vector.empty,
     eventSubscriptionDefinitions: Vector[EventSubscriptionDefinition] = Vector.empty,
@@ -944,6 +951,7 @@ object SComponent {
       def componentName = componentCore.componentName
       def services = componentCore.services
       def stateMachineTransitionRules = componentCore.stateMachineTransitionRules
+      def stateMachineDefinitions = componentCore.stateMachineDefinitions
       def eventReceptionDefinitions = componentCore.eventReceptionDefinitions
       def eventRoutingDefinitions = componentCore.eventRoutingDefinitions
       def eventSubscriptionDefinitions = componentCore.eventSubscriptionDefinitions
