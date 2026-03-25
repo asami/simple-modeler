@@ -1,26 +1,23 @@
 package org.simplemodeling.parser
 
-import org.junit.runner.RunWith
-import org.scalatest.junit.JUnitRunner
-import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Nov.  2, 2019
- * @version Nov.  4, 2019
+ *  version Nov.  4, 2019
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
-@RunWith(classOf[JUnitRunner])
-class SimpleModelParserSpec extends WordSpec with Matchers with GivenWhenThen {
+class SimpleModelParserSpec extends AnyFunSuite {
   val parser = SimpleModelParser(SimpleModelParser.Config.default)
 
-  "SimpleModelParser" should {
-    "empty" in {
-      val src = """
+  test("empty") {
+    val src = """
 """
-      val model = parser.apply(src)
-    }
-    "simple" in {
-      val src = """* Resource
+    val model = parser.apply(src)
+  }
+  test("simple") {
+    val src = """* Resource
 
 ** Person
 
@@ -30,11 +27,11 @@ class SimpleModelParserSpec extends WordSpec with Matchers with GivenWhenThen {
 | 属性 | id                             | string | 1      | User ID              |
 | 属性 | name                           | string | 1      | 名前                 |
 """
-      val model = parser.apply(src)
-      println(model)
-    }
-    "association" in {
-      val src = """* Resource
+    val model = parser.apply(src)
+    println(model)
+  }
+  test("association") {
+    val src = """* Resource
 
 ** Person
 
@@ -45,8 +42,7 @@ class SimpleModelParserSpec extends WordSpec with Matchers with GivenWhenThen {
 | 属性 | name                           | string | 1      | 名前                 |
 | 関連 | company                        | Company | 1      | 会社                 |
 """
-      val model = parser.apply(src)
-      println(model)
-    }
+    val model = parser.apply(src)
+    println(model)
   }
 }

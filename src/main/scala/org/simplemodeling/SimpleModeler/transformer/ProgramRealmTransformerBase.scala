@@ -19,6 +19,7 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version May. 18, 2025
  *  version Sep. 21, 2025
  *  version Feb. 16, 2026
+ *  version Mar. 25, 2026
  * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -100,6 +101,7 @@ trait ProgramRealmTransformerBase {
 //      case m: MConstraint => b
 
       case m: MEntity => _build_entity(b, m)
+      case m: MValue => _build_value(b, m)
       case m: MPowertype => _build_powertype(b, m)
       case m: MStateMachine => _build_state_machine(b, m)
       case m: MComponent => _build_component(b, m)
@@ -129,6 +131,11 @@ trait ProgramRealmTransformerBase {
   }
 
   protected def build_Entity(b: Realm.Builder, p: MEntity): Realm.Builder
+
+  private def _build_value(b: Realm.Builder, p: MValue): Realm.Builder =
+    build_Value(b, p)
+
+  protected def build_Value(b: Realm.Builder, p: MValue): Realm.Builder = b
 
   private def _build_powertype(b: Realm.Builder, p: MPowertype): Realm.Builder =
     build_Powertype(b, p)

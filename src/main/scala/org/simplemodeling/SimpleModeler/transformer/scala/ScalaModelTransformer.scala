@@ -4,6 +4,7 @@ import org.goldenport.RAISE
 import org.goldenport.context.Consequence
 import org.goldenport.util.StringUtils
 import org.simplemodeling.model._
+import org.simplemodeling.SimpleModeler.transformer.maker.PConstraint
 import org.simplemodeling.SimpleModeler.generator.scala.model._
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.Purpose
 import org.simplemodeling.SimpleModeler.transformers.scala._
@@ -13,7 +14,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- * @version Mar. 24, 2026
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -144,11 +145,13 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     val dbcolumnname = p.column.flatMap(x => Option(x.sql.name).map(_.trim).filterNot(_.isEmpty))
     val dbcolumntype = p.column.flatMap(_.sql.datatype.map(_.fullName))
     val externalname = p.column.flatMap(_.aliases.headOption).map(_.trim).filterNot(_.isEmpty)
+    val constraints = to_constraints(p.constraints)
     Parameter(
       ParameterName(p.name),
       typename,
       isAttribute = true,
       isDefault = false,
+      constraints = constraints,
       dbColumnName = dbcolumnname,
       dbColumnType = dbcolumntype,
       externalName = externalname
@@ -243,6 +246,9 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     val value = _get_value(p.parameterType)
     Parameter(ParameterName(p.name), tname, value = value)
   }
+
+  protected def to_constraints(ps: List[MConstraint]): Vector[PConstraint] =
+    ps.map(PConstraint.apply).toVector
 
   private def _get_value(p: MParameter.MParameterType): Option[SClassBase] =
     p match {

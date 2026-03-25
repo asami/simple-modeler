@@ -17,7 +17,7 @@ import Generator.{State => GState, _}
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 24, 2026
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -195,6 +195,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- section_reception
       _ <- separator
       _ <- section_utility
+      _ <- println()
+      _ <- println("validate()")
       _ <- outdent
       _ <- println("}")
     } yield ()
@@ -305,7 +307,54 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     // }
 
   protected def validate_method: GenM[Unit] =
-    println("// validate_method")
+    if (clazz.parameterSequence.parameters.exists(_.constraints.nonEmpty)) {
+      for {
+        _ <- println("private def validate(): Unit = {")
+        _ <- indent
+        _ <- clazz.parameterSequence.parameters.traverse_(_validate_parameter)
+        _ <- outdent
+        _ <- println("}")
+        _ <- println()
+        _ <- println("private def _validate_value(): Unit = validate()")
+      } yield ()
+    } else {
+      println("// validate_method")
+    }
+
+  private def _validate_parameter(p: Parameter): GenM[Unit] = {
+    if (p.constraints.isEmpty)
+      unit
+    else {
+      p.constraints.traverse_ { c =>
+        println(_validate_constraint_expr(p, c))
+      }
+    }
+  }
+
+  private def _validate_constraint_expr(p: Parameter, c: org.simplemodeling.SimpleModeler.transformer.maker.PConstraint): String = {
+    val name = c.name.trim
+    val value = c.literal
+    val ref = p.name.name
+    name match {
+      case "min" =>
+        s"""require(BigDecimal($ref.toString) >= BigDecimal("$value"), "$ref must be >= $value")"""
+      case "max" =>
+        s"""require(BigDecimal($ref.toString) <= BigDecimal("$value"), "$ref must be <= $value")"""
+      case "pattern" =>
+        s"""require($ref == null || $ref.toString.matches("$value"), "$ref must match $value")"""
+      case "format" =>
+        value.toLowerCase(java.util.Locale.ROOT) match {
+          case "email" =>
+            s"""require($ref == null || $ref.toString.matches("^[^@\\s]+@[^@\\s]+\\\\.[^@\\s]+$$"), "$ref must be a valid email")"""
+          case "uri" =>
+            s"""require($ref == null || scala.util.Try(java.net.URI.create($ref.toString)).isSuccess, "$ref must be a valid URI")"""
+          case _ =>
+            s"// unsupported format constraint: ${c.name}=${c.literal}"
+        }
+      case _ =>
+        s"// unsupported constraint: ${c.name}=${c.literal}"
+    }
+  }
 
   protected def iri_method: GenM[Unit] =
     println("// iri_method")
@@ -1895,7 +1944,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   protected def parameter_item(p: Parameter): String = {
-    s"${p.name.name}: ${p.typeName.name}${_parameter_default_suffix(p)}"
+    s"${p.name.name}: ${p.typeName.name}${_parameter_default_suffix(p)}${_parameter_constraints_suffix(p)}"
   }
 
   protected def class_parameter_list(p: ParameterSequence): GenM[Unit] =
@@ -1914,8 +1963,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         "override val "
       else
         ""
-    s"$prefix$constructorname: ${p.typeName.name}${_parameter_default_suffix(p)}"
+    s"$prefix$constructorname: ${p.typeName.name}${_parameter_default_suffix(p)}${_parameter_constraints_suffix(p)}"
   }
+
+  private def _parameter_constraints_suffix(p: Parameter): String =
+    if (p.constraints.isEmpty)
+      ""
+    else
+      p.constraints.map(c => s"${c.name}=${c.literal}").mkString(" /* constraints: ", ", ", " */")
 
   private def _is_override_parameter_for_parent(name: String): Boolean =
     clazz.parentClass.exists {

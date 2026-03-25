@@ -9,7 +9,7 @@ import org.simplemodeling.model._
  * @since   Apr. 23, 2011
  *  version Feb.  7, 2012
  *  version Jan.  5, 2020
- * @version Mar.  1, 2020
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class PConstraint(val name: String, val value: Any) {
@@ -66,5 +66,6 @@ class PConstraint(val name: String, val value: Any) {
 }
 
 object PConstraint {
-  def apply(p: MConstraint): PConstraint = ???
+  def apply(p: MConstraint): PConstraint =
+    new PConstraint(p.name, p.value)
 }

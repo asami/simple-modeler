@@ -6,7 +6,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Sep. 23, 2025
  *  version Sep. 30, 2025
- * @version Mar. 19, 2026
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class CaseClassScalaModelTransformer() extends ScalaModelTransformer() {
@@ -18,11 +18,13 @@ abstract class CaseClassScalaModelTransformer() extends ScalaModelTransformer() 
     val dbcolumnname = p.column.flatMap(x => Option(x.sql.name).map(_.trim).filterNot(_.isEmpty))
     val dbcolumntype = p.column.flatMap(_.sql.datatype.map(_.fullName))
     val externalname = p.column.flatMap(_.aliases.headOption).map(_.trim).filterNot(_.isEmpty)
+    val constraints = to_constraints(p.constraints)
     Parameter(
       ParameterName(p.name),
       typename,
       isAttribute = true,
       isDefault = false,
+      constraints = constraints,
       dbColumnName = dbcolumnname,
       dbColumnType = dbcolumntype,
       externalName = externalname

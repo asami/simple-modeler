@@ -1,23 +1,18 @@
 package org.simplemodeling.parser
 
-import org.junit.runner.RunWith
-import org.scalatest.junit.JUnitRunner
-import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 
 /*
  * @since   Jan.  6, 2020
- * @version Jan.  6, 2020
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
-@RunWith(classOf[JUnitRunner])
-class TryoutSpec extends WordSpec with Matchers with GivenWhenThen {
+class TryoutSpec extends AnyFunSuite {
   val parser = SimpleModelParser(SimpleModelParser.Config.default)
 
-  "SimpleModelParser" should {
-    "empty" in {
-      val src = """
+  test("empty") {
+    val src = """
 """
-      val model = parser.apply(src)
-    }
+    val model = parser.apply(src)
   }
 }

@@ -10,6 +10,7 @@ import org.goldenport.values.PathName
 import org.goldenport.record.v2._
 import org.goldenport.util.StringUtils
 import org.simplemodeling.model._
+import org.simplemodeling.SimpleModeler.transformer.maker.PConstraint
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.Purpose
 import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase.ClassKind
@@ -402,6 +403,7 @@ case class Parameter(
   isAttribute: Boolean = false,
   isDefault: Boolean = false,
   value: Option[SClassBase] = None,
+  constraints: Vector[PConstraint] = Vector.empty,
   dbColumnName: Option[String] = None,
   dbColumnType: Option[String] = None,
   externalName: Option[String] = None

@@ -8,6 +8,7 @@ import org.goldenport.realm.Realm
 import org.goldenport.util.StringUtils
 import org.goldenport.record.v2.{MOne =>_, MZeroOne => _, MOneMore => _, MZeroMore => _, MRange => _, MRanges => _, _}
 import org.simplemodeling.model._
+import org.simplemodeling.model.domain.MDomainValue
 import org.simplemodeling.SimpleModeler.transformer.maker.ScalaClassDefinition
 import org.simplemodeling.SimpleModeler.transformer.maker._
 import org.simplemodeling.SimpleModeler.transformer.maker.mobject.MPEntity
@@ -23,6 +24,7 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
  *  version May. 18, 2025
  *  version Sep. 21, 2025
  *  version Feb. 28, 2026
+ *  version Mar. 25, 2026
  * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -55,6 +57,19 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
     g.generate(p) match {
       case Consequence.Success(r, _) => r.build(b)
       case Consequence.Error(c) => c.RAISE
+    }
+  }
+
+  override protected def build_Value(b: Realm.Builder, p: MValue): Realm.Builder = {
+    p match {
+      case m: MDomainValue =>
+        val g = new Scala3ValueFamilyGenerator()
+        g.generate(m) match {
+          case Consequence.Success(r, _) => r.build(b)
+          case Consequence.Error(c) => c.RAISE
+        }
+      case _ =>
+        b
     }
   }
 
