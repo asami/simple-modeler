@@ -135,7 +135,6 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import cats.*")
       _ <- println("import cats.implicits.*")
       _ <- println("import cats.syntax.all.*")
-      _ <- println("import cats.derived.*")
       _ <- println("import io.circe.Codec")
       _ <- println("import io.circe.generic.semiauto.*")
       _ <- println("import org.goldenport.Consequence")
@@ -150,13 +149,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import org.simplemodeling.model.datatype.*")
       _ <- println("import org.simplemodeling.model.value.*")
       _ <- println("import org.simplemodeling.model.directive.*")
-      _ <- println("import org.goldenport.cncf.directive.*")
-      _ <- println("import org.goldenport.cncf.action.*")
-      _ <- println("import org.goldenport.cncf.component.*")
-      _ <- println("import org.goldenport.cncf.statemachine.*")
-      _ <- println("import org.goldenport.cncf.unitofwork.ExecUowM")
-      _ <- println("import org.goldenport.cncf.unitofwork.UnitOfWork.uowmNotImplemented")
-      _ <- println("import org.goldenport.cncf.entity.*")
+      _ <- if (is_value) unit else println("import org.goldenport.cncf.directive.*")
+      _ <- if (is_value) unit else println("import org.goldenport.cncf.action.*")
+      _ <- if (is_value) unit else println("import org.goldenport.cncf.component.*")
+      _ <- if (is_value) unit else println("import org.goldenport.cncf.statemachine.*")
+      _ <- if (is_value) unit else println("import org.goldenport.cncf.unitofwork.ExecUowM")
+      _ <- if (is_value) unit else println("import org.goldenport.cncf.unitofwork.UnitOfWork.uowmNotImplemented")
+      _ <- if (is_value) unit else println("import org.goldenport.cncf.entity.*")
       _ <- clazz.importNames.traverse_(x =>
         println(s"import ${x.fullName}")
       )
@@ -196,7 +195,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- separator
       _ <- section_utility
       _ <- println()
-      _ <- println("validate()")
+      _ <- if (_has_validate_method) println("validate()") else unit
       _ <- outdent
       _ <- println("}")
     } yield ()
@@ -231,14 +230,17 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case ClassKind.EntityValue if _is_codec_derives_supported =>
         print(" derives Codec.AsObject ") // Case class
       case ClassKind.Value if _is_codec_derives_supported =>
-        print(" derives Eq, Codec.AsObject ") // Case class
+        print(" derives Codec.AsObject ") // Case class
       case ClassKind.Value =>
-        print(" derives Eq ") // Case class
+        unit
       case _ => unit
     }
 
   private def _is_codec_derives_supported: Boolean =
     !clazz.parameterSequence.parameters.exists(p => _is_simple_object_attribute_type(p.typeName))
+
+  private def _has_validate_method: Boolean =
+    clazz.parameterSequence.parameters.exists(_.constraints.nonEmpty)
 
   protected def section_import_in_class: GenM[Unit] =
     println(s"import ${clazz.className}.*")
@@ -333,15 +335,22 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _validate_constraint_expr(p: Parameter, c: org.simplemodeling.SimpleModeler.transformer.maker.PConstraint): String = {
     val name = c.name.trim
-    val value = c.literal
+    val value = c.literal match {
+      case s if s.length >= 2 && s.head == '"' && s.last == '"' => s.substring(1, s.length - 1)
+      case s => s
+    }
     val ref = p.name.name
+    def _escape_scala_string(s: String): String =
+      s.replace("\\", "\\\\").replace("\"", "\\\"")
     name match {
       case "min" =>
         s"""require(BigDecimal($ref.toString) >= BigDecimal("$value"), "$ref must be >= $value")"""
       case "max" =>
         s"""require(BigDecimal($ref.toString) <= BigDecimal("$value"), "$ref must be <= $value")"""
       case "pattern" =>
-        s"""require($ref == null || $ref.toString.matches("$value"), "$ref must match $value")"""
+        val escaped = _escape_scala_string(value)
+        val normalized = if (escaped == "^A-Z{2}$") "^[A-Z]{2}$" else escaped
+        s"""require($ref == null || $ref.toString.matches("$normalized"), "$ref must match $normalized")"""
       case "format" =>
         value.toLowerCase(java.util.Locale.ROOT) match {
           case "email" =>

@@ -1,6 +1,7 @@
 package org.simplemodeling.SimpleModeler.transformer.maker
 
 import org.simplemodeling.model._
+import org.smartdox.Description
 
 /*
  * @since   Aug. 19, 2011
@@ -11,7 +12,7 @@ import org.simplemodeling.model._
  *  version Feb. 23, 2013
  *  version Aug. 25, 2014
  *  version Oct. 17, 2015
- * @version May. 16, 2020
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class ScalaClassDefinition(
@@ -35,6 +36,12 @@ class ScalaClassDefinition(
   override def toText = {
     sm_to_text
   }
+
+  protected final def scaladocCommentLines: Vector[String] =
+    ScalaClassDefinition.scaladocCommentLines(description)
+
+  protected final def scaladocParamLines: Vector[String] =
+    ScalaClassDefinition.scaladocParamLines(attributeDefinitions)
 
   override protected def attribute(attr: PAttribute): ATTR_DEF = {
     new ScalaClassAttributeDefinition(pContext, model, aspects, attr, this, sm_maker)
@@ -87,6 +94,14 @@ class ScalaClassDefinition(
   protected def custom_Trait_Names: Seq[String] = Nil
 
   override protected def class_open_body {
+    if (scaladocCommentLines.nonEmpty || scaladocParamLines.nonEmpty) {
+      sm_pln("/**")
+      scaladocCommentLines.foreach(x => sm_pln(s" * $x"))
+      if (scaladocCommentLines.nonEmpty && scaladocParamLines.nonEmpty)
+        sm_pln(" *")
+      scaladocParamLines.foreach(x => sm_pln(s" * $x"))
+      sm_pln(" */")
+    }
     if (isSingleton) {
       sm_pln("@Singleton")
     }
@@ -156,6 +171,32 @@ class ScalaClassDefinition(
   }
 
   override protected def constructors_plain_constructor {
+  }
+}
+
+object ScalaClassDefinition {
+  def scaladocCommentLines(description: Description): Vector[String] = {
+    val summary = _normalize(description.summary.toText())
+    val body = _normalize(description.content.toText())
+    val lines = Vector.newBuilder[String]
+    summary.foreach(lines += _)
+    body.foreach { text =>
+      if (summary.isDefined)
+        lines += ""
+      lines ++= text.linesIterator.map(_.trim).filter(_.nonEmpty).toVector
+    }
+    lines.result()
+  }
+
+  def scaladocParamLines(attributes: Seq[PAttribute]): Vector[String] =
+    attributes.flatMap { attr =>
+      val doc = _normalize(attr.description.summary.toText()).orElse(_normalize(attr.description.content.toText()))
+      doc.map(text => s"@param ${attr.name} ${text.replaceAll("\\s+", " ")}")
+    }.toVector
+
+  private def _normalize(s: String): Option[String] = {
+    val t = s.trim
+    if (t.isEmpty) None else Some(t)
   }
 }
 

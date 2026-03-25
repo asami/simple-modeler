@@ -608,7 +608,21 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     p.map(_.trim).filter(_.nonEmpty)
 
   private def _summary_text(p: Option[String]): Option[String] =
-    _normalize_text(p).map(_.linesIterator.map(_.trim).find(_.nonEmpty).getOrElse("")).filter(_.nonEmpty)
+    _normalize_text(p).
+      flatMap(x => _first_sentence(x).orElse(_first_non_empty_line(x))).
+      filter(_.nonEmpty)
+
+  private def _first_non_empty_line(p: String): Option[String] =
+    p.linesIterator.map(_.trim).find(_.nonEmpty)
+
+  private def _first_sentence(p: String): Option[String] = {
+    val s = p.trim
+    val idx = s.indexWhere(_ == '.')
+    if (idx >= 0)
+      Some(s.substring(0, idx + 1).trim).filter(_.nonEmpty)
+    else
+      None
+  }
 
   private def _comment_lines(p: Option[String]): Vector[String] =
     _normalize_text(p).toVector.flatMap(_.split("\r?\n").toVector.map(_.trim).filter(_.nonEmpty))

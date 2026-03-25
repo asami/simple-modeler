@@ -2266,7 +2266,8 @@ class ScalaClassAttributeDefinition(
             }
           }
         }
-        case p: PPowertypeType => sys.error("not supported yet")
+        case p: PPowertypeType =>
+          sm_assign_this_new_ArrayList(varName, persistent_element_type(), "doc." + varName)
         case v: PByteType      => update("%s.shortValue()")
         case v: PIntegerType   => update("%s.toString()")
         case v: PDecimalType   => update("%s.toString()")

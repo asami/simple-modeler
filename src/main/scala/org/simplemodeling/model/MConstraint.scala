@@ -11,7 +11,7 @@ import org.goldenport.record.v2
  *  version Aug.  7, 2019
  *  version Nov.  4, 2019
  *  version Jan.  5, 2020
- * @version May.  6, 2020
+ * @version Mar. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MConstraint {
@@ -20,8 +20,24 @@ trait MConstraint {
 }
 
 case class RConstraint(constraint: v2.Constraint) extends MConstraint {
+  override lazy val name: String = constraint match {
+    case _: v2.CMaxLength => "max"
+    case _: v2.CMinLength => "min"
+    case _: v2.CRegex => "pattern"
+    case m => m.label
+  }
+
+  override lazy val value: Any = constraint match {
+    case m: v2.CMaxLength => m.length
+    case m: v2.CMinLength => m.length
+    case m: v2.CRegex => m.regex.regex
+    case m => m.label
+  }
 }
 
 object MConstraint {
-  def create(p: String): MConstraint = ???
+  def create(p: String): MConstraint = new MConstraint {
+    override val name: String = p
+    override val value: Any = p
+  }
 }
