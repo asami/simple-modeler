@@ -714,16 +714,12 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       val servicename = service_name(service)
       val serviceobjectname = service_object_name(service)
       val ops = service.methods.map(operation_object_name)
-      val docSummaryMethod = _doc_method_name("summary")
-      val docDescriptionMethod = _doc_method_name("description")
       for {
         _ <- _comment(service.description)
         ds <- blockR(s"object ${serviceobjectname} extends ServiceDefinition {") {
           for {
             _ <- block(s"""val specification = ServiceDefinition.Specification.Builder("${servicename}").""") {
               for {
-                _ <- _summary_text(service.description).fold(unit)(x => println(s"$docSummaryMethod(${_string_literal(x)})."))
-                _ <- _normalize_text(service.description).fold(unit)(x => println(s"$docDescriptionMethod(${_string_literal(x)})."))
                 _ <- ops.toList match {
                   case Nil => println("build()")
                   case x :: xs => for {
@@ -750,26 +746,13 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       val operationobject = operation_object_name(op)
       val operationname = operation_name(op)
       val actionclassname = action_class_name(op)
-      val docSummaryMethod = _doc_method_name("summary")
-      val docDescriptionMethod = _doc_method_name("description")
-      val docSummary = _summary_text(op.description)
-      val docDescription = _normalize_text(op.description)
       for {
         _ <- _comment(op.description)
         _ <- separator
         _ <- block(s"object ${operationobject} extends OperationDefinition") {
           for {
             _ <- block(s"""val specification = OperationDefinition.Specification.Builder("$operationname").""") {
-              docDescription match {
-                case Some(desc) =>
-                  val docSummaryExpr = docSummary.getOrElse(desc)
-                  for {
-                    _ <- println(s"""copy(content = BaseContent.Builder("$operationname").$docSummaryMethod(${_string_literal(docSummaryExpr)}).$docDescriptionMethod(${_string_literal(desc)})).""")
-                    _ <- println(s"build()")
-                  } yield ()
-                case None =>
-                  println(s"build()")
-              }
+              println(s"build()")
             }
             _ <- separator
             _ <- block("override def createOperationRequest(") {
