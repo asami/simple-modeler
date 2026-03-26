@@ -17,7 +17,7 @@ import Generator.{State => GState, _}
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 25, 2026
+ * @version Mar. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1073,6 +1073,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _builder_with_methods_parse(p: Parameter): GenM[Unit] =
     if (
       p.typeName.isString ||
+      p.typeName.name == "String" ||
       _is_simple_object_attribute_type(p.typeName) ||
       is_condition_type(p.typeName) ||
       is_option_condition_type(p.typeName) ||
@@ -1186,7 +1187,16 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
           _builder_with_method_parse_plain_option(name, m.containee, param)
         else
           println("???")
+      case m if m.isString || m.name == "String" =>
+        _builder_with_method_parse_plain_string(name, param)
       case m => _builder_with_method_parse_plain_nooption(name, proptype, param)
+    }
+  }
+
+  private def _builder_with_method_parse_plain_string(name: String, param: Parameter): GenM[Unit] = {
+    val methodname = with_method_name(name)
+    define_method(methodname, builder_type, param) {
+      println("copy(", name, " = Some(", name, "))")
     }
   }
 

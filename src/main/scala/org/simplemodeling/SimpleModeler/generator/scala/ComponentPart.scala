@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Mar. 25, 2026
+ * @version Mar. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -612,6 +612,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       flatMap(x => _first_sentence(x).orElse(_first_non_empty_line(x))).
       filter(_.nonEmpty)
 
+  private def _doc_method_name(name: String): String =
+    s"doc${name.capitalize}"
+
   private def _first_non_empty_line(p: String): Option[String] =
     p.linesIterator.map(_.trim).find(_.nonEmpty)
 
@@ -711,14 +714,16 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       val servicename = service_name(service)
       val serviceobjectname = service_object_name(service)
       val ops = service.methods.map(operation_object_name)
+      val docSummaryMethod = _doc_method_name("summary")
+      val docDescriptionMethod = _doc_method_name("description")
       for {
         _ <- _comment(service.description)
         ds <- blockR(s"object ${serviceobjectname} extends ServiceDefinition {") {
           for {
             _ <- block(s"""val specification = ServiceDefinition.Specification.Builder("${servicename}").""") {
               for {
-                _ <- _summary_text(service.description).fold(unit)(x => println(s"summary(${_string_literal(x)})."))
-                _ <- _normalize_text(service.description).fold(unit)(x => println(s"description(${_string_literal(x)})."))
+                _ <- _summary_text(service.description).fold(unit)(x => println(s"$docSummaryMethod(${_string_literal(x)})."))
+                _ <- _normalize_text(service.description).fold(unit)(x => println(s"$docDescriptionMethod(${_string_literal(x)})."))
                 _ <- ops.toList match {
                   case Nil => println("build()")
                   case x :: xs => for {
@@ -745,19 +750,21 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       val operationobject = operation_object_name(op)
       val operationname = operation_name(op)
       val actionclassname = action_class_name(op)
-      val summary = _summary_text(op.description)
-      val description = _normalize_text(op.description)
+      val docSummaryMethod = _doc_method_name("summary")
+      val docDescriptionMethod = _doc_method_name("description")
+      val docSummary = _summary_text(op.description)
+      val docDescription = _normalize_text(op.description)
       for {
         _ <- _comment(op.description)
         _ <- separator
         _ <- block(s"object ${operationobject} extends OperationDefinition") {
           for {
             _ <- block(s"""val specification = OperationDefinition.Specification.Builder("$operationname").""") {
-              description match {
+              docDescription match {
                 case Some(desc) =>
-                  val summaryExpr = summary.getOrElse(desc)
+                  val docSummaryExpr = docSummary.getOrElse(desc)
                   for {
-                    _ <- println(s"""copy(content = BaseContent.Builder("$operationname").summary(${_string_literal(summaryExpr)}).description(${_string_literal(desc)})).""")
+                    _ <- println(s"""copy(content = BaseContent.Builder("$operationname").$docSummaryMethod(${_string_literal(docSummaryExpr)}).$docDescriptionMethod(${_string_literal(desc)})).""")
                     _ <- println(s"build()")
                   } yield ()
                 case None =>
