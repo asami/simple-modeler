@@ -38,10 +38,10 @@ class ScalaClassDefinition(
   }
 
   protected final def scaladocCommentLines: Vector[String] =
-    ScalaClassDefinition.scaladocCommentLines(description)
+    ScalaClassDefinition.scaladocCommentLines(pobject.description)
 
   protected final def scaladocParamLines: Vector[String] =
-    ScalaClassDefinition.scaladocParamLines(attributeDefinitions)
+    ScalaClassDefinition.scaladocParamLines(attributeDefinitions.map(_.attr))
 
   override protected def attribute(attr: PAttribute): ATTR_DEF = {
     new ScalaClassAttributeDefinition(pContext, model, aspects, attr, this, sm_maker)

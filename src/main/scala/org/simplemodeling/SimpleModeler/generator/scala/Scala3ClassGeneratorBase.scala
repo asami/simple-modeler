@@ -155,7 +155,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- if (is_value) unit else println("import org.goldenport.cncf.statemachine.*")
       _ <- if (is_value) unit else println("import org.goldenport.cncf.unitofwork.ExecUowM")
       _ <- if (is_value) unit else println("import org.goldenport.cncf.unitofwork.UnitOfWork.uowmNotImplemented")
-      _ <- if (is_value) unit else println("import org.goldenport.cncf.entity.*")
+      _ <- if (is_value && _augument_traits.isEmpty) unit else println("import org.goldenport.cncf.entity.*")
       _ <- clazz.importNames.traverse_(x =>
         println(s"import ${x.fullName}")
       )
