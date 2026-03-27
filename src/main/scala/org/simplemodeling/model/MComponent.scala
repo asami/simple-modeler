@@ -9,7 +9,7 @@ import org.simplemodeling.model._
     version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version Mar. 25, 2026
+ * @version Mar. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -122,6 +122,7 @@ object MComponent {
   final case class OperationDefinition(
     name: String,
     kind: String,
+    execution: Option[String] = None,
     inputType: String,
     outputType: String,
     inputValueKind: String,

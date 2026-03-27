@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Mar. 26, 2026
+ * @version Mar. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -319,11 +319,13 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- indent
         _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
           z.flatMap { _ =>
+            val execution = d.execution.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             for {
               _ <- println("org.goldenport.cncf.operation.CmlOperationDefinition(")
               _ <- indent
               _ <- println(s"name = ${_string_literal(d.name)},")
               _ <- println(s"kind = ${_string_literal(d.kind)},")
+              _ <- println(s"execution = ${execution},")
               _ <- println(s"inputType = ${_string_literal(d.inputType)},")
               _ <- println(s"outputType = ${_string_literal(d.outputType)},")
               _ <- println(s"inputValueKind = ${_string_literal(d.inputValueKind)},")
@@ -945,9 +947,27 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     private def _action_program(op: SMethod): GenM[Unit] = {
       op.body match {
         case Some(s) => s()
+        case None if _is_sync_by_design_command(op) =>
+          println("ExecUowM.pure(OperationResponse.create(action.request.toRecord))")
         case None => println("uowmNotImplemented")
       }
     }
+
+    private def _is_sync_by_design_command(op: SMethod): Boolean =
+      op.descriptor.kind == SMethod.Kind.Command &&
+        _component.exists(_.componentCore.operationDefinitions.exists { definition =>
+          val opname = _normalize_operation_marker(op.name.name)
+          val defname = _normalize_operation_marker(definition.name)
+          opname == defname &&
+          definition.execution.exists(_.trim.equalsIgnoreCase("sync"))
+        })
+
+    private def _normalize_operation_marker(name: String): String =
+      Option(name).getOrElse("").toLowerCase.replaceAll("[^a-z0-9]", "") match {
+        case s if s.endsWith("command") => s.stripSuffix("command")
+        case s if s.endsWith("operation") => s.stripSuffix("operation")
+        case s => s
+      }
 
     private def _action_program_entity: GenM[Unit] = {
       ???

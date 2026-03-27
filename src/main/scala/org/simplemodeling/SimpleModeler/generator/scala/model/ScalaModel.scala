@@ -22,7 +22,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Oct.  7, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 25, 2026
+ * @version Mar. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -919,6 +919,7 @@ object SComponent {
   final case class OperationDefinition(
     name: String,
     kind: String,
+    execution: Option[String] = None,
     inputType: String,
     outputType: String,
     inputValueKind: String,
