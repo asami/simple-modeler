@@ -17,7 +17,7 @@ import Generator.{State => GState, _}
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 26, 2026
+ * @version Mar. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1058,15 +1058,27 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         }
       } yield ()
     } else {
-      for {
-        _ <- define_method(methodname, builder_type, raw_parameter(p)) {
-          println("copy(", propname, " = Some(", propname, "))")
-        }
-        _ <- define_method(methodname, builder_type, option_parameter(p)) {
-          println("copy(", propname, " = ", propname, ")")
-        }
-        _ <- _builder_with_methods_parse(p)
-      } yield ()
+      p.typeName match {
+        case m: TypeName.Container if m.isList || m.isVector || m.isSet =>
+          for {
+            _ <- define_method(methodname, builder_type, raw_parameter(p)) {
+              println("copy(", propname, " = ", _container_wrap_expression(propname, m), ")")
+            }
+            _ <- define_method(methodname, builder_type, option_parameter(p)) {
+              println("copy(", propname, " = ", propname, ")")
+            }
+          } yield ()
+        case _ =>
+          for {
+            _ <- define_method(methodname, builder_type, raw_parameter(p)) {
+              println("copy(", propname, " = Some(", propname, "))")
+            }
+            _ <- define_method(methodname, builder_type, option_parameter(p)) {
+              println("copy(", propname, " = ", propname, ")")
+            }
+            _ <- _builder_with_methods_parse(p)
+          } yield ()
+      }
     }
   }
 
@@ -1074,6 +1086,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     if (
       p.typeName.isString ||
       p.typeName.name == "String" ||
+      _is_collection_type(p.typeName) ||
       _is_simple_object_attribute_type(p.typeName) ||
       is_condition_type(p.typeName) ||
       is_option_condition_type(p.typeName) ||
@@ -1125,6 +1138,21 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case _ =>
         false
     }
+
+  private def _is_collection_type(p: TypeName): Boolean = p match {
+    case m: TypeName.Container => m.isList || m.isVector || m.isSet
+    case _ => false
+  }
+
+  private def _container_wrap_expression(name: String, p: TypeName.Container): String =
+    if (p.isList)
+      s"List($name)"
+    else if (p.isVector)
+      s"Vector($name)"
+    else if (p.isSet)
+      s"Set($name)"
+    else
+      name
 
   private def _builder_with_methods_parse_number(p: Parameter): GenM[Unit] =
     if (p.typeName.isNumberOrigin) {
@@ -1433,11 +1461,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     else if (is_condition_type(container))
       builder_parameter_line_raw(p.name.name)
     else if (container.isList)
-      s"???"
+      s"Consequence.success(${p.name.name})"
     else if (container.isVector)
-      s"???"
+      s"Consequence.success(${p.name.name})"
     else if (container.isSet)
-      s"???"
+      s"Consequence.success(${p.name.name})"
     else
       RAISE.noReachDefect
 
@@ -1603,11 +1631,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     else if (is_update_type(container))
       _build_param_or_var_update(p, container)
     else if (container.isList)
-      println("???")
+      print("Consequence.success(", p.name.name, ")")
     else if (container.isVector)
-      println("???")
+      print("Consequence.success(", p.name.name, ")")
     else if (container.isSet)
-      println("???")
+      print("Consequence.success(", p.name.name, ")")
     else
       RAISE.noReachDefect
 

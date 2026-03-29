@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version Mar. 28, 2026
+ * @version Mar. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -188,7 +188,38 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       ps.map { p =>
         SComponent.AggregateDefinition(
           name = p.name,
-          entityName = p.entityName
+          entityName = p.entityName,
+          members = p.members.map { m =>
+            SComponent.AggregateMemberDefinition(
+              name = m.name,
+              entityName = m.entityName,
+              kind = m.kind,
+              joinFieldName = m.joinFieldName,
+              multiplicity = m.multiplicity
+            )
+          },
+          commands = p.commands.map { c =>
+            SComponent.AggregateCommandDefinition(
+              name = c.name,
+              input = c.input,
+              validations = c.validations,
+              events = c.events,
+              newState = c.newState
+            )
+          },
+          state = p.state.map { s =>
+            SComponent.AggregateStateDefinition(
+              name = s.name,
+              datatype = s.datatype,
+              multiplicity = s.multiplicity
+            )
+          },
+          invariants = p.invariants.map { i =>
+            SComponent.AggregateInvariantDefinition(
+              name = i.name,
+              expression = i.expression
+            )
+          }
         )
       }
 

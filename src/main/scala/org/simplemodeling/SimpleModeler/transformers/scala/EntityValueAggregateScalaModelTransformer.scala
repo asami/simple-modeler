@@ -8,13 +8,23 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Mar. 17, 2026
- * @version Mar. 17, 2026
+ * @version Mar. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
   protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Aggregate)
   def apply(p: MObject): Consequence[Vector[SClassBase]] =
     apply(p, Purpose.Aggregate)
+
+  override protected def effective_attributes(p: MObject): List[MAttribute] =
+    p match {
+      case m: MEntity =>
+        val base = super.effective_attributes(m)
+        val assocattrs = m.associations.map(_to_member_attribute)
+        _merge_member_attributes(base, assocattrs)
+      case _ =>
+        super.effective_attributes(p)
+    }
 
   // NOTE: Aggregate-specific DSL/model is not available yet.
   // Default: entity.aggregate.<Entity>
@@ -46,5 +56,26 @@ class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaMo
       b.append(c.toLower)
     }
     b.toString
+  }
+
+  private def _to_member_attribute(p: MAssociation): MAttribute =
+    MAttribute(
+      designation = p.designation,
+      attributeType = MObjectAttributeType(p.objectRef),
+      multiplicity = p.multiplicity,
+      constraints = Nil,
+      column = None,
+      readonly = true,
+      description = p.description
+    )
+
+  private def _merge_member_attributes(
+    base: List[MAttribute],
+    members: List[MAttribute]
+  ): List[MAttribute] = {
+    val m = scala.collection.mutable.LinkedHashMap[String, MAttribute]()
+    base.foreach(x => m.update(x.name, x))
+    members.foreach(x => m.update(x.name, x))
+    m.values.toList
   }
 }

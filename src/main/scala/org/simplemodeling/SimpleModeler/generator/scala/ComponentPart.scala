@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Mar. 28, 2026
+ * @version Mar. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -268,7 +268,14 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println("org.goldenport.cncf.entity.aggregate.AggregateDefinition(")
               _ <- indent
               _ <- println(s"name = ${_string_literal(d.name)},")
-              _ <- println(s"entityName = ${_string_literal(d.entityName)}")
+              _ <- println(s"entityName = ${_string_literal(d.entityName)},")
+              _ <- _aggregate_members("members", d.members)
+              _ <- println(",")
+              _ <- _aggregate_commands("commands", d.commands)
+              _ <- println(",")
+              _ <- _aggregate_state("state", d.state)
+              _ <- println(",")
+              _ <- _aggregate_invariants("invariants", d.invariants)
               _ <- outdent
               _ <- println(")")
               _ <- if (i < defs.length - 1) println(",") else unit
@@ -279,6 +286,121 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- println(")")
       } yield ()
     }
+
+  private def _aggregate_members(
+    label: String,
+    defs: Vector[SComponent.AggregateMemberDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty)
+      println(s"$label = Vector.empty")
+    else
+      for {
+        _ <- println(s"$label = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- println("org.goldenport.cncf.entity.aggregate.AggregateMemberDefinition(")
+              _ <- indent
+              _ <- println(s"name = ${_string_literal(d.name)},")
+              _ <- println(s"entityName = ${_string_literal(d.entityName)},")
+              _ <- println(s"kind = ${_option_string_literal(d.kind)},")
+              _ <- println(s"joinFieldName = ${_option_string_literal(d.joinFieldName)},")
+              _ <- println(s"multiplicity = ${_option_string_literal(d.multiplicity)}")
+              _ <- outdent
+              _ <- println(")")
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+
+  private def _aggregate_commands(
+    label: String,
+    defs: Vector[SComponent.AggregateCommandDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty)
+      println(s"$label = Vector.empty")
+    else
+      for {
+        _ <- println(s"$label = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- println("org.goldenport.cncf.entity.aggregate.AggregateCommandDefinition(")
+              _ <- indent
+              _ <- println(s"name = ${_string_literal(d.name)},")
+              _ <- println(s"input = ${_string_map_literal(d.input)},")
+              _ <- println(s"validations = ${_string_vector_literal(d.validations)},")
+              _ <- println(s"events = ${_string_vector_literal(d.events)},")
+              _ <- println(s"newState = ${_option_string_literal(d.newState)}")
+              _ <- outdent
+              _ <- println(")")
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+
+  private def _aggregate_state(
+    label: String,
+    defs: Vector[SComponent.AggregateStateDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty)
+      println(s"$label = Vector.empty")
+    else
+      for {
+        _ <- println(s"$label = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- println("org.goldenport.cncf.entity.aggregate.AggregateStateDefinition(")
+              _ <- indent
+              _ <- println(s"name = ${_string_literal(d.name)},")
+              _ <- println(s"datatype = ${_option_string_literal(d.datatype)},")
+              _ <- println(s"multiplicity = ${_option_string_literal(d.multiplicity)}")
+              _ <- outdent
+              _ <- println(")")
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+
+  private def _aggregate_invariants(
+    label: String,
+    defs: Vector[SComponent.AggregateInvariantDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty)
+      println(s"$label = Vector.empty")
+    else
+      for {
+        _ <- println(s"$label = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- println("org.goldenport.cncf.entity.aggregate.AggregateInvariantDefinition(")
+              _ <- indent
+              _ <- println(s"name = ${_string_literal(d.name)},")
+              _ <- println(s"expression = ${_option_string_literal(d.expression)}")
+              _ <- outdent
+              _ <- println(")")
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
 
   private def _view_definitions_method(
     defs: Vector[SComponent.ViewDefinition]
@@ -597,6 +719,23 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     val escaped = _escape_string(Option(p).getOrElse(""))
     "\"" + escaped + "\""
   }
+
+  private def _option_string_literal(p: Option[String]): String =
+    p.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+
+  private def _string_vector_literal(p: Vector[String]): String =
+    if (p.isEmpty)
+      "Vector.empty"
+    else
+      p.map(_string_literal).mkString("Vector(", ", ", ")")
+
+  private def _string_map_literal(p: Map[String, String]): String =
+    if (p.isEmpty)
+      "Map.empty"
+    else
+      p.iterator.map { case (k, v) =>
+        s"${_string_literal(k)} -> ${_string_literal(v)}"
+      }.mkString("Map(", ", ", ")")
 
   private def _escape_string(p: String): String =
     p.flatMap {

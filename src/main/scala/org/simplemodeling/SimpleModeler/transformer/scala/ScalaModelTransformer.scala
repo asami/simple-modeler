@@ -14,7 +14,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- * @version Mar. 25, 2026
+ * @version Mar. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -180,8 +180,8 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   def to_typename(p: MAttribute): TypeName = p.multiplicity match {
     case MOne => _typename_one(p.attributeType)
     case MZeroOne => _typename_zeroone(p.attributeType)
-    case MOneMore => _typename_zeromore(p.attributeType)
-    case MZeroMore => _typename_onemore(p.attributeType)
+    case MOneMore => _typename_onemore(p.attributeType)
+    case MZeroMore => _typename_zeromore(p.attributeType)
     case m: MRange => _typename_range(p.attributeType)
     case m: MRanges => _typename_ranges(p.attributeType)
   }
@@ -216,6 +216,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   private def _to_typename(p: MAttributeType): TypeName =
     p match {
       case m: MDataType => to_typename(m)
+      case m: MObjectAttributeType => to_typename(m.ref)
       case m: MObject => to_typename(m)
       case m: MObjectRef => to_typename(m)
     }
