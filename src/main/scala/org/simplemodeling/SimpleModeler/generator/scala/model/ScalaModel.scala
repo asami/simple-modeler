@@ -22,7 +22,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Oct.  7, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 30, 2026
+ * @version Mar. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -652,7 +652,7 @@ case class ClassCore(
         val ps = pkgs.keys.toVector.sortBy(_.name)
         val xs = ps.foldLeft(Vector.empty[TypeName.Plain])((z, x) =>
           pkgs.get(x).fold(z) { xs =>
-            xs.toVector.sortBy(_.name).distinct
+            z ++ xs.toVector.sortBy(_.name).distinct
           }
         )
         xs.map(_normalize)
