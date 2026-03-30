@@ -156,7 +156,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- if (is_value) unit else println("import org.goldenport.cncf.statemachine.*")
       _ <- if (is_value) unit else println("import org.goldenport.cncf.unitofwork.ExecUowM")
       _ <- if (is_value) unit else println("import org.goldenport.cncf.unitofwork.UnitOfWork.uowmNotImplemented")
-      _ <- if (is_value && _augument_traits.isEmpty) unit else println("import org.goldenport.cncf.entity.*")
+      _ <- if (is_value && !is_entity_value) unit else println("import org.goldenport.cncf.entity.*")
       _ <- if (is_aggregate) println("import org.goldenport.cncf.entity.aggregate.*") else unit
       _ <- clazz.importNames.traverse_(x =>
         println(s"import ${x.fullName}")
@@ -1145,19 +1145,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     if (is_condition_type(p.typeName)) {
       for {
         _ <- define_method(methodname, builder_type, raw_parameter(p)) {
-          println("copy(", propname, " = Some(Condition.is(", propname, ")))")
+          println("copy(", propname, " = Some(Condition.is(", propname, ")), _failures = _failures)")
         }
         _ <- define_method(methodname, builder_type, p) {
-          println("copy(", propname, " = Some(", propname, "))")
+          println("copy(", propname, " = Some(", propname, "), _failures = _failures)")
         }
       } yield ()
     } else if (is_update_type(p.typeName)) {
       for {
         _ <- define_method(methodname, builder_type, raw_parameter(p)) {
-          println("copy(", propname, " = Some(Update.set(", propname, ")))")
+          println("copy(", propname, " = Some(Update.set(", propname, ")), _failures = _failures)")
         }
         _ <- define_method(methodname, builder_type, p) {
-          println("copy(", propname, " = Some(", propname, "))")
+          println("copy(", propname, " = Some(", propname, "), _failures = _failures)")
         }
       } yield ()
     } else {
@@ -1165,19 +1165,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         case m: TypeName.Container if m.isList || m.isVector || m.isSet =>
           for {
             _ <- define_method(methodname, builder_type, raw_parameter(p)) {
-              println("copy(", propname, " = ", _container_wrap_expression(propname, m), ")")
+              println("copy(", propname, " = ", _container_wrap_expression(propname, m), ", _failures = _failures)")
             }
             _ <- define_method(methodname, builder_type, option_parameter(p)) {
-              println("copy(", propname, " = ", propname, ")")
+              println("copy(", propname, " = ", propname, ", _failures = _failures)")
             }
           } yield ()
         case _ =>
           for {
             _ <- define_method(methodname, builder_type, raw_parameter(p)) {
-              println("copy(", propname, " = Some(", propname, "))")
+              println("copy(", propname, " = Some(", propname, "), _failures = _failures)")
             }
             _ <- define_method(methodname, builder_type, option_parameter(p)) {
-              println("copy(", propname, " = ", propname, ")")
+              println("copy(", propname, " = ", propname, ", _failures = _failures)")
             }
             _ <- _builder_with_methods_parse(p)
           } yield ()
@@ -1191,6 +1191,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       p.typeName.name == "String" ||
       _is_collection_type(p.typeName) ||
       _is_simple_object_attribute_type(p.typeName) ||
+      _is_object_parameter_type(p.typeName) ||
       is_condition_type(p.typeName) ||
       is_option_condition_type(p.typeName) ||
       is_update_type(p.typeName) ||
@@ -1297,7 +1298,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val propname = name
     val primitivename = proptype.name
     define_cmethods(methodname, builder_type, param) {
-      println("Consequence.to", primitivename, "(", varname, ").map(x => copy(", propname, " = Some(x)))")
+      println("Consequence.to", primitivename, "(", varname, ").map(x => copy(", propname, " = Some(x), _failures = _failures))")
     }
   }
 
@@ -1307,7 +1308,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val propname = name
     val primitivename = proptype.name
     define_cmethods(methodname, builder_type, param) {
-      println(varname, ".to" + primitivename, ".map(x => copy(", propname, " = Some(x)))")
+      println(varname, ".to" + primitivename, ".map(x => copy(", propname, " = Some(x), _failures = _failures))")
     }
   }
 
@@ -1327,7 +1328,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _builder_with_method_parse_plain_string(name: String, param: Parameter): GenM[Unit] = {
     val methodname = with_method_name(name)
     define_method(methodname, builder_type, param) {
-      println("copy(", name, " = Some(", name, "))")
+      println("copy(", name, " = Some(", name, "), _failures = _failures)")
     }
   }
 
@@ -1419,9 +1420,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     param: Parameter
   ) = {
     define_method(methodname, builder_type, param.toRawType) {
-      block(s"${proptype.name}.parse(${propname}) match") {
+      val f = if (_is_object_parameter_type(proptype)) "createC" else "parse"
+      block(s"${proptype.name}.${f}(${propname}) match") {
         for {
-          _ <- println(s"case Consequence.Success(s) => copy(${propname} = Some(s))")
+          _ <- println(s"case Consequence.Success(s) => copy(${propname} = Some(s), _failures = _failures)")
           _ <- println(s"case m: Consequence.Failure[_] => copy(_failures = _failures :+ m)")
         } yield ()
       }
