@@ -591,6 +591,7 @@ case class Directive(
   def isCreate: Boolean = purpose.fold(false)(_ == Purpose.Create)
   def isQuery: Boolean = purpose.fold(false)(_ == Purpose.Query)
   def isUpdate: Boolean = purpose.fold(false)(_ == Purpose.Update)
+  def isAggregate: Boolean = purpose.fold(false)(_ == Purpose.Aggregate)
 
   def withEntityValue = copy(classKind = Some(ClassKind.EntityValue))
   def withPurpose(purpose: Purpose) = copy(purpose = Some(purpose))

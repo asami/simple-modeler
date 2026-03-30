@@ -85,6 +85,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected final def is_entity_value = classKind.isEntityValue
   protected final def is_query = clazz.directive.isQuery
   protected final def is_update = clazz.directive.isUpdate
+  protected final def is_aggregate = clazz.directive.isAggregate
 
   protected final def class_type_name: TypeName = TypeName.create(clazz)
 
@@ -156,6 +157,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- if (is_value) unit else println("import org.goldenport.cncf.unitofwork.ExecUowM")
       _ <- if (is_value) unit else println("import org.goldenport.cncf.unitofwork.UnitOfWork.uowmNotImplemented")
       _ <- if (is_value && _augument_traits.isEmpty) unit else println("import org.goldenport.cncf.entity.*")
+      _ <- if (is_aggregate) println("import org.goldenport.cncf.entity.aggregate.*") else unit
       _ <- clazz.importNames.traverse_(x =>
         println(s"import ${x.fullName}")
       )
@@ -474,7 +476,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     for {
       _ <- print("object ")
       _ <- print(clazz.className)
-      _ <- println(" {")
+      _ <- if (is_aggregate)
+        println(s" extends AggregateAssembler[${clazz.className.name}] {")
+      else
+        println(" {")
       _ <- indent
       _ <- property_name_definitions
       _ <- separator
@@ -484,10 +489,58 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- separator
       _ <- record_reader_methods
       _ <- builder_part
+      _ <- if (is_aggregate) { separator.flatMap(_ => aggregate_assembler_methods) } else unit
       _ <- component_object_part
       _ <- outdent
       _ <- println("}")
     } yield ()
+
+  protected def aggregate_assembler_methods: GenM[Unit] = {
+    val members = attributes_vector.filter(_is_aggregate_member_attribute)
+    for {
+      _ <- println(s"override def create_from_record(record: Record): Consequence[${clazz.className.name}] = createC(record)")
+      _ <- separator
+      _ <- println(s"override def attach_member(aggregate: ${clazz.className.name}, member_name: String, members: Vector[Any]): Consequence[${clazz.className.name}] = member_name match {")
+      _ <- indent
+      _ <- if (members.isEmpty)
+        println("""case _ => Consequence.failure(s"Unknown aggregate member: ${member_name}")""")
+      else
+        members.foldLeft(unit) { (z, p) =>
+          z.flatMap(_ => _aggregate_attach_member_case(p))
+        }.flatMap(_ => println("""case _ => Consequence.failure(s"Unknown aggregate member: ${member_name}")"""))
+      _ <- outdent
+      _ <- println("}")
+    } yield ()
+  }
+
+  private def _aggregate_attach_member_case(p: Attribute): GenM[Unit] = {
+    val n = p.name.name
+    val setter = s"with${n.head.toUpper}${n.drop(1)}"
+    p.typeName match {
+      case c: TypeName.Container =>
+        val t = c.containee.name
+        println(s"""case "${n}" => Consequence.success(aggregate.${setter}(members.collect { case m: ${t} => m }))""")
+      case _ =>
+        val t = p.typeName.toRawType.name
+        println(s"""case "${n}" => members.collectFirst { case m: ${t} => m }.map(x => Consequence.success(aggregate.${setter}(x))).getOrElse(Consequence.failure(s"Missing aggregate member: ${n}"))""")
+    }
+  }
+
+  private def _is_aggregate_member_attribute(p: Attribute): Boolean = {
+    val raw = p.typeName.toRawType
+    _is_collection_type(raw) || _is_object_parameter_type(raw)
+  }
+
+  private def _is_object_parameter_type(p: TypeName): Boolean =
+    p.contentType match {
+      case TypeName.Plain(pkg, _, _) =>
+        !pkg.name.startsWith("org.simplemodeling.model.value") &&
+        !pkg.name.startsWith("org.simplemodeling.model.datatype") &&
+        !pkg.name.startsWith("org.goldenport.datatype") &&
+        !pkg.name.startsWith("scala") &&
+        !pkg.name.startsWith("java")
+      case _ => false
+    }
 
   protected def property_name_definitions: GenM[Unit] = {
     val attrs = clazz.attributeSequence.attributes
