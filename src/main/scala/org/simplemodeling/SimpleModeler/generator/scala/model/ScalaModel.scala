@@ -896,6 +896,8 @@ object SComponent {
     name: String,
     entityName: String,
     kind: Option[String] = None,
+    boundary: Option[String] = None,
+    join: Option[String] = None,
     joinFieldName: Option[String] = None,
     multiplicity: Option[String] = None
   )

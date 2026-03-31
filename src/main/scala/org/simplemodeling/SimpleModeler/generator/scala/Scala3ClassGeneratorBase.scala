@@ -520,6 +520,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val n = p.name.name
     val setter = s"with${n.head.toUpper}${n.drop(1)}"
     p.typeName match {
+      case c: TypeName.Container if c.isOption =>
+        val t = c.containee.name
+        println(s"""case "${n}" => Consequence.success(aggregate.${setter}(members.collectFirst { case m: ${t} => m }))""")
       case c: TypeName.Container =>
         val t = c.containee.name
         println(s"""case "${n}" => Consequence.success(aggregate.${setter}(members.collect { case m: ${t} => m }))""")
@@ -1564,7 +1567,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     else if (is_update_type(container))
       s"Consequence.success(${p.name.name}.getOrElse(Update.noop[${container.containee.name}]))"
     else if (is_condition_type(container))
-      builder_parameter_line_raw(p.name.name)
+      s"Consequence.success(${p.name.name}.getOrElse(Condition.any[${container.containee.name}]))"
     else if (container.isList)
       s"Consequence.success(${p.name.name})"
     else if (container.isVector)
@@ -1828,7 +1831,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
           _ <- println()
           _ <- indent
           _ <- println("case Some(s) => Consequence.success(Condition.is(s))")
-          _ <- println("case None => Consequence.successOrPropertyNotFound(", propname, ", ", p.name.name, ")")
+          _ <- println("case None => Consequence.success(", p.name.name, ".getOrElse(Condition.any[", inner.name, "]))")
           _ <- outdent
           _ <- print("}")
         } yield ()
@@ -1838,7 +1841,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
           _ <- println()
           _ <- indent
           _ <- println("case Some(s) => Consequence.success(Condition.is(s))")
-          _ <- println("case None => Consequence.successOrPropertyNotFound(", propname, ", ", p.name.name, ")")
+          _ <- println("case None => Consequence.success(", p.name.name, ".getOrElse(Condition.any[", container.containee.name, "]))")
           _ <- outdent
           _ <- print("}")
         } yield ()

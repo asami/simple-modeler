@@ -9,7 +9,7 @@ import org.simplemodeling.model._
     version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version Mar. 30, 2026
+ * @version Mar. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -98,6 +98,8 @@ object MComponent {
     name: String,
     entityName: String,
     kind: Option[String] = None,
+    boundary: Option[String] = None,
+    join: Option[String] = None,
     joinFieldName: Option[String] = None,
     multiplicity: Option[String] = None
   )

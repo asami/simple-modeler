@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Mar. 30, 2026
+ * @version Mar. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -305,6 +305,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"name = ${_string_literal(d.name)},")
               _ <- println(s"entityName = ${_string_literal(d.entityName)},")
               _ <- println(s"kind = ${_option_string_literal(d.kind)},")
+              _ <- println(s"boundary = ${_option_string_literal(d.boundary)},")
+              _ <- println(s"join = ${_option_string_literal(d.join)},")
               _ <- println(s"joinFieldName = ${_option_string_literal(d.joinFieldName)},")
               _ <- println(s"multiplicity = ${_option_string_literal(d.multiplicity)}")
               _ <- outdent

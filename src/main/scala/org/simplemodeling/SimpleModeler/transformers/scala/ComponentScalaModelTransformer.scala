@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version Mar. 30, 2026
+ * @version Mar. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -194,6 +194,8 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               name = m.name,
               entityName = m.entityName,
               kind = m.kind,
+              boundary = m.boundary,
+              join = m.join,
               joinFieldName = m.joinFieldName,
               multiplicity = m.multiplicity
             )
