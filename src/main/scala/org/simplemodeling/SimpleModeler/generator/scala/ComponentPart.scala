@@ -8,7 +8,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Mar. 31, 2026
+ *  version Mar. 31, 2026
+ * @version Apr.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -443,17 +444,27 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- indent
         _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
           z.flatMap { _ =>
+            val summary = d.summary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val execution = d.execution.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val implementation = d.implementation.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val inputSummary = d.inputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val inputDescription = d.inputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val outputSummary = d.outputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val outputDescription = d.outputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             for {
               _ <- println("org.goldenport.cncf.operation.CmlOperationDefinition(")
               _ <- indent
               _ <- println(s"name = ${_string_literal(d.name)},")
               _ <- println(s"kind = ${_string_literal(d.kind)},")
+              _ <- println(s"summary = ${summary},")
               _ <- println(s"execution = ${execution},")
               _ <- println(s"implementation = ${implementation},")
               _ <- println(s"inputType = ${_string_literal(d.inputType)},")
+              _ <- println(s"inputSummary = ${inputSummary},")
+              _ <- println(s"inputDescription = ${inputDescription},")
               _ <- println(s"outputType = ${_string_literal(d.outputType)},")
+              _ <- println(s"outputSummary = ${outputSummary},")
+              _ <- println(s"outputDescription = ${outputDescription},")
               _ <- println(s"inputValueKind = ${_string_literal(d.inputValueKind)},")
               _ <- println(s"parameters = ${_operation_fields_expr(d.parameters)}")
               _ <- outdent
@@ -798,7 +809,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     }
 
     private def _factory(actioncalldescs: ActionCallDescriptorCollection): GenM[Unit] = {
-      val servicedefs = services.map(service_object_name)
+      val servicedefs = services.filter(_.methods.nonEmpty).map(service_object_name)
       for {
         _ <- _comment(component.description)
         _ <- println(s"""val name = "${component_name}"""")
@@ -853,7 +864,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     // }
 
     private def _services(): GenM[ActionCallDescriptorCollection] =
-      services.traverse(_service(_)).map(ActionCallDescriptorCollection.combineAll)
+      services.filter(_.methods.nonEmpty).traverse(_service(_)).map(ActionCallDescriptorCollection.combineAll)
 
     private def _service(service: SService): GenM[ActionCallDescriptorCollection] = {
       val servicename = service_name(service)
@@ -891,13 +902,24 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       val operationobject = operation_object_name(op)
       val operationname = operation_name(op)
       val actionclassname = action_class_name(op)
+      val outputtype = _operation_output_type(op)
       for {
         _ <- _comment(op.description)
         _ <- separator
         _ <- block(s"object ${operationobject} extends OperationDefinition") {
           for {
             _ <- block(s"""val specification = OperationDefinition.Specification.Builder("$operationname").""") {
-              println(s"build()")
+              for {
+                _ <- println("copy(")
+                _ <- indent
+                _ <- println("response = ResponseDefinition(")
+                _ <- indent
+                _ <- println(s"""result = List(org.goldenport.schema.DataType.Named("${outputtype}"))""")
+                _ <- outdent
+                _ <- println(")")
+                _ <- outdent
+                _ <- println(").build()")
+              } yield ()
             }
             _ <- separator
             _ <- block("override def createOperationRequest(") {
@@ -1122,6 +1144,17 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         case s if s.endsWith("operation") => s.stripSuffix("operation")
         case s => s
       }
+
+    private def _operation_output_type(op: SMethod): String = {
+      val opmarkers = Set(
+        _normalize_operation_marker(op.name.name),
+        _normalize_operation_marker(operation_name(op))
+      ).filter(_.nonEmpty)
+      _component.flatMap(_.componentCore.operationDefinitions.find { definition =>
+        val defname = _normalize_operation_marker(definition.name)
+        opmarkers.contains(defname)
+      }).map(_.outputType).getOrElse(op.returnType.name)
+    }
 
     private def _action_program_entity: GenM[Unit] = {
       ???

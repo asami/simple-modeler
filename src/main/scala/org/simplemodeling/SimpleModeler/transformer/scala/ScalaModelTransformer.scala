@@ -14,10 +14,12 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- * @version Mar. 30, 2026
+ *  version Mar. 30, 2026
+ * @version Apr.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
+  protected final val MaxGeneratedNameLength = 256
   protected def is_Accept_Object(p: MObject): Boolean
   protected def accept_Purposes: Vector[Purpose]
   protected def sub_Package_Name: Option[String] = None
@@ -345,10 +347,10 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     ps: String*
   ): String = {
     val raw = (p +: ps).map(StringUtils.makeTitle).mkString
-    if (raw.length <= 32)
+    if (raw.length <= MaxGeneratedNameLength)
       raw
     else
-      raw.take(32)
+      RAISE.syntaxErrorFault(s"Generated Scala name exceeds ${MaxGeneratedNameLength} characters: ${raw.length}")
   }
 
   protected def project_dir = "scala.d"

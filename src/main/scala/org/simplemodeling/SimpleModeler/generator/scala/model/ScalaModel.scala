@@ -1,6 +1,7 @@
 package org.simplemodeling.SimpleModeler.generator.scala.model
 
 import scalaz._, Scalaz._
+import org.goldenport.RAISE
 import org.goldenport.context.Showable
 import org.goldenport.context.Consequence
 import org.goldenport.datatype
@@ -22,7 +23,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Oct.  7, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 31, 2026
+ *  version Mar. 31, 2026
+ * @version Apr.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -32,6 +34,9 @@ case class ScalaModel(
 }
 
 object ScalaModel {
+  final val MaxGeneratedNameLength = 256
+  final val MaxGeneratedFqnLength = 1024
+
   abstract class Context() {
     def optionType(p: TypeName): TypeName = TypeName.Container.option(p)
     def stringType: TypeName = TypeName.Primitive.string
@@ -616,7 +621,13 @@ sealed trait SClassBase {
 
   def attributeSequence: AttributeSequence = parameterSequence.distillAttributes + fieldCompartment.distillAttributes
 
-  def fullName: String = s"${packageName.name}.${className.name}"
+  def fullName: String = {
+    val r = s"${packageName.name}.${className.name}"
+    if (r.length <= ScalaModel.MaxGeneratedFqnLength)
+      r
+    else
+      RAISE.syntaxErrorFault(s"Generated Scala FQN exceeds ${ScalaModel.MaxGeneratedFqnLength} characters: ${r.length}")
+  }
 
   def directive: Directive
 }
@@ -953,10 +964,15 @@ object SComponent {
   final case class OperationDefinition(
     name: String,
     kind: String,
+    summary: Option[String] = None,
     execution: Option[String] = None,
     implementation: Option[String] = None,
     inputType: String,
+    inputSummary: Option[String] = None,
+    inputDescription: Option[String] = None,
     outputType: String,
+    outputSummary: Option[String] = None,
+    outputDescription: Option[String] = None,
     inputValueKind: String,
     parameters: Vector[OperationField] = Vector.empty
   )
@@ -1007,7 +1023,7 @@ object SComponent {
 
     final protected def component_name: String = component.componentName
 
-    final protected def component_class_name: String = make_title(component_name) + "Component"
+    final protected def component_class_name: String = component.className.name
 
     final protected def component_packagename: PackageName = component.packageName
 
@@ -1098,10 +1114,10 @@ object SComponent {
 
     final protected def make_title(s: String) = {
       val raw = StringUtils.makeTitle(s)
-      if (raw.length <= 32)
+      if (raw.length <= ScalaModel.MaxGeneratedNameLength)
         raw
       else
-        raw.take(32)
+        RAISE.syntaxErrorFault(s"Generated Scala name exceeds ${ScalaModel.MaxGeneratedNameLength} characters: ${raw.length}")
     }
   }
 }

@@ -9,7 +9,8 @@ import org.simplemodeling.model._
     version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version Mar. 31, 2026
+ *  version Mar. 31, 2026
+ * @version Apr.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -155,10 +156,15 @@ object MComponent {
   final case class OperationDefinition(
     name: String,
     kind: String,
+    summary: Option[String] = None,
     execution: Option[String] = None,
     implementation: Option[String] = None,
     inputType: String,
+    inputSummary: Option[String] = None,
+    inputDescription: Option[String] = None,
     outputType: String,
+    outputSummary: Option[String] = None,
+    outputDescription: Option[String] = None,
     inputValueKind: String,
     parameters: Vector[OperationField] = Vector.empty
   )
