@@ -9,8 +9,7 @@ import org.simplemodeling.model._
     version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- *  version Mar. 31, 2026
- * @version Apr.  1, 2026
+ * @version Apr.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -124,10 +123,18 @@ object MComponent {
     expression: Option[String] = None
   )
 
+  final case class ViewQueryDefinition(
+    name: String,
+    expression: Option[String] = None
+  )
+
   final case class ViewDefinition(
     name: String,
     entityName: String,
-    viewNames: Vector[String] = Vector.empty
+    viewNames: Vector[String] = Vector.empty,
+    queries: Vector[ViewQueryDefinition] = Vector.empty,
+    sourceEvents: Vector[String] = Vector.empty,
+    rebuildable: Option[Boolean] = None
   )
 
   final case class ComponentCoordinate(

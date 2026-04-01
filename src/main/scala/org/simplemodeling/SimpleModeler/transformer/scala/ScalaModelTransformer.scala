@@ -14,8 +14,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- *  version Mar. 30, 2026
- * @version Apr.  1, 2026
+ * @version Apr.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -294,7 +293,13 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
         val tx = new EntityValueViewScalaModelTransformer()
         _to_class(tx(p.entity))
       case MEntityValue.Kind.Summary =>
-        val tx = new EntityValueReadScalaModelTransformer() // CHECK
+        val tx = new EntityValueSummaryScalaModelTransformer()
+        _to_class(tx(p.entity))
+      case MEntityValue.Kind.Detail =>
+        val tx = new EntityValueDetailScalaModelTransformer()
+        _to_class(tx(p.entity))
+      case MEntityValue.Kind.Projection(name) =>
+        val tx = new EntityValueProjectionScalaModelTransformer(name)
         _to_class(tx(p.entity))
     }
 

@@ -8,8 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- *  version Mar. 31, 2026
- * @version Apr.  1, 2026
+ * @version Apr.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -405,6 +404,17 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- println(")")
       } yield ()
 
+  private def _view_query_definitions_expr(
+    defs: Vector[SComponent.ViewQueryDefinition]
+  ): String =
+    if (defs.isEmpty)
+      "Vector.empty"
+    else
+      defs.map { d =>
+        val expr = _option_string_literal(d.expression)
+        s"org.goldenport.cncf.entity.view.ViewQueryDefinition(name = ${_string_literal(d.name)}, expression = ${expr})"
+      }.mkString("Vector(", ", ", ")")
+
   private def _view_definitions_method(
     defs: Vector[SComponent.ViewDefinition]
   ): GenM[Unit] =
@@ -421,7 +431,10 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- indent
               _ <- println(s"name = ${_string_literal(d.name)},")
               _ <- println(s"entityName = ${_string_literal(d.entityName)},")
-              _ <- println(s"viewNames = ${_string_vector_expr(d.viewNames)}")
+              _ <- println(s"viewNames = ${_string_vector_expr(d.viewNames)},")
+              _ <- println(s"queries = ${_view_query_definitions_expr(d.queries)},")
+              _ <- println(s"sourceEvents = ${_string_vector_expr(d.sourceEvents)},")
+              _ <- println(s"rebuildable = ${_option_boolean_expr(d.rebuildable)}")
               _ <- outdent
               _ <- println(")")
               _ <- if (i < defs.length - 1) println(",") else unit
@@ -735,6 +748,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
   private def _option_string_literal(p: Option[String]): String =
     p.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+
+  private def _option_boolean_expr(p: Option[Boolean]): String =
+    p.map(x => s"Some(${x.toString})").getOrElse("None")
 
   private def _string_vector_literal(p: Vector[String]): String =
     if (p.isEmpty)

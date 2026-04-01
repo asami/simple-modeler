@@ -12,7 +12,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Sep. 18, 2025
  *  version Sep. 21, 2025
- * @version Feb. 19, 2026
+ *  version Feb. 19, 2026
+ * @version Apr.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 class Scala3EntityFamilyGenerator(
@@ -27,6 +28,8 @@ class Scala3EntityFamilyGenerator(
       new EntityValueUpdateScalaModelTransformer(),
       new EntityValueAggregateScalaModelTransformer(),
       new EntityValueViewScalaModelTransformer(),
+      new EntityValueSummaryScalaModelTransformer(),
+      new EntityValueDetailScalaModelTransformer(),
       new EntityValueOperationScalaModelTransformer(),
       new EntityValueQueryScalaModelTransformer()
     )

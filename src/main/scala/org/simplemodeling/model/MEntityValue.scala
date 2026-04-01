@@ -3,7 +3,7 @@ package org.simplemodeling.model
 /*
  * @since   Feb. 18, 2026
  *  version Feb. 19, 2026
- * @version Mar. 14, 2026
+ * @version Apr.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MEntityValue(
@@ -39,6 +39,8 @@ object MEntityValue {
     // NOTE: View model DSL is not available yet. Use entity-shaped value for now.
     case object View extends Kind with Output
     case object Summary extends Kind with Output
+    case object Detail extends Kind with Output
+    final case class Projection(name: Option[String]) extends Kind with Output
   }
 
   def create(p: MEntity): MEntityValue = MEntityValue(p, Kind.Create)
@@ -49,4 +51,6 @@ object MEntityValue {
   def aggregate(p: MEntity): MEntityValue = MEntityValue(p, Kind.Aggregate)
   def view(p: MEntity): MEntityValue = MEntityValue(p, Kind.View)
   def summary(p: MEntity): MEntityValue = MEntityValue(p, Kind.Summary)
+  def detail(p: MEntity): MEntityValue = MEntityValue(p, Kind.Detail)
+  def projection(p: MEntity, name: Option[String]): MEntityValue = MEntityValue(p, Kind.Projection(name))
 }

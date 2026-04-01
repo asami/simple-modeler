@@ -10,8 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- *  version Mar. 31, 2026
- * @version Apr.  1, 2026
+ * @version Apr.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -233,7 +232,10 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         SComponent.ViewDefinition(
           name = p.name,
           entityName = p.entityName,
-          viewNames = p.viewNames
+          viewNames = p.viewNames,
+          queries = p.queries.map(q => SComponent.ViewQueryDefinition(q.name, q.expression)),
+          sourceEvents = p.sourceEvents,
+          rebuildable = p.rebuildable
         )
       }
 
