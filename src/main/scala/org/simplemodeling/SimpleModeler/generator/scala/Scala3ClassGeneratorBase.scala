@@ -19,11 +19,6 @@ import Generator.{State => GState, _}
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  * @version Apr.  2, 2026
- *  version May. 19, 2025
- *  version Sep. 30, 2025
- *  version Oct. 17, 2025
- *  version Nov. 18, 2025
- *  version Feb. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -92,6 +87,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected final def is_query = clazz.directive.isQuery
   protected final def is_update = clazz.directive.isUpdate
   protected final def is_aggregate = clazz.directive.isAggregate
+  protected final def is_view_projection: Boolean =
+    clazz.packageName.name.contains(".entity.view")
 
   protected final def class_type_name: TypeName = TypeName.create(clazz)
 
@@ -287,6 +284,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- properties_method
       _ <- component_class_part()
       _ <- to_record_method
+      _ <- to_view_record_method
       _ <- to_data_store_method
       _ <- value_convert_methods
     } yield ()
@@ -396,10 +394,29 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected def to_record_method: GenM[Unit] =
     if (is_value) {
       val m = SMethod.query("toRecord", TypeName.create("org.goldenport.record", "Record")) {
+        if (is_view_projection)
+          println("toViewRecord()")
+        else
+          for {
+            _ <- println("Record.dataAuto(")
+            _ <- indent
+            _ <- _to_record
+            _ <- outdent
+            _ <- println(")")
+          } yield ()
+      }
+      define_method(m)
+    } else {
+      unit
+    }
+
+  protected def to_view_record_method: GenM[Unit] =
+    if (is_view_projection) {
+      val m = SMethod.query("toViewRecord", TypeName.create("org.goldenport.record", "Record")) {
         for {
           _ <- println("Record.dataAuto(")
           _ <- indent
-          _ <- _to_record
+          _ <- _to_view_record
           _ <- outdent
           _ <- println(")")
         } yield ()
@@ -465,6 +482,68 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _to_record(p: Attribute): GenM[Unit] =
     print("\"", _record_external_key(p), "\" -> _to_external_value(", p.name.name, ")")
+
+  private lazy val _simple_object_attribute_names = Set(
+    "nameAttributes",
+    "descriptiveAttributes",
+    "lifecycleAttributes",
+    "publicationAttributes",
+    "securityAttributes",
+    "resourceAttributes",
+    "auditAttributes",
+    "mediaAttributes",
+    "contextualAttribute",
+    "name_Attributes",
+    "descriptive_Attributes",
+    "lifecycle_Attributes",
+    "publication_Attributes",
+    "security_Attributes",
+    "resource_Attributes",
+    "audit_Attributes",
+    "media_Attributes",
+    "contextual_Attribute"
+  )
+
+  private def _to_view_record: GenM[Unit] = {
+    val ps = _view_record_properties ++ _view_record_direct_attributes
+    FoldTraverseUtil.intercalateTraverseWithEnd_(
+      ps,
+      println(", "),
+      println()
+    )(_to_view_record)
+  }
+
+  private def _to_view_record(p: (String, String)): GenM[Unit] =
+    print("\"", p._1, "\" -> _to_external_value(", p._2, ")")
+
+  private def _view_record_direct_attributes: Vector[(String, String)] =
+    attributes_vector.collect {
+      case p if !_simple_object_attribute_names.contains(p.name.name) =>
+        (_record_external_key(p), p.name.name)
+    }
+
+  private def _view_record_properties: Vector[(String, String)] = {
+    val names = attributes_vector.map(_.name.name).toSet
+    val b = Vector.newBuilder[(String, String)]
+    if (names.contains("nameAttributes") || names.contains("name_Attributes")) {
+      b += "name" -> "name"
+      b += "label" -> "label"
+      if (_is_simple_entity_parent)
+        b += "title" -> "title"
+    }
+    if (names.contains("descriptiveAttributes") || names.contains("descriptive_Attributes")) {
+      b += "headline" -> "headline"
+      b += "summary" -> "summary"
+      b += "description" -> "description"
+    }
+    b.result()
+  }
+
+  private def _is_simple_entity_parent: Boolean =
+    clazz.parentClass.exists {
+      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.simplemodeling.model" => true
+      case _ => false
+    }
 
   private def _to_data_store: GenM[Unit] =
     FoldTraverseUtil.intercalateTraverseWithEnd_(
@@ -2265,7 +2344,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val n = p.name.name
     val constructorname = _class_constructor_parameter_name(n)
     val prefix =
-      if (_is_override_parameter_for_parent(n) && constructorname == n)
+      if (_is_override_parameter_for_parent(n))
         "override val "
       else
         ""
@@ -2304,18 +2383,6 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     "contextual_Attribute"
   )
 
-  private val _simple_entity_override_keys: Set[String] =
-    _simple_object_attribute_keys ++ Set("id", "name", "title")
-
-  private val _simple_entity_create_override_keys: Set[String] =
-    _simple_object_attribute_keys + "id"
-
-  private val _simple_entity_update_override_keys: Set[String] =
-    _simple_object_attribute_keys + "id"
-
-  private val _simple_entity_query_override_keys: Set[String] =
-    _simple_object_attribute_keys + "id"
-
   private val _simple_object_attribute_constructor_names: Map[String, String] = Map(
     "name_Attributes" -> "nameAttributes",
     "descriptive_Attributes" -> "descriptiveAttributes",
@@ -2331,30 +2398,23 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _class_constructor_parameter_name(name: String): String =
     _simple_object_attribute_constructor_names.getOrElse(name, name)
 
+  private val _simple_object_attribute_constructor_keys: Set[String] =
+    _simple_object_attribute_keys.map(_class_constructor_parameter_name)
+
+  private val _simple_entity_override_keys: Set[String] =
+    _simple_object_attribute_keys ++ _simple_object_attribute_constructor_keys ++ Set("id", "name", "title")
+
+  private val _simple_entity_create_override_keys: Set[String] =
+    _simple_object_attribute_keys ++ _simple_object_attribute_constructor_keys + "id"
+
+  private val _simple_entity_update_override_keys: Set[String] =
+    _simple_object_attribute_keys ++ _simple_object_attribute_constructor_keys + "id"
+
+  private val _simple_entity_query_override_keys: Set[String] =
+    _simple_object_attribute_keys ++ _simple_object_attribute_constructor_keys + "id"
+
   private def _simple_object_attribute_alias_definitions: GenM[Unit] = {
-    val aliases = _simple_object_attribute_keys.toVector.flatMap { original =>
-      val constructorname = _class_constructor_parameter_name(original)
-      val originalparam = clazz.parameterSequence.parameters.find(_.name.name == original)
-      val constructorparam = clazz.parameterSequence.parameters.find(_.name.name == constructorname)
-      (originalparam, constructorparam) match {
-        case (Some(p), _) if original != constructorname =>
-          Some((original, p.typeName.name, constructorname))
-        case (None, Some(p)) if original != constructorname =>
-          Some((original, p.typeName.name, constructorname))
-        case _ =>
-          None
-      }
-    }
-    if (aliases.isEmpty)
-      unit
-    else
-      for {
-        _ <- aliases.traverse_ {
-          case (original, typename, constructorname) =>
-            _simple_object_attribute_alias_definition(original, typename, constructorname)
-        }
-        _ <- separator
-      } yield ()
+    unit
   }
 
   private def _simple_object_attribute_alias_definition(
@@ -2373,85 +2433,12 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   private def _simple_entity_projection_attribute_definitions: GenM[Unit] =
-    if (_is_simple_entity_projection_class) {
-      for {
-        _ <- _simple_entity_projection_attribute_definition(
-          "name_Attributes",
-          "NameAttributes",
-          _simple_entity_projection_attribute_expr("name_Attributes")
-        )
-        _ <- _simple_entity_projection_attribute_definition(
-          "descriptive_Attributes",
-          "DescriptiveAttributes",
-          _simple_entity_projection_attribute_expr("descriptive_Attributes")
-        )
-        _ <- _simple_entity_projection_attribute_definition(
-          "lifecycle_Attributes",
-          "LifecycleAttributes",
-          _simple_entity_projection_attribute_expr("lifecycle_Attributes")
-        )
-        _ <- _simple_entity_projection_attribute_definition(
-          "publication_Attributes",
-          "PublicationAttributes",
-          _simple_entity_projection_attribute_expr("publication_Attributes")
-        )
-        _ <- _simple_entity_projection_attribute_definition(
-          "security_Attributes",
-          "SecurityAttributes",
-          _simple_entity_projection_attribute_expr("security_Attributes")
-        )
-        _ <- _simple_entity_projection_attribute_definition(
-          "resource_Attributes",
-          "ResourceAttributes",
-          _simple_entity_projection_attribute_expr("resource_Attributes")
-        )
-        _ <- _simple_entity_projection_attribute_definition(
-          "audit_Attributes",
-          "AuditAttributes",
-          _simple_entity_projection_attribute_expr("audit_Attributes")
-        )
-        _ <- _simple_entity_projection_attribute_definition(
-          "media_Attributes",
-          "MediaAttributes",
-          _simple_entity_projection_attribute_expr("media_Attributes")
-        )
-        _ <- _simple_entity_projection_attribute_definition(
-          "contextual_Attribute",
-          "ContextualAttributes",
-          _simple_entity_projection_attribute_expr("contextual_Attribute")
-        )
-        _ <- separator
-      } yield ()
-    } else {
-      unit
-    }
-
-  private def _simple_entity_projection_attribute_definition(
-    name: String,
-    typename: String,
-    expr: String
-  ): GenM[Unit] =
-    if (_has_constructor_parameter(name))
-      unit
-    else
-      println(s"override protected def $name: $typename = $expr")
-
-  private def _is_simple_entity_projection_class: Boolean =
-    is_entity_value &&
-      !is_query &&
-      !is_update &&
-      clazz.parentClass.exists {
-        case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.simplemodeling.model" => true
-        case _ => false
-      }
+    unit
 
   private def _has_constructor_parameter(name: String): Boolean =
     clazz.parameterSequence.parameters.exists(p =>
       p.name.name == name || p.name.name == _class_constructor_parameter_name(name)
     )
-
-  private def _simple_entity_projection_attribute_expr(name: String): String =
-    _class_constructor_parameter_name(name)
 
   private def _simple_entity_projection_value_package: String =
     if (clazz.packageName.name.contains(".entity.view.summary"))
