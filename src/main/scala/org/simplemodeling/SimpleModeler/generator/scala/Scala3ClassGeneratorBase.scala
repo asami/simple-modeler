@@ -18,7 +18,8 @@ import Generator.{State => GState, _}
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr.  2, 2026
+ *  version Apr.  2, 2026
+ * @version Apr.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -151,7 +152,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import org.goldenport.protocol.spec.*")
       _ <- println("import org.goldenport.protocol.operation.*")
       _ <- println("import org.simplemodeling.model.datatype.*")
-      _ <- println("import org.simplemodeling.model.value.*")
+      _ <- println("import org.simplemodeling.model.value.{given, *}")
       _ <- _projection_value_import
       _ <- println("import org.simplemodeling.model.directive.*")
       _ <- if (is_value) unit else println("import org.goldenport.cncf.directive.*")
@@ -421,7 +422,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
           _ <- println(")")
         } yield ()
       }
-      define_method(m)
+      for {
+        _ <- define_method(m)
+        _ <- println()
+        _ <- println("def toViewRecord(using ctx: org.goldenport.cncf.context.ExecutionContext): Record = {")
+        _ <- indent
+        _ <- println("Record.dataAuto(")
+        _ <- indent
+        _ <- _to_view_record
+        _ <- outdent
+        _ <- println(")")
+        _ <- outdent
+        _ <- println("}")
+      } yield ()
     } else {
       unit
     }
@@ -452,7 +465,15 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("case m: java.lang.Number => m")
         _ <- println("case m: java.lang.Boolean => m")
         _ <- println("case m: java.lang.Character => m.toString")
+        _ <- println("case m: org.goldenport.datatype.I18nLabel => m.toI18nString.displayMessage")
+        _ <- println("case m: org.goldenport.datatype.I18nTitle => m.value.displayMessage")
+        _ <- println("case m: org.goldenport.datatype.I18nBrief => m.toI18nString.displayMessage")
+        _ <- println("case m: org.goldenport.datatype.I18nSummary => m.toI18nString.displayMessage")
+        _ <- println("case m: org.goldenport.datatype.I18nDescription => m.toI18nString.displayMessage")
+        _ <- println("case m: org.goldenport.datatype.I18nText => m.toI18nString.displayMessage")
         _ <- println("case m: Record => m")
+        _ <- println("""case m: org.goldenport.value.NameAttributes => Record.dataAuto("name" -> _to_external_value(m.name), "label" -> _to_external_value(m.label), "title" -> _to_external_value(m.title))""")
+        _ <- println("""case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_external_value(m.headline), "summary" -> _to_external_value(m.summary), "description" -> _to_external_value(m.description))""")
         _ <- println("case m: org.goldenport.record.Recordable => m.toRecord()")
         _ <- println("case m: Option[?] => m.map(_to_external_value)")
         _ <- println("case m: Seq[?] => m.map(_to_external_value)")
@@ -466,6 +487,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println()
         _ <- println("private def _to_data_store_value(v: Any): Any = v match {")
         _ <- println("  case m: org.simplemodeling.model.directive.Update[?] => m")
+        _ <- println("  case m: org.goldenport.datatype.I18nLabel => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
+        _ <- println("  case m: org.goldenport.datatype.I18nTitle => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
+        _ <- println("  case m: org.goldenport.datatype.I18nBrief => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
+        _ <- println("  case m: org.goldenport.datatype.I18nSummary => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
+        _ <- println("  case m: org.goldenport.datatype.I18nDescription => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
+        _ <- println("  case m: org.goldenport.datatype.I18nText => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
+        _ <- println("""  case m: org.goldenport.value.NameAttributes => Record.dataAuto("name" -> _to_data_store_value(m.name), "label" -> _to_data_store_value(m.label), "title" -> _to_data_store_value(m.title))""")
+        _ <- println("""  case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_data_store_value(m.headline), "summary" -> _to_data_store_value(m.summary), "description" -> _to_data_store_value(m.description))""")
         _ <- println("  case other => _to_external_value(other)")
         _ <- println("}")
       } yield ()
@@ -871,7 +900,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("case s @ Some(_) => Consequence.success(s)")
       _ <- println("case None =>")
       _ <- indent
-      _ <- println("record.asMap.get(key) match {")
+      _ <- println("record.getAny(key) match {")
       _ <- indent
       _ <- println("case Some(xs: Seq[?]) => decode_all(xs).map(Some(_))")
       _ <- println("case Some(xs: Array[?]) => decode_all(xs.toVector).map(Some(_))")
@@ -1776,6 +1805,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _build_param_or_var_raw(p: Parameter)(param: => GenM[Unit]): GenM[Unit] =
     if (_is_name_attributes_raw_parameter(p))
       _build_param_or_var_name_attributes(p)
+    else if (_is_descriptive_attributes_raw_parameter(p))
+      _build_param_or_var_descriptive_attributes(p)
     else if (_is_simple_object_attribute_parameter(p))
       _build_param_or_var_simple_object_attribute(p)
     else
@@ -1800,6 +1831,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _is_name_attributes_raw_parameter(p: Parameter): Boolean =
     (p.name.name == "name_Attributes" || p.name.name == "nameAttributes") &&
       p.toRawType.typeName.name == "NameAttributes"
+
+  private def _is_descriptive_attributes_raw_parameter(p: Parameter): Boolean =
+    (p.name.name == "descriptive_Attributes" || p.name.name == "descriptiveAttributes") &&
+      p.toRawType.typeName.name == "DescriptiveAttributes"
 
   private def _is_simple_object_attribute_parameter(p: Parameter): Boolean =
     _is_simple_object_attribute_type(p.toRawType.typeName)
@@ -1837,13 +1872,55 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     for {
       _ <- println("(")
       _ <- indent
+      _ <- println("Consequence.success(",
+        input_keys_name(p.name.name),
+        ".iterator.flatMap(record.asMap.get).collectFirst {")
+      _ <- println("  case m: NameAttributes => m")
+      _ <- println("  case m: Record => NameAttributes.Builder(")
+      _ <- println("    name = m.getAny(\"name\").collect { case s: String => Name(s) },")
+      _ <- println("    title = m.getAny(\"title\").collect { case s: String => I18nTitle(s) }")
+      _ <- println("  ).build()")
+      _ <- println("  case m: Name => NameAttributes.simple(m)")
+      _ <- println("  case m: String => NameAttributes.simple(m)")
+      _ <- println("}),")
       _ <- println("_record_get_as_c[Name](record, List(\"name\")),")
       _ <- println("_record_get_as_c[String](record, List(\"title\"))")
       _ <- outdent
-      _ <- println(").mapN { (namev, titlev) =>")
+      _ <- println(").mapN { (attrv, namev, titlev) =>")
       _ <- indent
-      _ <- println("val base = ", p.name.name, ".getOrElse(namev.map(NameAttributes.simple).getOrElse(NameAttributes.simple(Name(\"unknown\"))))")
-      _ <- println("titlev.fold(base)(t => base.copy(title = Some(I18nTitle(t))))")
+      _ <- println("NameAttributes.Builder(attrv.orElse(", p.name.name, "))")
+      _ <- println("  .copy(name = namev)")
+      _ <- println("  .copy(title = titlev.map(I18nTitle(_)))")
+      _ <- println("  .build()")
+      _ <- outdent
+      _ <- println("}")
+    } yield ()
+
+  private def _build_param_or_var_descriptive_attributes(p: Parameter): GenM[Unit] =
+    for {
+      _ <- println("(")
+      _ <- indent
+      _ <- println("Consequence.success(",
+        input_keys_name(p.name.name),
+        ".iterator.flatMap(record.asMap.get).collectFirst {")
+      _ <- println("  case m: DescriptiveAttributes => m")
+      _ <- println("  case m: Record => DescriptiveAttributes.Builder(")
+      _ <- println("    headline = m.getAny(\"headline\").collect { case s: String => I18nBrief(s) },")
+      _ <- println("    summary = m.getAny(\"summary\").collect { case s: String => I18nSummary(s) },")
+      _ <- println("    description = m.getAny(\"description\").collect { case s: String => I18nDescription(s) }")
+      _ <- println("  ).build()")
+      _ <- println("}),")
+      _ <- println("_record_get_as_c[String](record, List(\"headline\")),")
+      _ <- println("_record_get_as_c[String](record, List(\"summary\")),")
+      _ <- println("_record_get_as_c[String](record, List(\"description\"))")
+      _ <- outdent
+      _ <- println(").mapN { (attrv, headlinev, summaryv, descriptionv) =>")
+      _ <- indent
+      _ <- println("DescriptiveAttributes.Builder(attrv.orElse(", p.name.name, "))")
+      _ <- println("  .copy(headline = headlinev.map(I18nBrief(_)))")
+      _ <- println("  .copy(summary = summaryv.map(I18nSummary(_)))")
+      _ <- println("  .copy(description = descriptionv.map(I18nDescription(_)))")
+      _ <- println("  .build()")
       _ <- outdent
       _ <- println("}")
     } yield ()
