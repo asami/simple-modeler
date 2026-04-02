@@ -28,7 +28,7 @@ class EntityValueProjectionScalaModelTransformer(
   }
 
   protected final def _view_package(name: Option[String]): String =
-    name.flatMap(_token_opt).fold("view")(x => s"view.$x")
+    name.flatMap(_token_opt).fold("entity.view")(x => s"entity.view.$x")
 
   protected final def _token_opt(name: String): Option[String] =
     Option(name).map(_.trim).filter(_.nonEmpty).map(_package_token)
