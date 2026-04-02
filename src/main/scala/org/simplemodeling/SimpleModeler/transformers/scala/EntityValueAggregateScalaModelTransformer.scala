@@ -8,7 +8,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Mar. 17, 2026
- * @version Mar. 30, 2026
+ *  version Mar. 30, 2026
+ * @version Apr.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -32,7 +33,7 @@ class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaMo
   override protected def transform_entity(p: MEntity, purpose: Purpose): Consequence[Vector[SClassBase]] = Consequence {
     val subpkg = _aggregate_package(_aggregate_name(p))
     val core = to_entity_value_core(p, Some(subpkg))
-    Vector(SCaseClass(core.withEntityValue.withPurpose(purpose)))
+    Vector(SCaseClass(core.withEntityValue.withPurpose(purpose))).map(_normalize_parameters)
   }
 
   // Future: resolve aggregate name from model metadata.
@@ -78,4 +79,55 @@ class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaMo
     members.foreach(x => m.update(x.name, x))
     m.values.toList
   }
+
+  private def _normalize_parameters(p: SClassBase): SClassBase =
+    p match {
+      case m: SCaseClass if _is_simple_entity_parent(m.core.parentClass) =>
+        val params = m.core.parameterSequence.parameters
+        val idparam = params.find(_.name.name == "id").getOrElse(_id_parameter())
+        val ownparams = params.filterNot(x => _inherited_simple_entity_keys.contains(x.name.name))
+        val compositeparams = Vector(
+          _simple_object_parameter("nameAttributes", "NameAttributes"),
+          _simple_object_parameter("descriptiveAttributes", "DescriptiveAttributes"),
+          _simple_object_parameter("lifecycleAttributes", "LifecycleAttributes"),
+          _simple_object_parameter("publicationAttributes", "PublicationAttributes"),
+          _simple_object_parameter("securityAttributes", "SecurityAttributes"),
+          _simple_object_parameter("resourceAttributes", "ResourceAttributes"),
+          _simple_object_parameter("auditAttributes", "AuditAttributes"),
+          _simple_object_parameter("mediaAttributes", "MediaAttributes"),
+          _simple_object_parameter("contextualAttribute", "ContextualAttributes")
+        )
+        val normalized = ParameterSequence(idparam +: (compositeparams ++ ownparams))
+        m.copy(core = m.core.copy(parameterSequence = normalized))
+      case _ =>
+        p
+    }
+
+  private def _is_simple_entity_parent(p: Option[TypeName]): Boolean =
+    p.exists {
+      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.simplemodeling.model" => true
+      case _ => false
+    }
+
+  private def _simple_object_parameter(name: String, typename: String): Parameter =
+    Parameter(
+      ParameterName(name),
+      TypeName.Plain(PackageName("org.simplemodeling.model.value"), typename),
+      isAttribute = true,
+      isDefault = false
+    )
+
+  private def _id_parameter(): Parameter =
+    Parameter(
+      ParameterName("id"),
+      TypeName.Plain(PackageName("org.simplemodeling.model.datatype"), "EntityId"),
+      isAttribute = true,
+      isDefault = false
+    )
+
+  private val _inherited_simple_entity_keys: Set[String] = Set(
+    "id",
+    "name",
+    "title"
+  )
 }

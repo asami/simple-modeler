@@ -17,7 +17,13 @@ import Generator.{State => GState, _}
  *  version Oct. 17, 2025
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
- * @version Mar. 31, 2026
+ *  version Mar. 31, 2026
+ * @version Apr.  2, 2026
+ *  version May. 19, 2025
+ *  version Sep. 30, 2025
+ *  version Oct. 17, 2025
+ *  version Nov. 18, 2025
+ *  version Feb. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -149,6 +155,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("import org.goldenport.protocol.operation.*")
       _ <- println("import org.simplemodeling.model.datatype.*")
       _ <- println("import org.simplemodeling.model.value.*")
+      _ <- _projection_value_import
       _ <- println("import org.simplemodeling.model.directive.*")
       _ <- if (is_value) unit else println("import org.goldenport.cncf.directive.*")
       _ <- if (is_value) unit else println("import org.goldenport.cncf.action.*")
@@ -162,6 +169,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         println(s"import ${x.fullName}")
       )
     } yield ()
+
+  private def _projection_value_import: GenM[Unit] =
+    if (clazz.packageName.name.contains(".entity.view.summary"))
+      println("import org.simplemodeling.model.value.summary.{given, *}")
+    else if (clazz.packageName.name.contains(".entity.view.detail"))
+      println("import org.simplemodeling.model.value.detail.{given, *}")
+    else
+      unit
 
   protected def section_class: GenM[Unit] =
     for {
@@ -250,7 +265,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     println(s"import ${clazz.className}.*")
 
   protected def section_variables: GenM[Unit] =
-    _simple_object_attribute_alias_definitions
+    for {
+      _ <- _simple_object_attribute_alias_definitions
+      _ <- _simple_entity_projection_attribute_definitions
+    } yield ()
 
   protected def section_methods: GenM[Unit] = unit
 
@@ -1668,6 +1686,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _build_param_or_var(p: Parameter)(param: => GenM[Unit]): GenM[Unit] =
     p.typeName match {
+      case m: TypeName.Container if m.isOption && _is_simple_object_attribute_type(m.containee) =>
+        _build_param_or_var_simple_object_attribute(p)
       case m: TypeName.Container if m.isOption && _is_record_decodable_object_type(m.containee) =>
         _build_param_or_var_optional_object(p, m)
       case m: TypeName.Container => _build_param_or_var_container(p, m)(param)
@@ -1699,7 +1719,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _is_name_attributes_raw_parameter(p: Parameter): Boolean =
-    p.name.name == "name_Attributes" && p.toRawType.typeName.name == "NameAttributes"
+    (p.name.name == "name_Attributes" || p.name.name == "nameAttributes") &&
+      p.toRawType.typeName.name == "NameAttributes"
 
   private def _is_simple_object_attribute_parameter(p: Parameter): Boolean =
     _is_simple_object_attribute_type(p.toRawType.typeName)
@@ -1707,21 +1728,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _build_param_or_var_simple_object_attribute(p: Parameter): GenM[Unit] =
     _builder_default_expression_raw(p.name.name) match {
       case Some(expr) =>
-        print("_record_get_as_c[", p.toRawType.typeName.fullName, "](record, ", input_keys_name(p.name.name), ").flatMap {")
-        println()
-        indent
-        println("case Some(s) => Consequence.success(s)")
-        println("case None => Consequence.success(", p.name.name, ".getOrElse(", expr, "))")
-        outdent
-        print("}")
+        for {
+          _ <- print("Consequence.success(", p.name.name, ".getOrElse(", expr, "))")
+        } yield ()
       case None =>
-        print("_record_get_as_c[", p.toRawType.typeName.fullName, "](record, ", input_keys_name(p.name.name), ").flatMap {")
-        println()
-        indent
-        println("case Some(s) => Consequence.success(s)")
-        println("case None => Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", ", p.name.name, ")")
-        outdent
-        print("}")
+        for {
+          _ <- print("Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", ", p.name.name, ")")
+        } yield ()
     }
 
   private def _build_param_or_var_optional_object(
@@ -1911,35 +1924,62 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     if (clazz.directive.isUpdate) {
       name match {
         case "name_Attributes" => Some("org.simplemodeling.model.value.NameAttributesUpdate()")
+        case "nameAttributes" => Some("org.simplemodeling.model.value.NameAttributesUpdate()")
         case "descriptive_Attributes" => Some("org.simplemodeling.model.value.DescriptiveAttributesUpdate()")
+        case "descriptiveAttributes" => Some("org.simplemodeling.model.value.DescriptiveAttributesUpdate()")
         case "lifecycle_Attributes" => Some("org.simplemodeling.model.value.LifecycleAttributesUpdate()")
+        case "lifecycleAttributes" => Some("org.simplemodeling.model.value.LifecycleAttributesUpdate()")
         case "publication_Attributes" => Some("org.simplemodeling.model.value.PublicationAttributesUpdate()")
+        case "publicationAttributes" => Some("org.simplemodeling.model.value.PublicationAttributesUpdate()")
         case "security_Attributes" => Some("org.simplemodeling.model.value.SecurityAttributesUpdate()")
+        case "securityAttributes" => Some("org.simplemodeling.model.value.SecurityAttributesUpdate()")
         case "resource_Attributes" => Some("org.simplemodeling.model.value.ResourceAttributesUpdate()")
+        case "resourceAttributes" => Some("org.simplemodeling.model.value.ResourceAttributesUpdate()")
         case "audit_Attributes" => Some("org.simplemodeling.model.value.AuditAttributesUpdate()")
+        case "auditAttributes" => Some("org.simplemodeling.model.value.AuditAttributesUpdate()")
         case "media_Attributes" => Some("org.simplemodeling.model.value.MediaAttributesUpdate()")
+        case "mediaAttributes" => Some("org.simplemodeling.model.value.MediaAttributesUpdate()")
         case "contextual_Attribute" => Some("org.simplemodeling.model.value.ContextualAttributesUpdate()")
+        case "contextualAttribute" => Some("org.simplemodeling.model.value.ContextualAttributesUpdate()")
         case _ => None
       }
     } else {
     name match {
       case "name_Attributes" =>
         Some("org.simplemodeling.model.value.NameAttributes.simple(Name(\"unknown\"))")
+      case "nameAttributes" =>
+        Some("org.simplemodeling.model.value.NameAttributes.simple(Name(\"unknown\"))")
       case "descriptive_Attributes" =>
+        Some("org.simplemodeling.model.value.DescriptiveAttributes.empty")
+      case "descriptiveAttributes" =>
         Some("org.simplemodeling.model.value.DescriptiveAttributes.empty")
       case "lifecycle_Attributes" =>
         Some("org.simplemodeling.model.value.LifecycleAttributes(java.time.ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC), None, Identifier(\"system\"), None, org.simplemodeling.model.statemachine.PostStatus.default, org.simplemodeling.model.statemachine.Aliveness.default)")
+      case "lifecycleAttributes" =>
+        Some("org.simplemodeling.model.value.LifecycleAttributes(java.time.ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC), None, Identifier(\"system\"), None, org.simplemodeling.model.statemachine.PostStatus.default, org.simplemodeling.model.statemachine.Aliveness.default)")
       case "publication_Attributes" =>
+        Some("org.simplemodeling.model.value.PublicationAttributes(None, None, None, None, None)")
+      case "publicationAttributes" =>
         Some("org.simplemodeling.model.value.PublicationAttributes(None, None, None, None, None)")
       case "security_Attributes" =>
         Some("org.simplemodeling.model.value.SecurityAttributes(org.goldenport.datatype.ObjectId(Identifier(\"system\")), org.goldenport.datatype.ObjectId(Identifier(\"system\")), org.simplemodeling.model.value.SecurityAttributes.Rights(org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions(read = true, write = true, execute = true), org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions(read = true, write = false, execute = false), org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions(read = true, write = false, execute = false)), org.goldenport.datatype.ObjectId(Identifier(\"system\")))")
+      case "securityAttributes" =>
+        Some("org.simplemodeling.model.value.SecurityAttributes(org.goldenport.datatype.ObjectId(Identifier(\"system\")), org.goldenport.datatype.ObjectId(Identifier(\"system\")), org.simplemodeling.model.value.SecurityAttributes.Rights(org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions(read = true, write = true, execute = true), org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions(read = true, write = false, execute = false), org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions(read = true, write = false, execute = false)), org.goldenport.datatype.ObjectId(Identifier(\"system\")))")
       case "resource_Attributes" =>
+        Some("org.simplemodeling.model.value.ResourceAttributes()")
+      case "resourceAttributes" =>
         Some("org.simplemodeling.model.value.ResourceAttributes()")
       case "audit_Attributes" =>
         Some("org.simplemodeling.model.value.AuditAttributes()")
+      case "auditAttributes" =>
+        Some("org.simplemodeling.model.value.AuditAttributes()")
       case "media_Attributes" =>
         Some("org.simplemodeling.model.value.MediaAttributes(None, Vector.empty, Vector.empty, Vector.empty, Vector.empty)")
+      case "mediaAttributes" =>
+        Some("org.simplemodeling.model.value.MediaAttributes(None, Vector.empty, Vector.empty, Vector.empty, Vector.empty)")
       case "contextual_Attribute" =>
+        Some("org.simplemodeling.model.value.ContextualAttributes()")
+      case "contextualAttribute" =>
         Some("org.simplemodeling.model.value.ContextualAttributes()")
       case _ =>
         None
@@ -2292,10 +2332,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     _simple_object_attribute_constructor_names.getOrElse(name, name)
 
   private def _simple_object_attribute_alias_definitions: GenM[Unit] = {
-    val aliases = clazz.parameterSequence.parameters.collect {
-      case p if _simple_object_attribute_keys.contains(p.name.name) =>
-        (p.name.name, p.typeName.name, _class_constructor_parameter_name(p.name.name))
-    }.filter { case (original, _, constructorname) => original != constructorname }
+    val aliases = _simple_object_attribute_keys.toVector.flatMap { original =>
+      val constructorname = _class_constructor_parameter_name(original)
+      val originalparam = clazz.parameterSequence.parameters.find(_.name.name == original)
+      val constructorparam = clazz.parameterSequence.parameters.find(_.name.name == constructorname)
+      (originalparam, constructorparam) match {
+        case (Some(p), _) if original != constructorname =>
+          Some((original, p.typeName.name, constructorname))
+        case (None, Some(p)) if original != constructorname =>
+          Some((original, p.typeName.name, constructorname))
+        case _ =>
+          None
+      }
+    }
     if (aliases.isEmpty)
       unit
     else
@@ -2322,6 +2371,95 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       }
     println(s"override ${access}def $original: $typename = $constructorname")
   }
+
+  private def _simple_entity_projection_attribute_definitions: GenM[Unit] =
+    if (_is_simple_entity_projection_class) {
+      for {
+        _ <- _simple_entity_projection_attribute_definition(
+          "name_Attributes",
+          "NameAttributes",
+          _simple_entity_projection_attribute_expr("name_Attributes")
+        )
+        _ <- _simple_entity_projection_attribute_definition(
+          "descriptive_Attributes",
+          "DescriptiveAttributes",
+          _simple_entity_projection_attribute_expr("descriptive_Attributes")
+        )
+        _ <- _simple_entity_projection_attribute_definition(
+          "lifecycle_Attributes",
+          "LifecycleAttributes",
+          _simple_entity_projection_attribute_expr("lifecycle_Attributes")
+        )
+        _ <- _simple_entity_projection_attribute_definition(
+          "publication_Attributes",
+          "PublicationAttributes",
+          _simple_entity_projection_attribute_expr("publication_Attributes")
+        )
+        _ <- _simple_entity_projection_attribute_definition(
+          "security_Attributes",
+          "SecurityAttributes",
+          _simple_entity_projection_attribute_expr("security_Attributes")
+        )
+        _ <- _simple_entity_projection_attribute_definition(
+          "resource_Attributes",
+          "ResourceAttributes",
+          _simple_entity_projection_attribute_expr("resource_Attributes")
+        )
+        _ <- _simple_entity_projection_attribute_definition(
+          "audit_Attributes",
+          "AuditAttributes",
+          _simple_entity_projection_attribute_expr("audit_Attributes")
+        )
+        _ <- _simple_entity_projection_attribute_definition(
+          "media_Attributes",
+          "MediaAttributes",
+          _simple_entity_projection_attribute_expr("media_Attributes")
+        )
+        _ <- _simple_entity_projection_attribute_definition(
+          "contextual_Attribute",
+          "ContextualAttributes",
+          _simple_entity_projection_attribute_expr("contextual_Attribute")
+        )
+        _ <- separator
+      } yield ()
+    } else {
+      unit
+    }
+
+  private def _simple_entity_projection_attribute_definition(
+    name: String,
+    typename: String,
+    expr: String
+  ): GenM[Unit] =
+    if (_has_constructor_parameter(name))
+      unit
+    else
+      println(s"override protected def $name: $typename = $expr")
+
+  private def _is_simple_entity_projection_class: Boolean =
+    is_entity_value &&
+      !is_query &&
+      !is_update &&
+      clazz.parentClass.exists {
+        case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.simplemodeling.model" => true
+        case _ => false
+      }
+
+  private def _has_constructor_parameter(name: String): Boolean =
+    clazz.parameterSequence.parameters.exists(p =>
+      p.name.name == name || p.name.name == _class_constructor_parameter_name(name)
+    )
+
+  private def _simple_entity_projection_attribute_expr(name: String): String =
+    _class_constructor_parameter_name(name)
+
+  private def _simple_entity_projection_value_package: String =
+    if (clazz.packageName.name.contains(".entity.view.summary"))
+      "org.simplemodeling.model.value.summary"
+    else if (clazz.packageName.name.contains(".entity.view.detail"))
+      "org.simplemodeling.model.value.detail"
+    else
+      "org.simplemodeling.model.value.detail"
 
   private def _parameter_default_suffix(p: Parameter): String =
     if (p.isDefault) {

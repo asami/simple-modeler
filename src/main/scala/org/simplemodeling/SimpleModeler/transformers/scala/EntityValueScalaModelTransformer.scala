@@ -9,7 +9,9 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Sep. 19, 2025
  *  version Sep. 23, 2025
- * @version Mar. 24, 2026
+ *  version Mar. 24, 2026
+ * @version Apr.  2, 2026
+ *  version Sep. 23, 2025
  * @author  ASAMI, Tomoharu
  */
 class EntityValueScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -47,15 +49,15 @@ class EntityValueScalaModelTransformer() extends EntityCaseClassScalaModelTransf
         val idparam = params.find(_.name.name == "id").getOrElse(_id_parameter())
         val ownparams = params.filterNot(x => _inherited_simple_entity_keys.contains(x.name.name))
         val compositeparams = Vector(
-          _simple_object_parameter("name_Attributes", "NameAttributes"),
-          _simple_object_parameter("descriptive_Attributes", "DescriptiveAttributes"),
-          _simple_object_parameter("lifecycle_Attributes", "LifecycleAttributes"),
-          _simple_object_parameter("publication_Attributes", "PublicationAttributes"),
-          _simple_object_parameter("security_Attributes", "SecurityAttributes"),
-          _simple_object_parameter("resource_Attributes", "ResourceAttributes"),
-          _simple_object_parameter("audit_Attributes", "AuditAttributes"),
-          _simple_object_parameter("media_Attributes", "MediaAttributes"),
-          _simple_object_parameter("contextual_Attribute", "ContextualAttributes")
+          _simple_object_parameter("nameAttributes", "NameAttributes"),
+          _simple_object_parameter("descriptiveAttributes", "DescriptiveAttributes"),
+          _simple_object_parameter("lifecycleAttributes", "LifecycleAttributes"),
+          _simple_object_parameter("publicationAttributes", "PublicationAttributes"),
+          _simple_object_parameter("securityAttributes", "SecurityAttributes"),
+          _simple_object_parameter("resourceAttributes", "ResourceAttributes"),
+          _simple_object_parameter("auditAttributes", "AuditAttributes"),
+          _simple_object_parameter("mediaAttributes", "MediaAttributes"),
+          _simple_object_parameter("contextualAttribute", "ContextualAttributes")
         )
         val normalized = ParameterSequence(idparam +: (compositeparams ++ ownparams))
         m.copy(core = m.core.copy(parameterSequence = normalized))
