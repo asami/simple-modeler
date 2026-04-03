@@ -9,7 +9,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Mar. 17, 2026
  *  version Mar. 30, 2026
- * @version Apr.  2, 2026
+ *  version Apr.  2, 2026
+ * @version Apr.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -21,7 +22,7 @@ class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaMo
     p match {
       case m: MEntity =>
         val base = super.effective_attributes(m)
-        val assocattrs = m.associations.map(_to_member_attribute)
+        val assocattrs = m.associations.map(_to_member_attribute(_, _aggregate_package(_aggregate_name(m))))
         _merge_member_attributes(base, assocattrs)
       case _ =>
         super.effective_attributes(p)
@@ -59,16 +60,31 @@ class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaMo
     b.toString
   }
 
-  private def _to_member_attribute(p: MAssociation): MAttribute =
+  private def _to_member_attribute(
+    p: MAssociation,
+    aggregatepkg: String
+  ): MAttribute =
     MAttribute(
       designation = p.designation,
-      attributeType = MObjectAttributeType(p.objectRef),
+      attributeType = MObjectAttributeType(_aggregate_member_ref(p.objectRef, aggregatepkg)),
       multiplicity = p.multiplicity,
       constraints = Nil,
       column = None,
       readonly = true,
       description = p.description
     )
+
+  private def _aggregate_member_ref(
+    p: MObjectRef,
+    aggregatepkg: String
+  ): MObjectRef = {
+    val pkg =
+      if (p.packageName.isEmpty)
+        s"entity.${aggregatepkg}"
+      else
+        s"${p.packageName}.entity.${aggregatepkg}"
+    MObjectRef(MPackageRef(pkg), p.objectName)
+  }
 
   private def _merge_member_attributes(
     base: List[MAttribute],
