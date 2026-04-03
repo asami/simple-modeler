@@ -7,12 +7,13 @@ package org.simplemodeling.model
  *  version Oct. 25, 2009
  *  version Nov. 13, 2012
  *  version Nov.  3, 2019
- * @version Mar.  3, 2020
+ * @version Apr.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MPowertypeKind(
   name: String,
-  value: Option[String]
+  value: Option[String],
+  labelText: Option[String] = None
 ) {
-  def label: String = name // TODO
+  def label: String = labelText.getOrElse(name)
 }

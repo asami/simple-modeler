@@ -85,6 +85,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected final def is_value = classKind.isValue
   protected final def is_entity_value = classKind.isEntityValue
+  protected final def is_powertype =
+    clazz.parentClass.exists {
+      case TypeName.Plain(pkg, "Powertype", _) if pkg.name == "org.simplemodeling.model.powertype" => true
+      case _ => false
+    }
   protected final def is_query = clazz.directive.isQuery
   protected final def is_update = clazz.directive.isUpdate
   protected final def is_aggregate = clazz.directive.isAggregate
@@ -494,6 +499,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("  case m: org.goldenport.datatype.I18nDescription => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
         _ <- println("  case m: org.goldenport.datatype.I18nText => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
         _ <- println("  case m: org.simplemodeling.model.statemachine.StateMachine => m.dbValue")
+        _ <- println("  case m: org.simplemodeling.model.powertype.Powertype => m.dbValue.getOrElse(m.value)")
         _ <- println("""  case m: org.goldenport.value.NameAttributes => Record.dataAuto("name" -> _to_data_store_value(m.name), "label" -> _to_data_store_value(m.label), "title" -> _to_data_store_value(m.title))""")
         _ <- println("""  case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_data_store_value(m.headline), "summary" -> _to_data_store_value(m.summary), "description" -> _to_data_store_value(m.description))""")
         _ <- println("  case other => _to_external_value(other)")
@@ -612,6 +618,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         println(" {")
       _ <- indent
       _ <- property_name_definitions
+      _ <- if (is_powertype) separator.flatMap(_ => powertype_object_part) else unit
       _ <- separator
       _ <- schema
       _ <- separator
@@ -2275,8 +2282,21 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected def create_recordc_method: GenM[Unit] = {
     val m = SMethod.query("createC", TypeName.consequence(clazz), Parameter.record) {
       for {
-        _ <- println("val builder = Builder()")
-        _ <- println("builder.buildC(record)")
+        _ <- if (is_powertype)
+          for {
+            _ <- println("""record.getAny("value") match {""")
+            _ <- println("  case Some(n: Int) => fromDbValue(n).map(Consequence.success).getOrElse(Consequence.failValueInvalid(n, org.goldenport.schema.XInt))")
+            _ <- println("  case Some(n: Long) if n.isValidInt => fromDbValue(n.toInt).map(Consequence.success).getOrElse(Consequence.failValueInvalid(n, org.goldenport.schema.XInt))")
+            _ <- println("""  case Some(s: String) => from(s).orElse(s.trim.toIntOption.flatMap(fromDbValue)).map(Consequence.success).getOrElse(Consequence.failValueInvalid(s, org.goldenport.schema.XString))""")
+            _ <- println("""  case Some(other) => from(other.toString).map(Consequence.success).getOrElse(Consequence.failValueInvalid(other, org.goldenport.schema.XString))""")
+            _ <- println("""  case None => Consequence.failRecordNotFound("value", record)""")
+            _ <- println("}")
+          } yield ()
+        else
+          for {
+            _ <- println("val builder = Builder()")
+            _ <- println("builder.buildC(record)")
+          } yield ()
       } yield ()
     }
     define_method(m)
@@ -2356,12 +2376,50 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       for {
         _ <- println(s"given org.goldenport.convert.ValueReader[$name] with")
         _ <- println(s"  def readC(v: Any): Consequence[$name] = v match")
-        _ <- println(s"    case m: Record => createC(m)")
-        _ <- println(s"    case _ => Consequence.failValueInvalid(v, org.goldenport.schema.XString)")
+        _ <- if (is_powertype)
+          for {
+            _ <- println(s"    case m: $name => Consequence.success(m)")
+            _ <- println(s"    case n: Int => fromDbValue(n).map(Consequence.success).getOrElse(Consequence.failValueInvalid(v, org.goldenport.schema.XInt))")
+            _ <- println(s"    case n: Long if n.isValidInt => readC(n.toInt)")
+            _ <- println(s"    case s: String => from(s).orElse(s.trim.toIntOption.flatMap(fromDbValue)).map(Consequence.success).getOrElse(Consequence.failValueInvalid(v, org.goldenport.schema.XString))")
+            _ <- println(s"    case m: Record => createC(m)")
+            _ <- println(s"    case _ => Consequence.failValueInvalid(v, org.goldenport.schema.XString)")
+          } yield ()
+        else
+          for {
+            _ <- println(s"    case m: Record => createC(m)")
+            _ <- println(s"    case _ => Consequence.failValueInvalid(v, org.goldenport.schema.XString)")
+          } yield ()
       } yield ()
     } else {
       unit
     }
+
+  protected def powertype_object_part: GenM[Unit] = {
+    val xs = clazz.directive.enumerationValues
+    val name = clazz.className.name
+    val names = xs.map(_.name)
+    val values = if (names.isEmpty) "" else names.mkString(", ")
+    val dbvalues = xs.flatMap(x => x.dbValue.map(v => s"$v -> ${x.name}"))
+    val labels = xs.map(x => s""""${x.value}" -> "${x.label}"""")
+    for {
+      _ <- xs.foldLeft(unit) { (z, x) =>
+        z.flatMap(_ => println(s"""val ${x.name}: $name = $name("${x.value}")"""))
+      }
+      _ <- if (xs.nonEmpty) separator else unit
+      _ <- println(s"val default: Option[$name] = Vector($values).headOption")
+      _ <- println(s"""private val _by_value: Map[String, $name] = Vector($values).map(x => x.value -> x).toMap""")
+      _ <- println(s"private val _by_db_value: Map[Int, $name] = Vector(${dbvalues.mkString(", ")}).toMap")
+      _ <- println(s"""private val _labels: Map[String, String] = Map(${labels.mkString(", ")})""")
+      _ <- println(s"def from(value: String): Option[$name] = _by_value.get(value.trim)")
+      _ <- println(s"def fromDbValue(value: Int): Option[$name] = _by_db_value.get(value)")
+      _ <- println("def dbValueOf(value: String): Option[Int] = {")
+      _ <- println("  val trimmed = value.trim")
+      _ <- println("  _by_db_value.collectFirst { case (k, v) if v.value == trimmed => k }")
+      _ <- println("}")
+      _ <- println("""def labelOf(value: String): String = _labels.getOrElse(value.trim, value.trim)""")
+    } yield ()
+  }
 
   private def _entity(name: String): GenM[Unit] =
     if (is_query) {

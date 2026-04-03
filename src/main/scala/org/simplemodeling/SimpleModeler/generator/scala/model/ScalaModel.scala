@@ -24,7 +24,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr.  1, 2026
+ *  version Apr.  1, 2026
+ * @version Apr.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -590,7 +591,8 @@ object ReceptionCompartment {
 case class Directive(
   classKind: Option[ClassKind] = None,
   purpose: Option[Purpose] = None,
-  canonicalSchemaOwner: Option[TypeName.Plain] = None
+  canonicalSchemaOwner: Option[TypeName.Plain] = None,
+  enumerationValues: Vector[Directive.EnumerationValue] = Vector.empty
 ) {
   def isPlain: Boolean = purpose.fold(true)(_ == Purpose.Plain)
   def isCreate: Boolean = purpose.fold(false)(_ == Purpose.Create)
@@ -601,8 +603,16 @@ case class Directive(
   def withEntityValue = copy(classKind = Some(ClassKind.EntityValue))
   def withPurpose(purpose: Purpose) = copy(purpose = Some(purpose))
   def withCanonicalSchemaOwner(owner: TypeName.Plain) = copy(canonicalSchemaOwner = Some(owner))
+  def withEnumerationValues(values: Vector[Directive.EnumerationValue]) = copy(enumerationValues = values)
 }
 object Directive {
+  final case class EnumerationValue(
+    name: String,
+    value: String,
+    dbValue: Option[Int] = None,
+    label: String
+  )
+
   val default = Directive()
 }
 

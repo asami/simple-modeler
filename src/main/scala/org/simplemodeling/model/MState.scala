@@ -24,13 +24,15 @@ import org.goldenport.values.PathName
  *  version Jun. 20, 2021
  *  version Jul. 11, 2021
  *  version Aug.  2, 2021
- * @version Feb. 10, 2026
+ *  version Feb. 10, 2026
+ * @version Apr.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class MState(
   val description: Description,
   val ownerStateMachine: MStateMachine,
-  val parentState: Option[MState] = None
+  val parentState: Option[MState] = None,
+  stateValue: Either[String, Int] = Right(0)
 ) extends MElement {
 //   val transitions = dslState.transitions.map(new SMTransition(_, ownerStateMachine))
   var transitions: List[MTransition] = Nil
@@ -47,7 +49,7 @@ class MState(
 //     subStateMap += (name -> state) // owner composition state
 //   }
 
-  val value: Either[String, Int] = Right(0) // TODO
+  val value: Either[String, Int] = stateValue
 
 //   val value: Either[String, Int] = {
 //     val v = dslState.value | name
@@ -137,8 +139,11 @@ object MState {
     new MState(desc, sm, Some(parent))
   }
 
-  def create(sm: MStateMachine, name: String): MState = {
+  def create(sm: MStateMachine, name: String): MState =
+    create(sm, name, Right(0))
+
+  def create(sm: MStateMachine, name: String, value: Either[String, Int]): MState = {
     val desc = Description.name(name)
-    new MState(desc, sm)
+    new MState(desc, sm, None, value)
   }
 }
