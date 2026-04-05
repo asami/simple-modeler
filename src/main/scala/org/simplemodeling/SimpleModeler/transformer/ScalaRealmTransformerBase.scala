@@ -25,7 +25,7 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
  *  version Sep. 21, 2025
  *  version Feb. 28, 2026
  *  version Mar. 25, 2026
- * @version Mar. 25, 2026
+ * @version Apr.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
@@ -221,6 +221,9 @@ lazy val root = project
 
     scalaVersion := scala3Version,
 
+    resolvers += Resolver.defaultLocal,
+    resolvers += Resolver.file("Local Ivy", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
+    resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository"),
     resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/maven",
 
     libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test",
@@ -237,7 +240,15 @@ lazy val root = project
     libraryDependencies += "io.circe" %% "circe-core" % "0.14.3",
     libraryDependencies += "io.circe" %% "circe-generic" % "0.14.3",
     libraryDependencies += "io.circe" %% "circe-parser" % "0.14.3",
-    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % "0.3.14-SNAPSHOT",
+    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % "0.4.2-SNAPSHOT",
+    libraryDependencies += "org.simplemodeling" %% "simplemodeling-model" % "0.1.2-SNAPSHOT",
+    libraryDependencies += "org.goldenport" % "cncf-collaborator-api" % "0.1.0-SNAPSHOT",
+
+    dependencyOverrides ++= Seq(
+      "org.goldenport" % "cncf-collaborator-api" % "0.1.0-SNAPSHOT",
+      "org.scala-lang.modules" %% "scala-xml" % "2.1.0",
+      "org.scala-lang.modules" %% "scala-parser-combinators" % "2.3.0"
+    ),
 
     Compile / unmanagedSourceDirectories += (Compile / sourceManaged).value
   )

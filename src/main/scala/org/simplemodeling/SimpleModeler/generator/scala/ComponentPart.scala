@@ -8,7 +8,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Apr.  2, 2026
+ *  version Apr.  2, 2026
+ * @version Apr.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -495,10 +496,10 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     defs: Vector[SComponent.ComponentDefinition]
   ): GenM[Unit] =
     if (defs.isEmpty) {
-      println("def componentDefinitionRecords: Vector[Record] = Vector.empty")
+      println("override def componentDefinitionRecords: Vector[Record] = Vector.empty")
     } else {
       for {
-        _ <- println("def componentDefinitionRecords: Vector[Record] = Vector(")
+        _ <- println("override def componentDefinitionRecords: Vector[Record] = Vector(")
         _ <- indent
         _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
           z.flatMap { _ =>
@@ -517,10 +518,10 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     defs: Vector[SComponent.SubsystemDefinition]
   ): GenM[Unit] =
     if (defs.isEmpty) {
-      println("def subsystemDefinitionRecords: Vector[Record] = Vector.empty")
+      println("override def subsystemDefinitionRecords: Vector[Record] = Vector.empty")
     } else {
       for {
-        _ <- println("def subsystemDefinitionRecords: Vector[Record] = Vector(")
+        _ <- println("override def subsystemDefinitionRecords: Vector[Record] = Vector(")
         _ <- indent
         _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
           z.flatMap { _ =>
@@ -541,6 +542,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     val coordinates = _string_vector_expr(p.coordinates.map(_.asString))
     val componentlets = _string_vector_expr(p.componentlets)
     val extensionpoints = _string_vector_expr(p.extensionPoints)
+    val usecases = _use_case_vector_expr(p.useCases)
     val extensionbindings =
       if (p.extensionBindings.isEmpty)
         "Record.empty"
@@ -555,7 +557,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"${_string_literal("coordinates")} -> ${coordinates},")
       _ <- println(s"${_string_literal("componentlets")} -> ${componentlets},")
       _ <- println(s"${_string_literal("extension_points")} -> ${extensionpoints},")
-      _ <- println(s"${_string_literal("extension_bindings")} -> ${extensionbindings}")
+      _ <- println(s"${_string_literal("extension_bindings")} -> ${extensionbindings},")
+      _ <- println(s"${_string_literal("use_cases")} -> ${usecases}")
       _ <- outdent
       _ <- println(")")
     } yield ()
@@ -600,6 +603,32 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       p.map { x =>
         s"""org.goldenport.cncf.operation.CmlOperationField(name = ${_string_literal(x.name)}, datatype = ${_string_literal(x.datatype)}, multiplicity = ${_string_literal(x.multiplicity)})"""
       }.mkString("Vector(", ", ", ")")
+
+  private def _use_case_vector_expr(
+    p: Vector[SComponent.UseCaseDefinition]
+  ): String =
+    if (p.isEmpty)
+      "Vector.empty"
+    else
+      p.map(_use_case_record_expr).mkString("Vector(", ", ", ")")
+
+  private def _use_case_record_expr(
+    p: SComponent.UseCaseDefinition
+  ): String = {
+    val scenarios =
+      if (p.scenarios.isEmpty)
+        "Vector.empty"
+      else
+        p.scenarios.map(_use_case_scenario_record_expr).mkString("Vector(", ", ", ")")
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("actor")} -> ${_option_to_value_expr(p.actor)}, ${_string_literal("primary_actor")} -> ${_option_to_value_expr(p.primaryActor)}, ${_string_literal("secondary_actor")} -> ${_option_to_value_expr(p.secondaryActor)}, ${_string_literal("supporting_actor")} -> ${_option_to_value_expr(p.supportingActor)}, ${_string_literal("stakeholder")} -> ${_option_to_value_expr(p.stakeholder)}, ${_string_literal("goal")} -> ${_option_to_value_expr(p.goal)}, ${_string_literal("precondition")} -> ${_option_to_value_expr(p.precondition)}, ${_string_literal("postcondition")} -> ${_option_to_value_expr(p.postcondition)}, ${_string_literal("scenarios")} -> ${scenarios})"""
+  }
+
+  private def _use_case_scenario_record_expr(
+    p: SComponent.UseCaseScenario
+  ): String = {
+    val steps = _string_vector_expr(p.steps)
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("steps")} -> ${steps})"""
+  }
 
   private def _string_vector_expr(
     p: Vector[String]
@@ -752,6 +781,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
   private def _option_boolean_expr(p: Option[Boolean]): String =
     p.map(x => s"Some(${x.toString})").getOrElse("None")
 
+  private def _option_to_value_expr(p: Option[String]): String =
+    p.map(_string_literal).getOrElse("None")
+
   private def _string_vector_literal(p: Vector[String]): String =
     if (p.isEmpty)
       "Vector.empty"
@@ -890,6 +922,13 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- _comment(service.description)
         ds <- blockR(s"object ${serviceobjectname} extends ServiceDefinition {") {
           for {
+            _ <-
+              if (service.useCases.isEmpty)
+                println("def useCaseRecords: Vector[Record] = Vector.empty")
+              else
+                block("def useCaseRecords: Vector[Record] =") {
+                  println(_use_case_vector_expr(service.useCases))
+                }
             _ <- block(s"""val specification = ServiceDefinition.Specification.Builder("${servicename}").""") {
               for {
                 _ <- ops.toList match {

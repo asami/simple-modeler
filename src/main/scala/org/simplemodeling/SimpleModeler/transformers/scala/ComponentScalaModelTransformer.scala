@@ -10,7 +10,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version Apr.  2, 2026
+ *  version Apr.  2, 2026
+ * @version Apr.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -281,7 +282,30 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
           },
           componentlets = p.componentlets,
           extensionPoints = p.extensionPoints,
-          extensionBindings = p.extensionBindings
+          extensionBindings = p.extensionBindings,
+          useCases = p.useCases.map { u =>
+            SComponent.UseCaseDefinition(
+              name = u.name,
+              summary = u.summary,
+              description = u.description,
+              actor = u.actor,
+              primaryActor = u.primaryActor,
+              secondaryActor = u.secondaryActor,
+              supportingActor = u.supportingActor,
+              stakeholder = u.stakeholder,
+              goal = u.goal,
+              precondition = u.precondition,
+              postcondition = u.postcondition,
+              scenarios = u.scenarios.map { s =>
+                SComponent.UseCaseScenario(
+                  name = s.name,
+                  summary = s.summary,
+                  description = s.description,
+                  steps = s.steps
+                )
+              }
+            )
+          }
         )
       }
 
@@ -342,7 +366,36 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
     final protected def to_service(p: MService): SService = {
       val name = p.name
       val (ops, actions) = to_actions(p.operations)
-      SService(p.packageName, name, ops, actions, _description_text(p))
+      SService(
+        p.packageName,
+        name,
+        ops,
+        actions,
+        _description_text(p),
+        p.serviceCore.useCases.map { u =>
+          SComponent.UseCaseDefinition(
+            name = u.name,
+            summary = u.summary,
+            description = u.description,
+            actor = u.actor,
+            primaryActor = u.primaryActor,
+            secondaryActor = u.secondaryActor,
+            supportingActor = u.supportingActor,
+            stakeholder = u.stakeholder,
+            goal = u.goal,
+            precondition = u.precondition,
+            postcondition = u.postcondition,
+            scenarios = u.scenarios.map { s =>
+              SComponent.UseCaseScenario(
+                name = s.name,
+                summary = s.summary,
+                description = s.description,
+                steps = s.steps
+              )
+            }
+          )
+        }
+      )
     }
 
     final protected def to_actions(
@@ -427,7 +480,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
 
     private def _impl_package(p: SComponent): PackageName = {
       val a = sub_Package_Name.fold("")(x => "." + x)
-      PackageName(p.packageName + a + ".impl")
+      PackageName(p.packageName.name + a + ".impl")
     }
   }
 }
