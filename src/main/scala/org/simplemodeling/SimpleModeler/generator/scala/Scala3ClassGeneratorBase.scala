@@ -230,9 +230,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     else if (classKind == ClassKind.Component)
       List("CollectionTransitionRuleProvider")
     else if (is_entity_value)
-      List("EntityPersistable", "org.goldenport.record.Recordable")
+      List("EntityPersistable", "org.goldenport.record.RecordPresentable")
     else if (is_value)
-      List("org.goldenport.record.Recordable")
+      List("org.goldenport.record.RecordPresentable")
     else
       Nil
   }
@@ -476,10 +476,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("case m: org.goldenport.datatype.I18nSummary => m.toI18nString.displayMessage")
         _ <- println("case m: org.goldenport.datatype.I18nDescription => m.toI18nString.displayMessage")
         _ <- println("case m: org.goldenport.datatype.I18nText => m.toI18nString.displayMessage")
+        _ <- println("case _: org.simplemodeling.model.directive.Condition.Any.type => null")
+        _ <- println("case org.simplemodeling.model.directive.Condition.Is(expected) => _to_external_value(expected)")
+        _ <- println("case org.simplemodeling.model.directive.Condition.In(candidates) => candidates.toVector.map(_to_external_value)")
         _ <- println("case m: Record => m")
         _ <- println("""case m: org.goldenport.value.NameAttributes => Record.dataAuto("name" -> _to_external_value(m.name), "label" -> _to_external_value(m.label), "title" -> _to_external_value(m.title))""")
         _ <- println("""case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_external_value(m.headline), "summary" -> _to_external_value(m.summary), "description" -> _to_external_value(m.description))""")
-        _ <- println("case m: org.goldenport.record.Recordable => m.toRecord()")
+        _ <- println("case m: org.goldenport.record.RecordPresentable => m.toRecord()")
         _ <- println("case m: Option[?] => m.map(_to_external_value)")
         _ <- println("case m: Seq[?] => m.map(_to_external_value)")
         _ <- println("case m: Set[?] => m.toVector.map(_to_external_value)")

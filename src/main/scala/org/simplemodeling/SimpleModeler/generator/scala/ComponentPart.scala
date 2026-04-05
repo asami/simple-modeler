@@ -1060,6 +1060,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     ): String = paramtype match {
       case m if m.fullName == "org.goldenport.record.Record" =>
         "Consequence.success(request.toRecord)"
+      case m if m.fullName.startsWith("org.goldenport.cncf.directive.Query") =>
+        "Consequence.success(org.goldenport.cncf.directive.Query.fromRecord(request.toRecord))"
       case m if m.isPlatform =>
         s"""Consequence.successOrRecordNotFound[${paramtype.name}]("${paramname}", request.toRecord)"""
       case TypeName.Container(container, containee) if container.name == "Option" && containee.isString =>
