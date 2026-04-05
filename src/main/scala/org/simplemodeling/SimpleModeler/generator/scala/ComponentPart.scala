@@ -8,8 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- *  version Apr.  2, 2026
- * @version Apr.  5, 2026
+ * @version Apr.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -542,6 +541,11 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     val coordinates = _string_vector_expr(p.coordinates.map(_.asString))
     val componentlets = _string_vector_expr(p.componentlets)
     val extensionpoints = _string_vector_expr(p.extensionPoints)
+    val domainvisions = _vision_vector_expr(p.domainVisions)
+    val domaincapabilities = _capability_vector_expr(p.domainCapabilities)
+    val domainqualities = _quality_vector_expr(p.domainQualities)
+    val domainconstraints = _constraint_vector_expr(p.domainConstraints)
+    val domainusecases = _use_case_vector_expr(p.domainUseCases)
     val usecases = _use_case_vector_expr(p.useCases)
     val extensionbindings =
       if (p.extensionBindings.isEmpty)
@@ -558,6 +562,11 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"${_string_literal("componentlets")} -> ${componentlets},")
       _ <- println(s"${_string_literal("extension_points")} -> ${extensionpoints},")
       _ <- println(s"${_string_literal("extension_bindings")} -> ${extensionbindings},")
+      _ <- println(s"${_string_literal("domain_visions")} -> ${domainvisions},")
+      _ <- println(s"${_string_literal("domain_capabilities")} -> ${domaincapabilities},")
+      _ <- println(s"${_string_literal("domain_qualities")} -> ${domainqualities},")
+      _ <- println(s"${_string_literal("domain_constraints")} -> ${domainconstraints},")
+      _ <- println(s"${_string_literal("domain_use_cases")} -> ${domainusecases},")
       _ <- println(s"${_string_literal("use_cases")} -> ${usecases}")
       _ <- outdent
       _ <- println(")")
@@ -568,6 +577,14 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     p: SComponent.SubsystemDefinition
   ): GenM[Unit] = {
     val components = _string_vector_expr(p.components.map(_.asString))
+    val domainvisions = _vision_vector_expr(p.domainVisions)
+    val domaincontexts = _context_vector_expr(p.domainContexts)
+    val domainsystemcontexts = _system_context_vector_expr(p.domainSystemContexts)
+    val domaincontextmaps = _context_map_vector_expr(p.domainContextMaps)
+    val domaincapabilities = _capability_vector_expr(p.domainCapabilities)
+    val domainqualities = _quality_vector_expr(p.domainQualities)
+    val domainconstraints = _constraint_vector_expr(p.domainConstraints)
+    val domainusecases = _use_case_vector_expr(p.domainUseCases)
     val extensionbindings =
       if (p.extensionBindings.isEmpty)
         "Record.empty"
@@ -588,7 +605,15 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"${_string_literal("name")} -> ${_string_literal(p.name)},")
       _ <- println(s"${_string_literal("components")} -> ${components},")
       _ <- println(s"${_string_literal("extension_bindings")} -> ${extensionbindings},")
-      _ <- println(s"${_string_literal("config")} -> ${config}")
+      _ <- println(s"${_string_literal("config")} -> ${config},")
+      _ <- println(s"${_string_literal("domain_visions")} -> ${domainvisions},")
+      _ <- println(s"${_string_literal("domain_contexts")} -> ${domaincontexts},")
+      _ <- println(s"${_string_literal("domain_system_contexts")} -> ${domainsystemcontexts},")
+      _ <- println(s"${_string_literal("domain_context_maps")} -> ${domaincontextmaps},")
+      _ <- println(s"${_string_literal("domain_capabilities")} -> ${domaincapabilities},")
+      _ <- println(s"${_string_literal("domain_qualities")} -> ${domainqualities},")
+      _ <- println(s"${_string_literal("domain_constraints")} -> ${domainconstraints},")
+      _ <- println(s"${_string_literal("domain_use_cases")} -> ${domainusecases}")
       _ <- outdent
       _ <- println(")")
     } yield ()
@@ -623,11 +648,86 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("actor")} -> ${_option_to_value_expr(p.actor)}, ${_string_literal("primary_actor")} -> ${_option_to_value_expr(p.primaryActor)}, ${_string_literal("secondary_actor")} -> ${_option_to_value_expr(p.secondaryActor)}, ${_string_literal("supporting_actor")} -> ${_option_to_value_expr(p.supportingActor)}, ${_string_literal("stakeholder")} -> ${_option_to_value_expr(p.stakeholder)}, ${_string_literal("goal")} -> ${_option_to_value_expr(p.goal)}, ${_string_literal("precondition")} -> ${_option_to_value_expr(p.precondition)}, ${_string_literal("postcondition")} -> ${_option_to_value_expr(p.postcondition)}, ${_string_literal("scenarios")} -> ${scenarios})"""
   }
 
+  private def _capability_vector_expr(
+    ps: Vector[SComponent.CapabilityDefinition]
+  ): String =
+    if (ps.isEmpty)
+      "Vector.empty"
+    else
+      ps.map(_capability_record_expr).mkString("Vector(", ", ", ")")
+
+  private def _capability_record_expr(
+    p: SComponent.CapabilityDefinition
+  ): String =
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("actor")} -> ${_option_to_value_expr(p.actor)}, ${_string_literal("primary_actor")} -> ${_option_to_value_expr(p.primaryActor)}, ${_string_literal("secondary_actor")} -> ${_option_to_value_expr(p.secondaryActor)}, ${_string_literal("supporting_actor")} -> ${_option_to_value_expr(p.supportingActor)}, ${_string_literal("stakeholder")} -> ${_option_to_value_expr(p.stakeholder)}, ${_string_literal("goal")} -> ${_option_to_value_expr(p.goal)}, ${_string_literal("precondition")} -> ${_option_to_value_expr(p.precondition)}, ${_string_literal("postcondition")} -> ${_option_to_value_expr(p.postcondition)})"""
+
+  private def _vision_vector_expr(
+    ps: Vector[SComponent.VisionDefinition]
+  ): String =
+    if (ps.isEmpty) "Vector.empty" else ps.map(_vision_record_expr).mkString("Vector(", ", ", ")")
+
+  private def _vision_record_expr(
+    p: SComponent.VisionDefinition
+  ): String =
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("goal")} -> ${_option_to_value_expr(p.goal)}, ${_string_literal("precondition")} -> ${_option_to_value_expr(p.precondition)}, ${_string_literal("postcondition")} -> ${_option_to_value_expr(p.postcondition)})"""
+
+  private def _context_vector_expr(
+    ps: Vector[SComponent.ContextDefinition]
+  ): String =
+    if (ps.isEmpty) "Vector.empty" else ps.map(_context_record_expr).mkString("Vector(", ", ", ")")
+
+  private def _context_record_expr(
+    p: SComponent.ContextDefinition
+  ): String =
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)})"""
+
+  private def _system_context_vector_expr(
+    ps: Vector[SComponent.SystemContextDefinition]
+  ): String =
+    if (ps.isEmpty) "Vector.empty" else ps.map(_system_context_record_expr).mkString("Vector(", ", ", ")")
+
+  private def _system_context_record_expr(
+    p: SComponent.SystemContextDefinition
+  ): String =
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)})"""
+
+  private def _context_map_vector_expr(
+    ps: Vector[SComponent.ContextMapDefinition]
+  ): String =
+    if (ps.isEmpty) "Vector.empty" else ps.map(_context_map_record_expr).mkString("Vector(", ", ", ")")
+
+  private def _context_map_record_expr(
+    p: SComponent.ContextMapDefinition
+  ): String =
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)})"""
+
+  private def _quality_vector_expr(
+    ps: Vector[SComponent.QualityDefinition]
+  ): String =
+    if (ps.isEmpty) "Vector.empty" else ps.map(_quality_record_expr).mkString("Vector(", ", ", ")")
+
+  private def _quality_record_expr(
+    p: SComponent.QualityDefinition
+  ): String =
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("goal")} -> ${_option_to_value_expr(p.goal)}, ${_string_literal("precondition")} -> ${_option_to_value_expr(p.precondition)}, ${_string_literal("postcondition")} -> ${_option_to_value_expr(p.postcondition)})"""
+
+  private def _constraint_vector_expr(
+    ps: Vector[SComponent.ConstraintDefinition]
+  ): String =
+    if (ps.isEmpty) "Vector.empty" else ps.map(_constraint_record_expr).mkString("Vector(", ", ", ")")
+
+  private def _constraint_record_expr(
+    p: SComponent.ConstraintDefinition
+  ): String =
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("goal")} -> ${_option_to_value_expr(p.goal)}, ${_string_literal("precondition")} -> ${_option_to_value_expr(p.precondition)}, ${_string_literal("postcondition")} -> ${_option_to_value_expr(p.postcondition)})"""
+
   private def _use_case_scenario_record_expr(
     p: SComponent.UseCaseScenario
   ): String = {
     val steps = _string_vector_expr(p.steps)
-    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("steps")} -> ${steps})"""
+    val alternates = _string_vector_expr(p.alternates)
+    val exceptions = _string_vector_expr(p.exceptions)
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("steps")} -> ${steps}, ${_string_literal("alternates")} -> ${alternates}, ${_string_literal("exceptions")} -> ${exceptions})"""
   }
 
   private def _string_vector_expr(

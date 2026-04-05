@@ -7,11 +7,12 @@ import org.smartdox.Description
  * Derived from SService and SMService.
  * 
  * @since   Sep. 11, 2008
+ *  version Feb. 11, 2026
  *  version Oct. 12, 2008
  *  version Jan. 18, 2009
  *  version Nov.  9, 2012
  *  version May. 10, 2020
- * @version Feb. 11, 2026
+ * @version Apr.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class MService extends MObject
@@ -21,7 +22,9 @@ abstract class MService extends MObject
 }
 
 object MService {
-  case class Core() {
+  case class Core(
+    useCases: Vector[MComponent.UseCaseDefinition] = Vector.empty
+  ) {
   }
   object Core {
     trait Holder {
@@ -40,9 +43,18 @@ object MService {
     apply(pkg, name, ops, Description.name(name))
 
   def apply(pkg: MPackage, name: String, ops: Seq[MOperation], description: Description): MService =
+    apply(pkg, name, ops, description, Vector.empty)
+
+  def apply(
+    pkg: MPackage,
+    name: String,
+    ops: Seq[MOperation],
+    description: Description,
+    useCases: Vector[MComponent.UseCaseDefinition]
+  ): MService =
     Instance(
       MElement.Core(description),
       MObject.Core.create(pkg, ops),
-      Core()
+      Core(useCases)
     )
 }

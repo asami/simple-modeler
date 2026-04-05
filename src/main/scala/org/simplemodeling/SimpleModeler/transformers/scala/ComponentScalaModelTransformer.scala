@@ -10,8 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- *  version Apr.  2, 2026
- * @version Apr.  5, 2026
+ * @version Apr.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -283,6 +282,76 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
           componentlets = p.componentlets,
           extensionPoints = p.extensionPoints,
           extensionBindings = p.extensionBindings,
+          domainVisions = p.domainVisions.map { v =>
+            SComponent.VisionDefinition(
+              name = v.name,
+              summary = v.summary,
+              description = v.description,
+              goal = v.goal,
+              precondition = v.precondition,
+              postcondition = v.postcondition
+            )
+          },
+          domainCapabilities = p.domainCapabilities.map { c =>
+            SComponent.CapabilityDefinition(
+              name = c.name,
+              summary = c.summary,
+              description = c.description,
+              actor = c.actor,
+              primaryActor = c.primaryActor,
+              secondaryActor = c.secondaryActor,
+              supportingActor = c.supportingActor,
+              stakeholder = c.stakeholder,
+              goal = c.goal,
+              precondition = c.precondition,
+              postcondition = c.postcondition
+            )
+          },
+          domainQualities = p.domainQualities.map { q =>
+            SComponent.QualityDefinition(
+              name = q.name,
+              summary = q.summary,
+              description = q.description,
+              goal = q.goal,
+              precondition = q.precondition,
+              postcondition = q.postcondition
+            )
+          },
+          domainConstraints = p.domainConstraints.map { c =>
+            SComponent.ConstraintDefinition(
+              name = c.name,
+              summary = c.summary,
+              description = c.description,
+              goal = c.goal,
+              precondition = c.precondition,
+              postcondition = c.postcondition
+            )
+          },
+          domainUseCases = p.domainUseCases.map { u =>
+            SComponent.UseCaseDefinition(
+              name = u.name,
+              summary = u.summary,
+              description = u.description,
+              actor = u.actor,
+              primaryActor = u.primaryActor,
+              secondaryActor = u.secondaryActor,
+              supportingActor = u.supportingActor,
+              stakeholder = u.stakeholder,
+              goal = u.goal,
+              precondition = u.precondition,
+              postcondition = u.postcondition,
+              scenarios = u.scenarios.map { s =>
+                SComponent.UseCaseScenario(
+                  name = s.name,
+                  summary = s.summary,
+                  description = s.description,
+                  steps = s.steps,
+                  alternates = s.alternates,
+                  exceptions = s.exceptions
+                )
+              }
+            )
+          },
           useCases = p.useCases.map { u =>
             SComponent.UseCaseDefinition(
               name = u.name,
@@ -301,7 +370,9 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
                   name = s.name,
                   summary = s.summary,
                   description = s.description,
-                  steps = s.steps
+                  steps = s.steps,
+                  alternates = s.alternates,
+                  exceptions = s.exceptions
                 )
               }
             )
@@ -323,7 +394,98 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
             )
           },
           extensionBindings = p.extensionBindings,
-          config = p.config
+          config = p.config,
+          domainVisions = p.domainVisions.map { v =>
+            SComponent.VisionDefinition(
+              name = v.name,
+              summary = v.summary,
+              description = v.description,
+              goal = v.goal,
+              precondition = v.precondition,
+              postcondition = v.postcondition
+            )
+          },
+          domainContexts = p.domainContexts.map { c =>
+            SComponent.ContextDefinition(
+              name = c.name,
+              summary = c.summary,
+              description = c.description
+            )
+          },
+          domainSystemContexts = p.domainSystemContexts.map { c =>
+            SComponent.SystemContextDefinition(
+              name = c.name,
+              summary = c.summary,
+              description = c.description
+            )
+          },
+          domainContextMaps = p.domainContextMaps.map { c =>
+            SComponent.ContextMapDefinition(
+              name = c.name,
+              summary = c.summary,
+              description = c.description
+            )
+          },
+          domainCapabilities = p.domainCapabilities.map { c =>
+            SComponent.CapabilityDefinition(
+              name = c.name,
+              summary = c.summary,
+              description = c.description,
+              actor = c.actor,
+              primaryActor = c.primaryActor,
+              secondaryActor = c.secondaryActor,
+              supportingActor = c.supportingActor,
+              stakeholder = c.stakeholder,
+              goal = c.goal,
+              precondition = c.precondition,
+              postcondition = c.postcondition
+            )
+          },
+          domainQualities = p.domainQualities.map { q =>
+            SComponent.QualityDefinition(
+              name = q.name,
+              summary = q.summary,
+              description = q.description,
+              goal = q.goal,
+              precondition = q.precondition,
+              postcondition = q.postcondition
+            )
+          },
+          domainConstraints = p.domainConstraints.map { c =>
+            SComponent.ConstraintDefinition(
+              name = c.name,
+              summary = c.summary,
+              description = c.description,
+              goal = c.goal,
+              precondition = c.precondition,
+              postcondition = c.postcondition
+            )
+          },
+          domainUseCases = p.domainUseCases.map { u =>
+            SComponent.UseCaseDefinition(
+              name = u.name,
+              summary = u.summary,
+              description = u.description,
+              actor = u.actor,
+              primaryActor = u.primaryActor,
+              secondaryActor = u.secondaryActor,
+              supportingActor = u.supportingActor,
+              stakeholder = u.stakeholder,
+              goal = u.goal,
+              precondition = u.precondition,
+              postcondition = u.postcondition,
+              scenarios = u.scenarios.map { s =>
+                SComponent.UseCaseScenario(
+                  name = s.name,
+                  summary = s.summary,
+                  description = s.description,
+                  steps = s.steps,
+                  alternates = s.alternates,
+                  exceptions = s.exceptions
+                )
+              }
+            )
+          }
         )
       }
 
@@ -390,7 +552,9 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
                 name = s.name,
                 summary = s.summary,
                 description = s.description,
-                steps = s.steps
+                steps = s.steps,
+                alternates = s.alternates,
+                exceptions = s.exceptions
               )
             }
           )

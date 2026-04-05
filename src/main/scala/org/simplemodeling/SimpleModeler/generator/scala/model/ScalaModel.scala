@@ -24,8 +24,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- *  version Apr.  1, 2026
- * @version Apr.  3, 2026
+ * @version Apr.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -804,7 +803,8 @@ object SService {
   case class ServiceCore(
     serviceName: String,
     actions: Vector[SCaseClass],
-    description: Option[String] = None
+    description: Option[String] = None,
+    useCases: Vector[SComponent.UseCaseDefinition] = Vector.empty
   )
   object ServiceCore {
     trait Holder {
@@ -813,6 +813,7 @@ object SService {
       def serviceName = serviceCore.serviceName
       def actions = serviceCore.actions
       def description = serviceCore.description
+      def useCases = serviceCore.useCases
     }
   }
 
@@ -821,11 +822,12 @@ object SService {
     name: String,
     methods: MethodCompartment,
     actions: Seq[SCaseClass],
-    description: Option[String] = None
+    description: Option[String] = None,
+    useCases: Vector[SComponent.UseCaseDefinition] = Vector.empty
   ): SService = {
     SService(
       ClassCore.service(pkg, name, methods),
-      ServiceCore(name, actions.toVector, description)
+      ServiceCore(name, actions.toVector, description, useCases)
     )
   }
 }
@@ -969,14 +971,111 @@ object SComponent {
     coordinates: Vector[ComponentCoordinate] = Vector.empty,
     componentlets: Vector[String] = Vector.empty,
     extensionPoints: Vector[String] = Vector.empty,
-    extensionBindings: Map[String, String] = Map.empty
+    extensionBindings: Map[String, String] = Map.empty,
+    domainVisions: Vector[VisionDefinition] = Vector.empty,
+    domainCapabilities: Vector[CapabilityDefinition] = Vector.empty,
+    domainQualities: Vector[QualityDefinition] = Vector.empty,
+    domainConstraints: Vector[ConstraintDefinition] = Vector.empty,
+    domainUseCases: Vector[UseCaseDefinition] = Vector.empty,
+    useCases: Vector[UseCaseDefinition] = Vector.empty
+  )
+
+  final case class VisionDefinition(
+    name: String,
+    summary: Option[String] = None,
+    description: Option[String] = None,
+    goal: Option[String] = None,
+    precondition: Option[String] = None,
+    postcondition: Option[String] = None
+  )
+
+  final case class ContextDefinition(
+    name: String,
+    summary: Option[String] = None,
+    description: Option[String] = None
+  )
+
+  final case class SystemContextDefinition(
+    name: String,
+    summary: Option[String] = None,
+    description: Option[String] = None
+  )
+
+  final case class ContextMapDefinition(
+    name: String,
+    summary: Option[String] = None,
+    description: Option[String] = None
+  )
+
+  final case class CapabilityDefinition(
+    name: String,
+    summary: Option[String] = None,
+    description: Option[String] = None,
+    actor: Option[String] = None,
+    primaryActor: Option[String] = None,
+    secondaryActor: Option[String] = None,
+    supportingActor: Option[String] = None,
+    stakeholder: Option[String] = None,
+    goal: Option[String] = None,
+    precondition: Option[String] = None,
+    postcondition: Option[String] = None
+  )
+
+  final case class QualityDefinition(
+    name: String,
+    summary: Option[String] = None,
+    description: Option[String] = None,
+    goal: Option[String] = None,
+    precondition: Option[String] = None,
+    postcondition: Option[String] = None
+  )
+
+  final case class ConstraintDefinition(
+    name: String,
+    summary: Option[String] = None,
+    description: Option[String] = None,
+    goal: Option[String] = None,
+    precondition: Option[String] = None,
+    postcondition: Option[String] = None
+  )
+
+  final case class UseCaseDefinition(
+    name: String,
+    summary: Option[String] = None,
+    description: Option[String] = None,
+    actor: Option[String] = None,
+    primaryActor: Option[String] = None,
+    secondaryActor: Option[String] = None,
+    supportingActor: Option[String] = None,
+    stakeholder: Option[String] = None,
+    goal: Option[String] = None,
+    precondition: Option[String] = None,
+    postcondition: Option[String] = None,
+    scenarios: Vector[UseCaseScenario] = Vector.empty
+  )
+
+  final case class UseCaseScenario(
+    name: String,
+    summary: Option[String] = None,
+    description: Option[String] = None,
+    steps: Vector[String] = Vector.empty,
+    alternates: Vector[String] = Vector.empty,
+    exceptions: Vector[String] = Vector.empty
   )
 
   final case class SubsystemDefinition(
     name: String,
     components: Vector[ComponentCoordinate] = Vector.empty,
     extensionBindings: Map[String, String] = Map.empty,
-    config: Map[String, String] = Map.empty
+    config: Map[String, String] = Map.empty,
+    domainVisions: Vector[VisionDefinition] = Vector.empty,
+    domainContexts: Vector[ContextDefinition] = Vector.empty,
+    domainSystemContexts: Vector[SystemContextDefinition] = Vector.empty,
+    domainContextMaps: Vector[ContextMapDefinition] = Vector.empty,
+    domainCapabilities: Vector[CapabilityDefinition] = Vector.empty,
+    domainQualities: Vector[QualityDefinition] = Vector.empty,
+    domainConstraints: Vector[ConstraintDefinition] = Vector.empty,
+    domainUseCases: Vector[UseCaseDefinition] = Vector.empty
   )
 
   final case class OperationDefinition(
