@@ -2,6 +2,7 @@ package org.simplemodeling.SimpleModeler.transformer.scala
 
 import org.goldenport.RAISE
 import org.goldenport.context.Consequence
+import org.goldenport.record.v2.XStateMachine
 import org.goldenport.util.StringUtils
 import org.simplemodeling.model._
 import org.simplemodeling.SimpleModeler.transformer.maker.PConstraint
@@ -14,11 +15,13 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- * @version Apr.  2, 2026
+ * @version Apr.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
   protected final val MaxGeneratedNameLength = 256
+  private var _current_object_name: Option[String] = None
+  private var _current_package_name: Option[PackageName] = None
   protected def is_Accept_Object(p: MObject): Boolean
   protected def accept_Purposes: Vector[Purpose]
   protected def sub_Package_Name: Option[String] = None
@@ -41,31 +44,40 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   ): ClassCore = to_scala_core(p).moveToSubPackage(subpkg)
 
   protected final def to_scala_core(p: MObject): ClassCore = {
-    val packagename = PackageName(p.packageName)
-    val declaration = to_scala_core_declaration(p)
-    val classname = ClassName(p.name)
-    val parentclass = to_scala_core_parent(p)
-    val traits = to_scala_core_traits(p)
-    val attrs = effective_attributes(p)
-    val parameters = to_parameters(attrs)
-    val fields = to_fields(attrs)
-    val methods = to_methods(p.operations)
-    val receptions = ReceptionCompartment.empty // TODO
-    val directive = Directive.default.withCanonicalSchemaOwner(
-      TypeName.Plain(packagename, p.name)
-    )
-    ClassCore(
-      packagename,
-      declaration,
-      classname,
-      parentclass,
-      traits,
-      parameters,
-      fields,
-      methods,
-      receptions,
-      directive
-    )
+    val previousObject = _current_object_name
+    val previousPackage = _current_package_name
+    _current_object_name = Some(p.name)
+    _current_package_name = Some(PackageName(p.packageName))
+    try {
+      val packagename = PackageName(p.packageName)
+      val declaration = to_scala_core_declaration(p)
+      val classname = ClassName(p.name)
+      val parentclass = to_scala_core_parent(p)
+      val traits = to_scala_core_traits(p)
+      val attrs = effective_attributes(p)
+      val parameters = to_parameters(attrs)
+      val fields = to_fields(attrs)
+      val methods = to_methods(p.operations)
+      val receptions = ReceptionCompartment.empty // TODO
+      val directive = Directive.default.withCanonicalSchemaOwner(
+        TypeName.Plain(packagename, p.name)
+      )
+      ClassCore(
+        packagename,
+        declaration,
+        classname,
+        parentclass,
+        traits,
+        parameters,
+        fields,
+        methods,
+        receptions,
+        directive
+      )
+    } finally {
+      _current_object_name = previousObject
+      _current_package_name = previousPackage
+    }
   }
 
   protected def effective_attributes(p: MObject): List[MAttribute] =
@@ -178,17 +190,43 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     Attribute(AttributeName(p.name), typename, dbcolumnname, dbcolumntype, externalname)
   }
 
-  def to_typename(p: MAttribute): TypeName = p.multiplicity match {
-    case MOne => _typename_one(p.attributeType)
-    case MZeroOne => _typename_zeroone(p.attributeType)
-    case MOneMore => _typename_onemore(p.attributeType)
-    case MZeroMore => _typename_zeromore(p.attributeType)
-    case m: MRange => _typename_range(p.attributeType)
-    case m: MRanges => _typename_ranges(p.attributeType)
-  }
+  def to_typename(p: MAttribute): TypeName =
+    state_machine_typename(p).map { typename =>
+      p.multiplicity match {
+        case MOne => typename
+        case MZeroOne => TypeName.Container(TypeName.Plain(PackageName("scala"), "Option"), typename)
+        case MOneMore => TypeName.Container(container_type_onemore, typename)
+        case MZeroMore => TypeName.Container(container_type_zeromore, typename)
+        case _: MRange => TypeName.Container(container_type_zeromore, typename)
+        case _: MRanges => TypeName.Container(container_type_zeromore, typename)
+      }
+    }.getOrElse {
+      p.multiplicity match {
+        case MOne => _typename_one(p.attributeType)
+        case MZeroOne => _typename_zeroone(p.attributeType)
+        case MOneMore => _typename_onemore(p.attributeType)
+        case MZeroMore => _typename_zeromore(p.attributeType)
+        case _: MRange => _typename_range(p.attributeType)
+        case _: MRanges => _typename_ranges(p.attributeType)
+      }
+    }
 
   private def _typename_one(p: MAttributeType): TypeName =
     _to_typename(p)
+
+  protected def state_machine_typename(p: MAttribute): Option[TypeName] =
+    p.attributeType match {
+      case m: MDataType =>
+        m.datatype match {
+          case XStateMachine(_) =>
+            for {
+              owner <- _current_object_name
+              pkg <- _current_package_name
+            } yield TypeName.Plain(pkg, s"${owner}${StringUtils.makeTitle(p.name)}")
+          case _ => None
+        }
+      case _ => None
+    }
 
   private def _typename_zeroone(p: MAttributeType): TypeName =
     TypeName.Container(
