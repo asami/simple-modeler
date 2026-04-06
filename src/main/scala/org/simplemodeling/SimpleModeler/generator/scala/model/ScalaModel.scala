@@ -536,7 +536,8 @@ case class SMethod(
   parameters: ParameterSequence,
   returnType: TypeName,
   body: Option[() => GenM[Unit]] = None,
-  description: Option[String] = None
+  description: Option[String] = None,
+  access: Option[SComponent.OperationAccess] = None
 ) {
 }
 object SMethod {
@@ -1084,6 +1085,8 @@ object SComponent {
     summary: Option[String] = None,
     execution: Option[String] = None,
     implementation: Option[String] = None,
+    entityName: Option[String] = None,
+    entityNames: Vector[String] = Vector.empty,
     inputType: String,
     inputSummary: Option[String] = None,
     inputDescription: Option[String] = None,
@@ -1091,7 +1094,14 @@ object SComponent {
     outputSummary: Option[String] = None,
     outputDescription: Option[String] = None,
     inputValueKind: String,
+    access: Option[OperationAccess] = None,
     parameters: Vector[OperationField] = Vector.empty
+  )
+
+  final case class OperationAccess(
+    policy: String,
+    resource: Option[String] = None,
+    target: Option[String] = None
   )
 
   final case class OperationField(

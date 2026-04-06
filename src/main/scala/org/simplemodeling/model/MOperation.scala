@@ -41,7 +41,8 @@ object MOperation {
     descriptor: Descriptor,
     parameters: List[MParameter],
     result: MResult,
-    body: Option[() => GenM[Unit]] = None
+    body: Option[() => GenM[Unit]] = None,
+    access: Option[MComponent.OperationAccess] = None
   )
   object Core {
     trait Holder {
@@ -51,6 +52,7 @@ object MOperation {
       def parameters = operationCore.parameters
       def result = operationCore.result
       def body = operationCore.body
+      def access = operationCore.access
     }
   }
 
@@ -98,10 +100,11 @@ object MOperation {
     name: String,
     params: List[MParameter],
     result: MResult,
-    description: Description
+    description: Description,
+    access: Option[MComponent.OperationAccess] = None
   )(body: GenM[Unit]): MOperation = Instance(
     MElement.Core(description),
-    Core(Descriptor.query, params, result, Some(() => body))
+    Core(Descriptor.query, params, result, Some(() => body), access)
   )
 
   // def query(name: String, param: MParameter, result: MDataType): MOperation =
@@ -147,10 +150,11 @@ object MOperation {
     name: String,
     params: List[MParameter],
     result: MResult,
-    description: Description
+    description: Description,
+    access: Option[MComponent.OperationAccess] = None
   )(body: GenM[Unit]): MOperation =
     Instance(
       MElement.Core(description),
-      Core(Descriptor.command, params, result, Some(() => body))
+      Core(Descriptor.command, params, result, Some(() => body), access)
     )
 }

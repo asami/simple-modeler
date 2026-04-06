@@ -464,6 +464,13 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
             val inputDescription = d.inputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val outputSummary = d.outputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val outputDescription = d.outputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val access = d.access.map { a =>
+              val resource = a.resource.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+              val target = a.target.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+              s"""Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = ${_string_literal(a.policy)}, resource = ${resource}, target = ${target}))"""
+            }.getOrElse("None")
+            val entityName = d.entityName.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val entityNames = d.entityNames.map(_string_literal).mkString("Vector(", ", ", ")")
             for {
               _ <- println("org.goldenport.cncf.operation.CmlOperationDefinition(")
               _ <- indent
@@ -472,6 +479,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"summary = ${summary},")
               _ <- println(s"execution = ${execution},")
               _ <- println(s"implementation = ${implementation},")
+              _ <- println(s"entityName = ${entityName},")
+              _ <- println(s"entityNames = ${entityNames},")
               _ <- println(s"inputType = ${_string_literal(d.inputType)},")
               _ <- println(s"inputSummary = ${inputSummary},")
               _ <- println(s"inputDescription = ${inputDescription},")
@@ -479,6 +488,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"outputSummary = ${outputSummary},")
               _ <- println(s"outputDescription = ${outputDescription},")
               _ <- println(s"inputValueKind = ${_string_literal(d.inputValueKind)},")
+              _ <- println(s"access = ${access},")
               _ <- println(s"parameters = ${_operation_fields_expr(d.parameters)}")
               _ <- outdent
               _ <- println(")")
@@ -1221,11 +1231,16 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       val paramtypename = _param_type_fullname(op)
       val actionclassname = action_class_name(op)
       val actioncallclassname = action_call_class_name(op)
+      val access = op.access.orElse(_operation_access(op))
       for {
         _ <- separator
         _ <- block(s"abstract class ${actioncallclassname}() extends FunctionalActionCall") {
-          // println("def execute(): Consequence[OperationResponse] = ???")
-          println("")
+          access match {
+            case Some(x) =>
+              _action_call_authorize(op, x)
+            case None =>
+              println("")
+          }
         }
         _ <- block(s"object ${actioncallclassname}") {
           for {
@@ -1252,6 +1267,29 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         }
       } yield ActionCallDescriptor(actionclassname, actioncallclassname)
     }
+
+    private def _action_call_authorize(
+      op: SMethod,
+      access: SComponent.OperationAccess
+    ): GenM[Unit] =
+      access.policy.trim.toLowerCase(java.util.Locale.ROOT) match {
+        case "owner_or_manager" | "owner-or-manager" =>
+          val resource = access.resource.getOrElse("Resource")
+          val target = access.target.getOrElse("id")
+          val entityfqcn = s"${component_packagename.name}.entity.${resource}"
+          block("override def authorize()(using org.goldenport.cncf.context.ExecutionContext): Consequence[Unit] =") {
+            for {
+              _ <- println(s"""action.request.toRecord.getAsC[org.simplemodeling.model.datatype.EntityId]("${target}").flatMap {""")
+              _ <- indent
+              _ <- println(s"""case Some(id) => entity_load_c[${entityfqcn}](id).flatMap(x => org.goldenport.cncf.security.OperationAccessPolicy.authorizeOwnerOrManager(x.toRecord()))""")
+              _ <- println(s"""case None => Consequence.failure("Authorization target id not found: ${target}")""")
+              _ <- outdent
+              _ <- println("}")
+            } yield ()
+          }
+        case _ =>
+          println("")
+      }
 
     private def _param_type_fullname(op: SMethod): String = {
       val (paramname, paramclasstype) = _param_descriptor(op)
@@ -1301,6 +1339,17 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         case s if s.endsWith("operation") => s.stripSuffix("operation")
         case s => s
       }
+
+    private def _operation_access(op: SMethod): Option[SComponent.OperationAccess] = {
+      val opmarkers = Set(
+        _normalize_operation_marker(op.name.name),
+        _normalize_operation_marker(operation_name(op))
+      ).filter(_.nonEmpty)
+      _component.flatMap(_.componentCore.operationDefinitions.find { definition =>
+        val defname = _normalize_operation_marker(definition.name)
+        opmarkers.contains(defname)
+      }).flatMap(_.access)
+    }
 
     private def _operation_output_type(op: SMethod): String = {
       val opmarkers = Set(

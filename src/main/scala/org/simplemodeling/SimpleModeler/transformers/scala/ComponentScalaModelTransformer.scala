@@ -249,6 +249,8 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
           summary = p.summary,
           execution = p.execution,
           implementation = p.implementation,
+          entityName = p.entityName,
+          entityNames = p.entityNames,
           inputType = p.inputType,
           inputSummary = p.inputSummary,
           inputDescription = p.inputDescription,
@@ -256,6 +258,13 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
           outputSummary = p.outputSummary,
           outputDescription = p.outputDescription,
           inputValueKind = p.inputValueKind,
+          access = p.access.map(a =>
+            SComponent.OperationAccess(
+              policy = a.policy,
+              resource = a.resource,
+              target = a.target
+            )
+          ),
           parameters = p.parameters.map { x =>
             SComponent.OperationField(
               name = x.name,
@@ -588,7 +597,21 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       val rtype = to_result(p.result)
       val ap = Parameter.create("action", action)
       val aps = ParameterSequence(Vector(ap))
-      val method = SMethod(MethodName(p.name), descriptor, aps, rtype, p.body, _description_text(p))
+      val method = SMethod(
+        MethodName(p.name),
+        descriptor,
+        aps,
+        rtype,
+        p.body,
+        _description_text(p),
+        p.access.map(a =>
+          SComponent.OperationAccess(
+            policy = a.policy,
+            resource = a.resource,
+            target = a.target
+          )
+        )
+      )
       (method, Vector(action))
     }
 
