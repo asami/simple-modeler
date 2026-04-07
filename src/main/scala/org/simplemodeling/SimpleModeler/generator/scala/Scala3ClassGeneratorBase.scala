@@ -19,7 +19,7 @@ import Generator.{State => GState, _}
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  *  version Apr.  2, 2026
- * @version Apr.  3, 2026
+ * @version Apr.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1329,6 +1329,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     if (
       p.typeName.isString ||
       p.typeName.name == "String" ||
+      _is_option_string_type(p.typeName) ||
       _is_collection_type(p.typeName) ||
       _is_simple_object_attribute_type(p.typeName) ||
       _is_object_parameter_type(p.typeName) ||
@@ -1344,6 +1345,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- _builder_with_methods_parse_number(p)
       } yield ()
     }
+
+  private def _is_option_string_type(p: TypeName): Boolean = p match {
+    case m: TypeName.Container if m.isOption =>
+      m.containee.isString || m.containee.name == "String"
+    case _ =>
+      false
+  }
 
   private val _simple_object_attribute_type_names: Set[String] = Set(
     "NameAttributes",
