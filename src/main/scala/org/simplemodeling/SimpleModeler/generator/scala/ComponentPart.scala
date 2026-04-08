@@ -8,7 +8,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Apr.  6, 2026
+ *  version Apr.  6, 2026
+ * @version Apr.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -1274,19 +1275,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     ): GenM[Unit] =
       access.policy.trim.toLowerCase(java.util.Locale.ROOT) match {
         case "owner_or_manager" | "owner-or-manager" =>
-          val resource = access.resource.getOrElse("Resource")
-          val target = access.target.getOrElse("id")
-          val entityfqcn = s"${component_packagename.name}.entity.${resource}"
-          block("override def authorize()(using org.goldenport.cncf.context.ExecutionContext): Consequence[Unit] =") {
-            for {
-              _ <- println(s"""action.request.toRecord.getAsC[org.simplemodeling.model.datatype.EntityId]("${target}").flatMap {""")
-              _ <- indent
-              _ <- println(s"""case Some(id) => entity_load_c[${entityfqcn}](id).flatMap(x => org.goldenport.cncf.security.OperationAccessPolicy.authorizeOwnerOrManager(x.toRecord()))""")
-              _ <- println(s"""case None => Consequence.failure("Authorization target id not found: ${target}")""")
-              _ <- outdent
-              _ <- println("}")
-            } yield ()
-          }
+          println("")
         case _ =>
           println("")
       }
