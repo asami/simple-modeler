@@ -16,7 +16,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
-  * @version Apr.  9, 2026
+ * @version Apr.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -143,7 +143,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     p.equalsIgnoreCase("SimpleEntity") || p.equalsIgnoreCase("simple_entity")
 
   private def _to_type(p: MTraitRef): TypeName =
-    TypeName(PackageName(p.packageRef.packageName), p.name)
+    TypeName(PackageName(p.packageRef.packageName), p.traitName)
 
   protected def to_parameters(ps: List[MAttribute]): ParameterSequence =
     ParameterSequence(ps.toVector.flatMap(to_parameter_required))

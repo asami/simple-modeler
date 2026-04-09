@@ -194,7 +194,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
               case xs => " with " + xs.mkString(" with ")
             }
           )
-        val ts = clazz.traitList.map(_typename_for_extends) ++ _augument_traits
+        val ts = _effective_trait_list.map(_typename_for_extends) ++ _augument_traits
         val s = (clazz.parentClass, ts) match {
           case (Some(s), Nil) => s" extends ${_typename_for_extends(s)} "
           case (Some(s), xs) => _extends_(_typename_for_extends(s), xs)
@@ -235,6 +235,18 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       List("org.goldenport.record.RecordPresentable")
     else
       Nil
+  }
+
+  private def _effective_trait_list: List[TypeName] =
+    if (is_query || is_update)
+      clazz.traitList.filterNot(_is_delegate_holder_trait)
+    else
+      clazz.traitList
+
+  private def _is_delegate_holder_trait(p: TypeName): Boolean = p match {
+    case TypeName.Plain(pkg, name, _) =>
+      pkg.name == "org.simplemodeling.model.value" && name.endsWith("Holder")
+    case _ => false
   }
 
   private def _typename_for_extends(p: TypeName): String = p match {
