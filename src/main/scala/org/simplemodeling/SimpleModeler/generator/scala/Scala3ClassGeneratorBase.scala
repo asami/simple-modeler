@@ -19,7 +19,7 @@ import Generator.{State => GState, _}
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  *  version Apr.  2, 2026
- * @version Apr.  7, 2026
+  * @version Apr.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -677,8 +677,6 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _is_object_parameter_type(p: TypeName): Boolean =
     p.contentType match {
       case TypeName.Plain(pkg, _, _) =>
-        !pkg.name.startsWith("org.simplemodeling.model.value") &&
-        !pkg.name.startsWith("org.simplemodeling.model.datatype") &&
         !pkg.name.startsWith("org.goldenport.datatype") &&
         !pkg.name.startsWith("scala") &&
         !pkg.name.startsWith("java")

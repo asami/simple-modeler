@@ -3,6 +3,7 @@ package org.simplemodeling.SimpleModeler.transformer.scala
 import org.goldenport.RAISE
 import org.goldenport.context.Consequence
 import org.goldenport.record.v2.XStateMachine
+import org.goldenport.record.v2.XString
 import org.goldenport.util.StringUtils
 import org.simplemodeling.model._
 import org.simplemodeling.SimpleModeler.transformer.maker.PConstraint
@@ -15,7 +16,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- * @version Apr.  6, 2026
+  * @version Apr.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -355,7 +356,21 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   }
 
   protected def to_typename(p: MDataType): TypeName =
-    TypeName.create(p.datatype)
+    _resolve_declared_model_type(p).getOrElse(TypeName.create(p.datatype))
+
+  private def _resolve_declared_model_type(p: MDataType): Option[TypeName] =
+    p.datatype match {
+      case XString =>
+        val name = p.name
+        Option(name).
+          map(_.trim).
+          filterNot(_.isEmpty).
+          filterNot(_.equalsIgnoreCase("string")).
+          flatMap(x => ScalaModelTransformer.resolveDeclaredType(x, _current_package_name.map(_.name).getOrElse(""))).
+          map(m => TypeName.create(m.packageName, m.name))
+      case _ =>
+        None
+    }
 
   final protected def to_typename(o: MObject): TypeName = o match {
     case m: MTypedObject => to_typename(m)
@@ -374,7 +389,12 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   }
 
   final protected def to_typename(o: MObjectRef): TypeName =
-    TypeName.create(o.packageName, o.objectName)
+    if (o.packageName == null || o.packageName.isEmpty)
+      ScalaModelTransformer.resolveDeclaredType(o.objectName, _current_package_name.map(_.name).getOrElse("")).
+        map(m => TypeName.create(m.packageName, m.name)).
+        getOrElse(TypeName.create(o.packageName, o.objectName))
+    else
+      TypeName.create(o.packageName, o.objectName)
 
   final protected def to_descriptor(p: MOperation.Descriptor): SMethod.Descriptor = {
     SMethod.Descriptor(
@@ -435,6 +455,48 @@ object ScalaModelTransformer {
       _resolve_by_name(ref.objectName, ref.packageName, scope.packageName)
     }
   }
+
+  def resolveDeclaredType(name: String, scopePackage: String): Option[MObject] = {
+    val ref = MObjectRef.create(name)
+    val qnamecandidates = Vector(
+      _qualified_name(scopePackage, ref.objectName),
+      _qualified_name(ref.packageName, ref.objectName),
+      ref.objectName
+    ).distinct
+    qnamecandidates.toStream.flatMap(_object_registry.get).headOption.orElse {
+      _resolve_by_name(ref.objectName, ref.packageName, scopePackage)
+    }.orElse {
+      _resolve_default_model_declared_type(ref)
+    }.filter {
+      case _: MValue => true
+      case _: MDataType => true
+      case _ => false
+    }
+  }
+
+  private def _resolve_default_model_declared_type(ref: MObjectRef): Option[MObject] =
+    if (ref.packageName.nonEmpty)
+      None
+    else {
+      Vector(
+        s"org.simplemodeling.model.value.${ref.objectName}",
+        s"org.simplemodeling.model.datatype.${ref.objectName}"
+      ).toStream.flatMap(_object_registry.get).headOption.orElse {
+        Some(_default_declared_type_stub(ref.objectName))
+      }
+    }
+
+  private def _default_declared_type_stub(name: String): MObject =
+    org.simplemodeling.model.domain.MDomainValue(
+      description = org.smartdox.Description.name(name),
+      affiliation = MPackageRef("org.simplemodeling.model.value"),
+      stereotypes = Nil,
+      base = None,
+      traits = Nil,
+      powertypes = Nil,
+      attributes = Nil,
+      operations = Nil
+    )
 
   private def _qualified_name_candidates(ref: MObjectRef, scope: MObject): Vector[String] = {
     val local = _qualified_name(scope.packageName, ref.objectName)
