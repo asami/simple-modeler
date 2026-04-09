@@ -19,7 +19,7 @@ import Generator.{State => GState, _}
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  *  version Apr.  2, 2026
-  * @version Apr.  9, 2026
+ * @version Apr.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -806,9 +806,24 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "nonnegativeinteger" => s"${schema}XNonNegativeInteger"
       case "positiveinteger" => s"${schema}XPositiveInteger"
       case "decimal" => s"${schema}XDecimal"
-      case "datetime" => s"${schema}XDateTime"
+      case "name" => s"${schema}XName"
+      case "identifier" => s"${schema}XIdentifier"
+      case "text" => s"${schema}XText"
+      case "token" => s"${schema}XToken"
+      case "url" | "uri" | "urn" => s"${schema}XLink"
+      case "blob" => s"${schema}XBinary"
+      case "clob" => s"${schema}XText"
+      case "date" | "localdate" => s"${schema}XDate"
+      case "time" | "localtime" => s"${schema}XTime"
+      case "datetime" | "instant" => s"${schema}XDateTime"
       case "localdatetime" => s"${schema}XLocalDateTime"
+      case "year" => s"${schema}XYear"
       case "yearmonth" => s"${schema}XYearMonth"
+      case "month" => s"${schema}XMonth"
+      case "monthday" => s"${schema}XMonthDay"
+      case "day" => s"${schema}XDay"
+      case "duration" => s"${schema}XDuration"
+      case "locale" | "timezone" => s"${schema}XString"
       case "age" => s"${schema}XInt"
       case _ => s"${schema}XString"
     }
@@ -1566,8 +1581,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     param: Parameter
   ) = {
     define_method(methodname, builder_type, param.toRawType) {
-      val f = if (_is_object_parameter_type(proptype)) "createC" else "parse"
-      block(s"${proptype.name}.${f}(${propname}) match") {
+      val expr = if (_is_object_parameter_type(proptype)) s"${proptype.name}.createC(${propname})" else s"summon[org.goldenport.convert.ValueReader[${proptype.fullName}]].readC(${propname})"
+      block(s"${expr} match") {
         for {
           _ <- println(s"case Consequence.Success(s) => copy(${propname} = Some(s), _failures = _failures)")
           _ <- println(s"case m: Consequence.Failure[_] => copy(_failures = _failures :+ m)")
