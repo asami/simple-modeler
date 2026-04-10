@@ -1078,11 +1078,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               for {
                 _ <- println("copy(")
                 _ <- indent
-                _ <- println("response = ResponseDefinition(")
-                _ <- indent
-                _ <- println(s"""result = List(org.goldenport.schema.DataType.Named("${outputtype}"))""")
-                _ <- outdent
-                _ <- println(")")
+                _ <- println(s"""response = ResponseDefinition(result = List(org.goldenport.schema.DataType.Named("${outputtype}")))""")
                 _ <- outdent
                 _ <- println(").build()")
               } yield ()
