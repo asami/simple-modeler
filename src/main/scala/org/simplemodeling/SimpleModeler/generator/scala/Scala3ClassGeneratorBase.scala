@@ -414,6 +414,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       val m = SMethod.query("toRecord", TypeName.create("org.goldenport.record", "Record")) {
         if (is_view_projection)
           println("toViewRecord()")
+        else if (_is_external_flat_record)
+          for {
+            _ <- println("Record.dataAuto(")
+            _ <- indent
+            _ <- _to_view_record
+            _ <- outdent
+            _ <- println(")")
+          } yield ()
         else
           for {
             _ <- println("Record.dataAuto(")
@@ -488,12 +496,27 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("case m: org.goldenport.datatype.I18nSummary => m.toI18nString.displayMessage")
         _ <- println("case m: org.goldenport.datatype.I18nDescription => m.toI18nString.displayMessage")
         _ <- println("case m: org.goldenport.datatype.I18nText => m.toI18nString.displayMessage")
+        _ <- println("case m: org.goldenport.datatype.ObjectId => _to_external_value(m.id)")
         _ <- println("case _: org.simplemodeling.model.directive.Condition.Any.type => null")
         _ <- println("case org.simplemodeling.model.directive.Condition.Is(expected) => _to_external_value(expected)")
         _ <- println("case org.simplemodeling.model.directive.Condition.In(candidates) => candidates.toVector.map(_to_external_value)")
         _ <- println("case m: Record => m")
         _ <- println("""case m: org.goldenport.value.NameAttributes => Record.dataAuto("name" -> _to_external_value(m.name), "label" -> _to_external_value(m.label), "title" -> _to_external_value(m.title))""")
         _ <- println("""case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_external_value(m.headline), "summary" -> _to_external_value(m.summary), "description" -> _to_external_value(m.description))""")
+        _ <- println("""case m: org.simplemodeling.model.value.LifecycleAttributes => Record.dataAuto("created_at" -> _to_external_value(m.createdAt), "updated_at" -> _to_external_value(m.updatedAt), "created_by" -> _to_external_value(m.createdBy), "updated_by" -> _to_external_value(m.updatedBy), "post_status" -> _to_external_value(m.postStatus), "aliveness" -> _to_external_value(m.aliveness))""")
+        _ <- println("""case m: org.simplemodeling.model.value.PublicationAttributes => Record.dataAuto("publish_at" -> _to_external_value(m.publishAt), "public_at" -> _to_external_value(m.publicAt), "close_at" -> _to_external_value(m.closeAt), "start_at" -> _to_external_value(m.startAt), "end_at" -> _to_external_value(m.endAt))""")
+        _ <- println("""case m: org.simplemodeling.model.value.SecurityAttributes => Record.dataAuto("owner_id" -> _to_external_value(m.ownerId), "group_id" -> _to_external_value(m.groupId), "rights" -> _to_external_value(m.rights), "privilege_id" -> _to_external_value(m.privilegeId))""")
+        _ <- println("""case m: org.simplemodeling.model.value.SecurityAttributes.Rights => Record.dataAuto("owner" -> _to_external_value(m.owner), "group" -> _to_external_value(m.group), "other" -> _to_external_value(m.other))""")
+        _ <- println("""case m: org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions => Record.dataAuto("read" -> _to_external_value(m.read), "write" -> _to_external_value(m.write), "execute" -> _to_external_value(m.execute))""")
+        _ <- println("""case m: org.simplemodeling.model.value.ResourceAttributes => Record.dataAuto("activated_at" -> _to_external_value(m.activatedAt), "deactivated_at" -> _to_external_value(m.deactivatedAt), "expires_at" -> _to_external_value(m.expiresAt), "activation_status" -> _to_external_value(m.activationStatus))""")
+        _ <- println("""case m: org.simplemodeling.model.value.AuditAttributes => Record.empty""")
+        _ <- println("""case m: org.simplemodeling.model.value.MediaAttributes => Record.dataAuto("url" -> _to_external_value(m.url), "images" -> _to_external_value(m.images), "audios" -> _to_external_value(m.audios), "videos" -> _to_external_value(m.videos), "attachments" -> _to_external_value(m.atathments))""")
+        _ <- println("""case m: org.simplemodeling.model.value.ContextualAttributes => Record.empty""")
+        _ <- println("""case m: org.simplemodeling.model.value.SimpleObjectContent => Record.dataAuto("name_attributes" -> _to_external_value(m.nameAttributes), "descriptive_attributes" -> _to_external_value(m.descriptiveAttributes), "lifecycle_attributes" -> _to_external_value(m.lifecycleAttributes), "publication_attributes" -> _to_external_value(m.publicationAttributes), "security_attributes" -> _to_external_value(m.securityAttributes), "resource_attributes" -> _to_external_value(m.resourceAttributes), "audit_attributes" -> _to_external_value(m.auditAttributes), "media_attributes" -> _to_external_value(m.mediaAttributes), "contextual_attribute" -> _to_external_value(m.contextualAttribute))""")
+        _ <- println("""case m: org.simplemodeling.model.value.Image => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
+        _ <- println("""case m: org.simplemodeling.model.value.Audio => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
+        _ <- println("""case m: org.simplemodeling.model.value.Video => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
+        _ <- println("""case m: org.simplemodeling.model.value.Attachment => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
         _ <- println("case m: org.goldenport.record.RecordPresentable => m.toRecord()")
         _ <- println("case m: Option[?] => m.map(_to_external_value)")
         _ <- println("case m: Seq[?] => m.map(_to_external_value)")
@@ -517,6 +540,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("  case m: org.simplemodeling.model.powertype.Powertype => m.dbValue.getOrElse(m.value)")
         _ <- println("""  case m: org.goldenport.value.NameAttributes => Record.dataAuto("name" -> _to_data_store_value(m.name), "label" -> _to_data_store_value(m.label), "title" -> _to_data_store_value(m.title))""")
         _ <- println("""  case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_data_store_value(m.headline), "summary" -> _to_data_store_value(m.summary), "description" -> _to_data_store_value(m.description))""")
+        _ <- println("  case m: org.simplemodeling.model.value.LifecycleAttributes => _to_external_value(m)")
+        _ <- println("  case m: org.simplemodeling.model.value.PublicationAttributes => _to_external_value(m)")
+        _ <- println("  case m: org.simplemodeling.model.value.SecurityAttributes => _to_external_value(m)")
+        _ <- println("  case m: org.simplemodeling.model.value.ResourceAttributes => _to_external_value(m)")
+        _ <- println("  case m: org.simplemodeling.model.value.AuditAttributes => _to_external_value(m)")
+        _ <- println("  case m: org.simplemodeling.model.value.MediaAttributes => _to_external_value(m)")
+        _ <- println("  case m: org.simplemodeling.model.value.ContextualAttributes => _to_external_value(m)")
+        _ <- println("  case m: org.simplemodeling.model.value.SimpleObjectContent => _to_external_value(m)")
         _ <- println("  case other => _to_external_value(other)")
         _ <- println("}")
       } yield ()
@@ -526,13 +557,39 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _to_record: GenM[Unit] =
     FoldTraverseUtil.intercalateTraverseWithEnd_(
-      attributes_vector,
+      _external_record_attributes,
       println(", "),
       println()
     )(_to_record)
 
   private def _to_record(p: Attribute): GenM[Unit] =
     print("\"", _record_external_key(p), "\" -> _to_external_value(", p.name.name, ")")
+
+  private def _external_record_attributes: Vector[Attribute] =
+    if (_is_external_flat_record)
+      attributes_vector.filterNot(p => _internal_entity_attribute_names.contains(p.name.name))
+    else
+      attributes_vector
+
+  private def _is_external_flat_record: Boolean =
+    is_entity_value && !is_entity_value_create && !is_update
+
+  private lazy val _internal_entity_attribute_names = Set(
+    "lifecycleAttributes",
+    "publicationAttributes",
+    "securityAttributes",
+    "resourceAttributes",
+    "auditAttributes",
+    "mediaAttributes",
+    "contextualAttribute",
+    "lifecycle_Attributes",
+    "publication_Attributes",
+    "security_Attributes",
+    "resource_Attributes",
+    "audit_Attributes",
+    "media_Attributes",
+    "contextual_Attribute"
+  )
 
   private lazy val _simple_object_attribute_names = Set(
     "nameAttributes",
@@ -576,19 +633,62 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _view_record_properties: Vector[(String, String)] = {
     val names = attributes_vector.map(_.name.name).toSet
     val b = Vector.newBuilder[(String, String)]
-    if (names.contains("nameAttributes") || names.contains("name_Attributes")) {
-      b += "name" -> "name"
-      b += "label" -> "label"
+    _select_attribute_name(names, "nameAttributes", "name_Attributes").foreach { attr =>
+      b += "name" -> s"$attr.name"
+      b += "label" -> s"$attr.label"
       if (_is_simple_entity_parent)
-        b += "title" -> "title"
+        b += "title" -> s"$attr.title"
     }
-    if (names.contains("descriptiveAttributes") || names.contains("descriptive_Attributes")) {
-      b += "headline" -> "headline"
-      b += "summary" -> "summary"
-      b += "description" -> "description"
+    _select_attribute_name(names, "descriptiveAttributes", "descriptive_Attributes").foreach { attr =>
+      b += "headline" -> s"$attr.headline"
+      b += "summary" -> s"$attr.summary"
+      b += "description" -> s"$attr.description"
+    }
+    _select_attribute_name(names, "lifecycleAttributes", "lifecycle_Attributes").foreach { attr =>
+      b += "created_at" -> s"$attr.createdAt"
+      b += "updated_at" -> s"$attr.updatedAt"
+      b += "created_by" -> s"$attr.createdBy"
+      b += "updated_by" -> s"$attr.updatedBy"
+      b += "post_status" -> s"$attr.postStatus"
+      b += "aliveness" -> s"$attr.aliveness"
+    }
+    _select_attribute_name(names, "publicationAttributes", "publication_Attributes").foreach { attr =>
+      b += "publish_at" -> s"$attr.publishAt"
+      b += "public_at" -> s"$attr.publicAt"
+      b += "close_at" -> s"$attr.closeAt"
+      b += "start_at" -> s"$attr.startAt"
+      b += "end_at" -> s"$attr.endAt"
+    }
+    _select_attribute_name(names, "securityAttributes", "security_Attributes").foreach { attr =>
+      b += "owner_id" -> s"$attr.ownerId"
+      b += "group_id" -> s"$attr.groupId"
+      b += "rights" -> s"$attr.rights"
+      b += "privilege_id" -> s"$attr.privilegeId"
+    }
+    _select_attribute_name(names, "resourceAttributes", "resource_Attributes").foreach { attr =>
+      b += "activated_at" -> s"$attr.activatedAt"
+      b += "deactivated_at" -> s"$attr.deactivatedAt"
+      b += "expires_at" -> s"$attr.expiresAt"
+      b += "activation_status" -> s"$attr.activationStatus"
+    }
+    _select_attribute_name(names, "mediaAttributes", "media_Attributes").foreach { attr =>
+      b += "url" -> s"$attr.url"
+      b += "images" -> s"$attr.images"
+      b += "audios" -> s"$attr.audios"
+      b += "videos" -> s"$attr.videos"
+      b += "attachments" -> s"$attr.atathments"
     }
     b.result()
   }
+
+  private def _select_attribute_name(
+    names: Set[String],
+    camel: String,
+    legacy: String
+  ): Option[String] =
+    if (names.contains(camel)) Some(camel)
+    else if (names.contains(legacy)) Some(legacy)
+    else None
 
   private def _is_simple_entity_parent: Boolean =
     clazz.parentClass.exists {
