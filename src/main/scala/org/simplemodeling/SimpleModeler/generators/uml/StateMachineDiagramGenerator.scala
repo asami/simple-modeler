@@ -23,7 +23,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version May. 10, 2020
  *  version Jul. 12, 2021
  *  version Aug.  2, 2021
- * @version Jan. 30, 2022
+ *  version Jan. 30, 2022
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class StateMachineDiagramGenerator(
@@ -324,7 +325,6 @@ class GraphStateMachine(
     node.width = "0.3"
     node.fillcolor = "#0d0015" // 漆黒 しっこく
     graph.elements += node
-    node
   }
 
   final def addEnd(aId: String) {
@@ -336,7 +336,6 @@ class GraphStateMachine(
     node.width = "0.25"
     node.fillcolor = "#0d0015" // 漆黒 しっこく
     graph.elements += node
-    node
   }
 
   final def addState(aState: MState, aId: String): GVNode = {
@@ -404,7 +403,6 @@ class GraphCompositeState(
     node.width = "0.3"
     node.fillcolor = "#0d0015" // 漆黒 しっこく
     graph.elements += node
-    node
   }
 
   final def addEnd = {
@@ -416,7 +414,6 @@ class GraphCompositeState(
     node.width = "0.25"
     node.fillcolor = "#0d0015" // 漆黒 しっこく
     graph.elements += node
-    node
   }
 
   final def addHistory = {
@@ -429,7 +426,6 @@ class GraphCompositeState(
     node.label = "H"
     node.fillcolor = "#89c3eb" // 勿忘草色 わすれなぐさいろ
     graph.elements += node
-    node
   }
 
   final def addState(aState: MState, aId: String): GVNode = {

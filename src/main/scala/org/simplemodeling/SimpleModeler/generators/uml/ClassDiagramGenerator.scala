@@ -33,7 +33,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version May. 24, 2020
  *  version Sep. 17, 2023
  *  version May.  5, 2025
- * @version Feb. 11, 2026
+ *  version Feb. 11, 2026
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class ClassDiagramGenerator(
@@ -285,8 +286,8 @@ class ClassDiagramGenerator(
             val sourceId = get_id(aSource)
             val targetId = get_id(target)
             target match {
-              case _: MEntity => rolerelationship(sourceId, targetId, assoc.name)
               case _: MUsecase => associationrelationship(sourceId, targetId, assoc)
+              case _: MEntity => rolerelationship(sourceId, targetId, assoc.name)
             }
           }
         }

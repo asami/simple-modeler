@@ -9,7 +9,8 @@ import org.simplemodeling.model._
  * @since   Apr. 23, 2011
  *  version Feb.  7, 2012
  *  version Jan.  5, 2020
- * @version Mar. 25, 2026
+ *  version Mar. 25, 2026
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class PConstraint(val name: String, val value: Any) {
@@ -39,9 +40,11 @@ class PConstraint(val name: String, val value: Any) {
 
   def params(keys: String*): String = {
     value match {
-      case map: Map[Any, Any] => {
+      case map: Map[_, _] => {
         keys.flatMap { k =>
-          map.get(k).map("%s = %s".format(k, _))
+          map.collectFirst {
+            case (key, v) if key == k => "%s = %s".format(k, v)
+          }
         }.mkString(",")
       }
       case l: List[_] => {

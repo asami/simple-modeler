@@ -17,7 +17,8 @@ import java.util.TimeZone
  *  version Nov.  9, 2012
  *  version Dec. 21, 2012
  *  version Mar.  2, 2020
- * @version May.  1, 2020
+ *  version May.  1, 2020
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class JavaClassAttributeDefinition(
@@ -75,7 +76,7 @@ class JavaClassAttributeDefinition(
 
   protected final def mapping_single_value_attribute_method(getter: String, setter: String) {
     jm_public_get_or_null_method(javaType, attrName, getter, attrName)
-    if (attr.attributeType == PBooleanType) {
+    if (attr.attributeType.isInstanceOf[PBooleanType]) {
       jm_public_is_method(attrName, varName);
     }
     if (is_settable()) {
@@ -86,7 +87,7 @@ class JavaClassAttributeDefinition(
 
   protected final def mapping_single_value_attribute_abstract_method(getter: String, setter: String) {
     jm_public_get_or_null_abstract_method(javaType, attrName)
-    if (attr.attributeType == PBooleanType) {
+    if (attr.attributeType.isInstanceOf[PBooleanType]) {
       jm_public_is_abstract_method(attrName, varName);
     }
     if (is_settable()) {
@@ -97,7 +98,7 @@ class JavaClassAttributeDefinition(
 
   protected final def single_value_attribute_method() {
     jm_public_get_method(javaType, attrName, code_expression)
-    if (attr.attributeType == PBooleanType) {
+    if (attr.attributeType.isInstanceOf[PBooleanType]) {
       jm_public_is_method(attrName, code_expression)
     }
     if (is_settable()) {
@@ -107,7 +108,7 @@ class JavaClassAttributeDefinition(
 
   protected final def single_value_attribute_abstract_method() {
     jm_public_get_abstract_method(javaType, attrName, code_expression)
-    if (attr.attributeType == PBooleanType) {
+    if (attr.attributeType.isInstanceOf[PBooleanType]) {
       jm_public_is_abstract_method(attrName, code_expression)
     }
     if (is_settable()) {
@@ -182,7 +183,7 @@ class JavaClassAttributeDefinition(
   // Part
   override protected def method_bean_single_part(p: PEntityPartType) {
     jm_public_get_method(javaType, attrName, erPartVarName)
-    if (attr.attributeType == PBooleanType) {
+    if (attr.attributeType.isInstanceOf[PBooleanType]) {
       jm_public_is_method(attrName, varName)
     }
     if (is_settable()) {
@@ -192,7 +193,7 @@ class JavaClassAttributeDefinition(
 
   override protected def method_bean_single_powertype(e: PPowertypeType) {
     jm_public_get_method(javaType, attrName, varName); // erPowerVarName); 
-    if (attr.attributeType == PBooleanType) {
+    if (attr.attributeType.isInstanceOf[PBooleanType]) {
       jm_public_is_method(attrName, varName)
     }
     if (is_settable()) {

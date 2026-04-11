@@ -16,7 +16,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
 
 /*
  * @since   Mar. 21, 2011
- * @version May. 10, 2020
+ *  version May. 10, 2020
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class FlowMachineDiagramGenerator(
@@ -82,7 +83,6 @@ class FlowDiagramGraph(
     node.style = "rounded,filled"
     node.fillcolor = "#fcc800" // 向日葵色 ひまわりいろ
     graph.elements += node
-    node
   }
 
   def addStep(step: MFlowStep) {
@@ -94,7 +94,6 @@ class FlowDiagramGraph(
 //    node.fillcolor = "#59b9c6" // 新橋色しんばしいろ
     node.fillcolor = "#ee836f" // 珊瑚朱色さんごしゅいろ
     graph.elements += node
-    node
   }
 
   def addDataSource(ds: MDataSource) = {

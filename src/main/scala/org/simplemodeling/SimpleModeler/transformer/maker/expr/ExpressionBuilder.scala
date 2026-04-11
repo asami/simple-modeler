@@ -9,7 +9,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
 /*
  * @since   Dec. 21, 2012
  *  version Jan. 12, 2013
- * @version Mar.  2, 2020
+ *  version Mar.  2, 2020
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ExpressionBuilder(val context: PContext, val expr: MExpression) extends Recordable {
@@ -55,6 +56,8 @@ abstract class ExpressionBuilder(val context: PContext, val expr: MExpression) e
       case x: MEBONe => expr_binary_operator(parent, x)
       case x: MEBOOr => expr_binary_operator(parent, x)
       case x: MEBOSub => expr_binary_operator(parent, x)
+      case x: MEBinaryOperator => expr_binary_operator(parent, x)
+      case x: MLeafExpressionNode => sys.error(s"Unsupported leaf expression node: $x")
     }
   }
 

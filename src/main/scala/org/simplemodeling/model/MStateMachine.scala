@@ -17,7 +17,8 @@ import org.goldenport.collection.VectorMap
  *  version May. 10, 2020
  *  version Jun. 30, 2021
  *  version Jul.  9, 2021
- * @version Feb. 11, 2026
+ *  version Feb. 11, 2026
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MStateMachine extends MObject {
@@ -81,7 +82,7 @@ trait MStateMachine extends MObject {
   final def isReceiveEvent(anEvent: MObject): Boolean = {
     def is_receive(state: MState): Boolean = {
       for (transition <- state.transitions) {
-	if (transition.event == anEvent) {
+	if (transition.event.contains(anEvent)) {
 	  return true
 	}
       }

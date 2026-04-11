@@ -9,7 +9,8 @@ import org.apache.commons.lang3.StringUtils
  *
  * @since   Oct. 28, 2012
  *  version Nov.  1, 2012
- * @version Mar.  3, 2020
+ *  version Mar.  3, 2020
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MExpression(dslExpression: String) {
@@ -56,7 +57,7 @@ case class MEDot(
   def lhs = children(0)
   def rhs = children(1)
   def containerPath: Seq[Tree[MExpressionNode]] = {
-    rhs match {
+    rhs.rootLabel match {
       case xs: MEDot => lhs +: xs.containerPath
       case _ => List(lhs)
     }

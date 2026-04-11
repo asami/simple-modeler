@@ -13,7 +13,8 @@ import com.asamioffice.goldenport.text.UString.notNull
  *  version May.  6, 2012
  *  version Nov. 22, 2012
  *  version Feb. 23, 2013
- * @version May. 16, 2020
+ *  version May. 16, 2020
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class ScalaClassAttributeDefinition(
@@ -52,7 +53,7 @@ class ScalaClassAttributeDefinition(
 
   protected final def mapping_single_value_attribute_method(getter: String, setter: String) {
     sm_public_get_or_null_method(javaType, attrName, getter, attrName)
-    if (attr.attributeType == PBooleanType) {
+    if (attr.attributeType.isInstanceOf[PBooleanType]) {
       sm_public_is_method(attrName, varName);
     }
     if (is_settable()) {
@@ -63,7 +64,7 @@ class ScalaClassAttributeDefinition(
 
   protected final def single_value_attribute_method() {
     sm_public_get_method(javaType, attrName, varName)
-    if (attr.attributeType == PBooleanType) {
+    if (attr.attributeType.isInstanceOf[PBooleanType]) {
       sm_public_is_method(attrName, varName)
     }
     if (is_settable()) {
@@ -132,7 +133,7 @@ class ScalaClassAttributeDefinition(
   // Part
   override protected def method_bean_single_part(p: PEntityPartType) {
     sm_public_get_method(javaType, attrName, erPartVarName)
-    if (attr.attributeType == PBooleanType) {
+    if (attr.attributeType.isInstanceOf[PBooleanType]) {
       sm_public_is_method(attrName, varName)
     }
     if (is_settable()) {
@@ -142,7 +143,7 @@ class ScalaClassAttributeDefinition(
 
   override protected def method_bean_single_powertype(e: PPowertypeType) {
     sm_public_get_method(javaType, attrName, varName); // erPowerVarName); 
-    if (attr.attributeType == PBooleanType) {
+    if (attr.attributeType.isInstanceOf[PBooleanType]) {
       sm_public_is_method(attrName, varName)
     }
     if (is_settable()) {

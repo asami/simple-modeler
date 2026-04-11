@@ -11,7 +11,8 @@ import org.goldenport.tree._
  *  version Sep. 21, 2020
  *  version Sep. 26, 2023
  *  version Oct. 12, 2023
- * @version Feb. 11, 2026
+ *  version Feb. 11, 2026
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 case class SimpleModel(
@@ -35,10 +36,7 @@ case class SimpleModel(
     if (p.isContainer)
       _build_package(pkg, p)
     else
-      p.content match {
-        case m => m // TODO
-        case m => RAISE.noReachDefect(s"SimpleModel#_build: $m")
-      }
+      p.content
 
   private def _build_package(pkg: MPackageRef, p: TreeNode[MElement]): MPackage = {
     val cpkg = pkg.child(p.name)

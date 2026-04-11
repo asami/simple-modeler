@@ -26,7 +26,8 @@ import org.simplemodeling.model._
  *  version Apr. 27, 2020
  *  version May. 24, 2020
  *  version Jun.  1, 2020
- * @version Feb. 10, 2026
+ *  version Feb. 10, 2026
+ * @version Apr. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 trait PObjectType {
@@ -1144,7 +1145,6 @@ case class PEntityType(
   def isLogicalOperation: Boolean = entity.isLogicalOperation
 }
 
-@deprecated("use PEntityType instead.", "0.5")
 case class PEntityPartType(
   name: String,
   packageName: String
@@ -1253,6 +1253,7 @@ object PObjectType {
         case XEntityId => ???
         case m: XEntityReference => ???
         case m: XEverforthObjectReference => ???
+        case _ => ???
       }
     }
     a

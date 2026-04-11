@@ -4,7 +4,7 @@ name := "simplemodeler"
 
 organization := "org.simplemodeling"
 
-version := "1.1.13"
+version := "1.1.14-SNAPSHOT"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -59,7 +59,7 @@ publishMavenStyle := true
 // Docker
 maintainer in Docker := "Duke"
 
-dockerBaseImage in Docker := "dockerfile/java"
+(Docker / dockerBaseImage).withRank(KeyRanks.Invisible) := "dockerfile/java"
 
 // dockerExposedPorts in Docker := Seq(8080, 8080)
 
