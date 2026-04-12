@@ -19,7 +19,7 @@ import Generator.{State => GState, _}
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  *  version Apr.  2, 2026
- * @version Apr.  9, 2026
+ * @version Apr. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1984,6 +1984,55 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     _is_simple_object_attribute_type(p.toRawType.typeName)
 
   private def _build_param_or_var_simple_object_attribute(p: Parameter): GenM[Unit] =
+    if (_is_record_readable_simple_object_attribute_parameter(p))
+      _build_param_or_var_record_readable_simple_object_attribute(p)
+    else
+      _build_param_or_var_default_simple_object_attribute(p)
+
+  private def _is_record_readable_simple_object_attribute_parameter(p: Parameter): Boolean =
+    Vector(
+      "lifecycleAttributes",
+      "publicationAttributes",
+      "securityAttributes",
+      "resourceAttributes"
+    ).contains(p.name.name) && Vector(
+      "LifecycleAttributes",
+      "PublicationAttributes",
+      "SecurityAttributes",
+      "ResourceAttributes"
+    ).contains(p.toRawType.typeName.name)
+
+  private def _build_param_or_var_record_readable_simple_object_attribute(p: Parameter): GenM[Unit] =
+    _builder_default_expression_raw(p.name.name) match {
+      case Some(expr) =>
+        for {
+          _ <- print("_record_get_as_c[", p.toRawType.typeName.name, "](record, ", input_keys_name(p.name.name), ").flatMap {")
+          _ <- println()
+          _ <- indent
+          _ <- println("case Some(s) => Consequence.success(s)")
+          _ <- println("case None =>")
+          _ <- indent
+          _ <- println("summon[org.goldenport.convert.ValueReader[", p.toRawType.typeName.name, "]].readC(record).orElse(Consequence.success(", p.name.name, ".getOrElse(", expr, ")))")
+          _ <- outdent
+          _ <- outdent
+          _ <- print("}")
+        } yield ()
+      case None =>
+        for {
+          _ <- print("_record_get_as_c[", p.toRawType.typeName.name, "](record, ", input_keys_name(p.name.name), ").flatMap {")
+          _ <- println()
+          _ <- indent
+          _ <- println("case Some(s) => Consequence.success(s)")
+          _ <- println("case None =>")
+          _ <- indent
+          _ <- println("summon[org.goldenport.convert.ValueReader[", p.toRawType.typeName.name, "]].readC(record).orElse(Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", ", p.name.name, "))")
+          _ <- outdent
+          _ <- outdent
+          _ <- print("}")
+        } yield ()
+    }
+
+  private def _build_param_or_var_default_simple_object_attribute(p: Parameter): GenM[Unit] =
     _builder_default_expression_raw(p.name.name) match {
       case Some(expr) =>
         for {
