@@ -9,7 +9,7 @@ import org.simplemodeling.model._
  *  version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version Apr.  6, 2026
+ * @version Apr. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -279,7 +279,14 @@ object MComponent {
   final case class OperationAccess(
     policy: String,
     resource: Option[String] = None,
-    target: Option[String] = None
+    target: Option[String] = None,
+    mode: Option[String] = None,
+    relation: Option[String] = None,
+    operationModel: Option[String] = None,
+    entityUsage: Option[String] = None,
+    entityOperationKind: Option[String] = None,
+    entityApplicationDomain: Option[String] = None,
+    condition: Option[String] = None
   )
 
   final case class OperationField(

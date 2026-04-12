@@ -8,8 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- *  version Apr.  6, 2026
- * @version Apr.  9, 2026
+ * @version Apr. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -468,7 +467,14 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
             val access = d.access.map { a =>
               val resource = a.resource.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
               val target = a.target.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-              s"""Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = ${_string_literal(a.policy)}, resource = ${resource}, target = ${target}))"""
+              val mode = a.mode.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+              val relation = a.relation.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+              val operationModel = a.operationModel.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+              val entityUsage = a.entityUsage.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+              val entityOperationKind = a.entityOperationKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+              val entityApplicationDomain = a.entityApplicationDomain.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+              val condition = a.condition.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+              s"""Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = ${_string_literal(a.policy)}, resource = ${resource}, target = ${target}, mode = ${mode}, relation = ${relation}, operationModel = ${operationModel}, entityUsage = ${entityUsage}, entityOperationKind = ${entityOperationKind}, entityApplicationDomain = ${entityApplicationDomain}, condition = ${condition}))"""
             }.getOrElse("None")
             val entityName = d.entityName.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val entityNames = d.entityNames.map(_string_literal).mkString("Vector(", ", ", ")")

@@ -24,7 +24,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr.  6, 2026
+ * @version Apr. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -1101,7 +1101,14 @@ object SComponent {
   final case class OperationAccess(
     policy: String,
     resource: Option[String] = None,
-    target: Option[String] = None
+    target: Option[String] = None,
+    mode: Option[String] = None,
+    relation: Option[String] = None,
+    operationModel: Option[String] = None,
+    entityUsage: Option[String] = None,
+    entityOperationKind: Option[String] = None,
+    entityApplicationDomain: Option[String] = None,
+    condition: Option[String] = None
   )
 
   final case class OperationField(

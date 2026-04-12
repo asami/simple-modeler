@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version Apr.  6, 2026
+ * @version Apr. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -262,7 +262,14 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
             SComponent.OperationAccess(
               policy = a.policy,
               resource = a.resource,
-              target = a.target
+              target = a.target,
+              mode = a.mode,
+              relation = a.relation,
+              operationModel = a.operationModel,
+              entityUsage = a.entityUsage,
+              entityOperationKind = a.entityOperationKind,
+              entityApplicationDomain = a.entityApplicationDomain,
+              condition = a.condition
             )
           ),
           parameters = p.parameters.map { x =>
@@ -608,7 +615,14 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
           SComponent.OperationAccess(
             policy = a.policy,
             resource = a.resource,
-            target = a.target
+            target = a.target,
+            mode = a.mode,
+            relation = a.relation,
+            operationModel = a.operationModel,
+            entityUsage = a.entityUsage,
+            entityOperationKind = a.entityOperationKind,
+            entityApplicationDomain = a.entityApplicationDomain,
+            condition = a.condition
           )
         )
       )
