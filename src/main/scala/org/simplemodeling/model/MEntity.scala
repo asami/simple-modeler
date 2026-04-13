@@ -13,10 +13,14 @@ import org.simplemodeling.model._
  *  version Nov. 25, 2012
  *  version Aug.  7, 2019
  *  version May. 10, 2020
- * @version Feb. 11, 2026
+ *  version Feb. 11, 2026
+ * @version Apr. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MEntity extends MObject {
+  def usageKind: Option[String] = None
+  def operationKind: Option[String] = None
+  def applicationDomain: Option[String] = None
   def ports: List[MPort] = Nil
   def roles: List[MRoleRef] = Nil
   def services: List[MService] = Nil

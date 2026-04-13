@@ -18,7 +18,8 @@ import org.simplemodeling.model._
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
  *  version Nov. 18, 2020
- * @version Jun. 20, 2021
+ *  version Jun. 20, 2021
+ * @version Apr. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MDomainResource(
@@ -31,7 +32,10 @@ case class MDomainResource(
   attributes: List[MAttribute],
   associations: List[MAssociation],
   operations: List[MOperation],
-  stateMachines: List[MStateMachineRef]
+  stateMachines: List[MStateMachineRef],
+  override val usageKind: Option[String] = None,
+  override val operationKind: Option[String] = None,
+  override val applicationDomain: Option[String] = None
 ) extends MDomainEntity {
   // def designation: Designation = description.designation
 }
