@@ -693,20 +693,42 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _is_simple_entity_parent: Boolean =
     clazz.parentClass.exists {
       case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.simplemodeling.model" => true
+      case TypeName.Plain(pkg, "SimpleEntityCreate", _) if pkg.name == "org.simplemodeling.model" => true
       case _ => false
     }
 
-  private def _to_data_store: GenM[Unit] =
+  private def _to_data_store: GenM[Unit] = {
+    val ps =
+      if (_is_simple_entity_parent)
+        _to_data_store_simple_entity_properties ++ _to_data_store_direct_attributes
+      else
+        attributes_vector.map(_to_data_store_attribute)
     FoldTraverseUtil.intercalateTraverseWithEnd_(
-      attributes_vector,
+      ps,
       println(", "),
       println()
     )(_to_data_store)
-
-  private def _to_data_store(p: Attribute): GenM[Unit] = {
-    val key = p.dbColumnName.getOrElse(StringUtils.camelToUnderscore(p.name.name))
-    print("\"", key, "\" -> _to_data_store_value(", p.name.name, ")")
   }
+
+  private def _to_data_store_attribute(p: Attribute): (String, String, String) = {
+    val key = p.dbColumnName.getOrElse(StringUtils.camelToUnderscore(p.name.name))
+    (key, p.name.name, "_to_data_store_value")
+  }
+
+  private def _to_data_store(p: (String, String, String)): GenM[Unit] =
+    print("\"", p._1, "\" -> ", p._3, "(", p._2, ")")
+
+  private def _to_data_store_direct_attributes: Vector[(String, String, String)] =
+    attributes_vector.collect {
+      case p if !_simple_object_attribute_names.contains(p.name.name) =>
+        val key = p.dbColumnName.getOrElse(StringUtils.camelToUnderscore(p.name.name))
+        (key, p.name.name, "_to_data_store_value")
+    }
+
+  private def _to_data_store_simple_entity_properties: Vector[(String, String, String)] =
+    _view_record_properties.map { case (key, expr) =>
+      (key, expr, "_to_external_value")
+    }
 
   // protected final def traverse_with_separator[T](ps: Vector[T]): GenM[Unit] =
   //   ???
