@@ -9,7 +9,7 @@ import org.simplemodeling.model._
  *  version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version Apr. 13, 2026
+ * @version Apr. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -295,8 +295,17 @@ object MComponent {
     multiplicity: String = "1"
   )
 
+  final case class EntityRuntimeDescriptor(
+    entityName: String,
+    packageName: String,
+    usageKind: Option[String] = None,
+    operationKind: Option[String] = None,
+    applicationDomain: Option[String] = None
+  )
+
   case class Core(
     entities: Vector[MEntity],
+    entityRuntimeDescriptors: Vector[EntityRuntimeDescriptor] = Vector.empty,
     stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty,
     stateMachineDefinitions: Vector[StateMachineDefinition] = Vector.empty,
     eventReceptionDefinitions: Vector[EventReceptionDefinition] = Vector.empty,
@@ -313,6 +322,7 @@ object MComponent {
       def componentCore: Core
 
       def entities = componentCore.entities
+      def entityRuntimeDescriptors = componentCore.entityRuntimeDescriptors
       def stateMachineTransitionRules = componentCore.stateMachineTransitionRules
       def stateMachineDefinitions = componentCore.stateMachineDefinitions
       def eventReceptionDefinitions = componentCore.eventReceptionDefinitions

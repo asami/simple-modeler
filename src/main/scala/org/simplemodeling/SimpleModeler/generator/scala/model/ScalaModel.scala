@@ -24,7 +24,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 13, 2026
+ * @version Apr. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -1117,9 +1117,24 @@ object SComponent {
     multiplicity: String = "1"
   )
 
+  final case class EntityRuntimeDescriptor(
+    entityName: String,
+    packageName: PackageName,
+    usageKind: Option[String] = None,
+    operationKind: Option[String] = None,
+    applicationDomain: Option[String] = None
+  ) {
+    def entityObjectName: String =
+      if (packageName.name.isEmpty)
+        entityName
+      else
+        s"${packageName.name}.${entityName}"
+  }
+
   case class ComponentCore(
     componentName: String,
     services: List[SService],
+    entityRuntimeDescriptors: Vector[EntityRuntimeDescriptor] = Vector.empty,
     stateMachineTransitionRules: Vector[StateMachineTransitionRule] = Vector.empty,
     stateMachineDefinitions: Vector[StateMachineDefinition] = Vector.empty,
     eventReceptionDefinitions: Vector[EventReceptionDefinition] = Vector.empty,
@@ -1138,6 +1153,7 @@ object SComponent {
 
       def componentName = componentCore.componentName
       def services = componentCore.services
+      def entityRuntimeDescriptors = componentCore.entityRuntimeDescriptors
       def stateMachineTransitionRules = componentCore.stateMachineTransitionRules
       def stateMachineDefinitions = componentCore.stateMachineDefinitions
       def eventReceptionDefinitions = componentCore.eventReceptionDefinitions

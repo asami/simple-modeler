@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version Apr. 13, 2026
+ * @version Apr. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -44,6 +44,10 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
 
     def build(): SComponent = {
       val services = to_services(source.services)
+      val entitydescs = source match {
+        case m: MComponent.Core.Holder => to_entity_runtime_descriptors(m.entityRuntimeDescriptors)
+        case _ => Vector.empty
+      }
       val rules = source match {
         case m: MComponent.Core.Holder => to_transition_rules(m.stateMachineTransitionRules)
         case _ => Vector.empty
@@ -87,6 +91,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       val ccore = SComponent.ComponentCore(
         componentName,
         services,
+        entitydescs,
         rules,
         statedefs,
         eventdefs,
@@ -101,6 +106,19 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       )
       SComponent(core, ccore)
     }
+
+    private def to_entity_runtime_descriptors(
+      ps: Vector[MComponent.EntityRuntimeDescriptor]
+    ): Vector[SComponent.EntityRuntimeDescriptor] =
+      ps.map { p =>
+        SComponent.EntityRuntimeDescriptor(
+          entityName = p.entityName,
+          packageName = PackageName(p.packageName),
+          usageKind = p.usageKind,
+          operationKind = p.operationKind,
+          applicationDomain = p.applicationDomain
+        )
+      }
 
     private def to_transition_rules(
       ps: Vector[MComponent.StateMachineTransitionRule]

@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Apr. 13, 2026
+ * @version Apr. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -41,6 +41,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           _ <- _event_reception_definitions_method(s.eventReceptionDefinitions)
           _ <- _event_routing_definitions_method(s.eventRoutingDefinitions)
           _ <- _event_subscription_definitions_method(s.eventSubscriptionDefinitions)
+          _ <- _component_descriptors_method(s)
           _ <- _aggregate_definitions_method(s.aggregateDefinitions)
           _ <- _view_definitions_method(s.viewDefinitions)
           _ <- _operation_definitions_method(s.operationDefinitions)
@@ -50,6 +51,63 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       case None =>
         unit
     }
+  }
+
+  private def _component_descriptors_method(
+    s: SComponent
+  ): GenM[Unit] = {
+    val defs = s.entityRuntimeDescriptors
+    if (defs.isEmpty) {
+      println("override def componentDescriptors: Vector[org.goldenport.cncf.component.ComponentDescriptor] = Vector.empty")
+    } else {
+      for {
+        _ <- println("override def componentDescriptors: Vector[org.goldenport.cncf.component.ComponentDescriptor] = Vector(")
+        _ <- indent
+        _ <- println("org.goldenport.cncf.component.ComponentDescriptor(")
+        _ <- indent
+        _ <- println(s"name = Some(${_string_literal(s.componentName)}),")
+        _ <- println(s"componentName = Some(${_string_literal(s.componentName)}),")
+        _ <- println("entityRuntimeDescriptors = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- _entity_runtime_descriptor_expr(d)
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+        _ <- outdent
+        _ <- println(")")
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+  }
+
+  private def _entity_runtime_descriptor_expr(
+    d: SComponent.EntityRuntimeDescriptor
+  ): GenM[Unit] = {
+    val usageKind = _string_literal(d.usageKind.getOrElse(""))
+    val operationKind = _string_literal(d.operationKind.getOrElse(""))
+    val applicationDomain = _string_literal(d.applicationDomain.getOrElse(""))
+    for {
+      _ <- println("org.goldenport.cncf.entity.runtime.EntityRuntimeDescriptor(")
+      _ <- indent
+      _ <- println(s"entityName = ${_string_literal(d.entityName)},")
+      _ <- println(s"collectionId = ${d.entityObjectName}.collectionId,")
+      _ <- println("memoryPolicy = org.goldenport.cncf.entity.runtime.EntityMemoryPolicy.LoadToMemory,")
+      _ <- println("partitionStrategy = org.goldenport.cncf.entity.runtime.PartitionStrategy.byOrganizationMonthUTC,")
+      _ <- println("maxPartitions = 64,")
+      _ <- println("maxEntitiesPerPartition = 10000,")
+      _ <- println(s"usageKind = org.goldenport.cncf.security.EntityUsageKind.parse(${usageKind}),")
+      _ <- println(s"operationKind = org.goldenport.cncf.security.EntityOperationKind.parse(${operationKind}),")
+      _ <- println(s"applicationDomain = org.goldenport.cncf.security.EntityApplicationDomain.parse(${applicationDomain})")
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
   }
 
   private def _state_machine_rules_method(
