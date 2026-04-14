@@ -24,7 +24,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 14, 2026
+ *  version Apr. 14, 2026
+ * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -911,6 +912,7 @@ object SComponent {
     name: String,
     entityName: String,
     members: Vector[AggregateMemberDefinition] = Vector.empty,
+    creates: Vector[AggregateCreateDefinition] = Vector.empty,
     commands: Vector[AggregateCommandDefinition] = Vector.empty,
     state: Vector[AggregateStateDefinition] = Vector.empty,
     invariants: Vector[AggregateInvariantDefinition] = Vector.empty
@@ -932,6 +934,14 @@ object SComponent {
     validations: Vector[String] = Vector.empty,
     events: Vector[String] = Vector.empty,
     newState: Option[String] = None
+  )
+
+  final case class AggregateCreateDefinition(
+    name: String,
+    input: Map[String, String] = Map.empty,
+    validations: Vector[String] = Vector.empty,
+    events: Vector[String] = Vector.empty,
+    initialState: Option[String] = None
   )
 
   final case class AggregateStateDefinition(

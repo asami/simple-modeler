@@ -9,7 +9,8 @@ import org.simplemodeling.model._
  *  version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version Apr. 14, 2026
+ *  version Apr. 14, 2026
+ * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -89,6 +90,7 @@ object MComponent {
     name: String,
     entityName: String,
     members: Vector[AggregateMemberDefinition] = Vector.empty,
+    creates: Vector[AggregateCreateDefinition] = Vector.empty,
     commands: Vector[AggregateCommandDefinition] = Vector.empty,
     state: Vector[AggregateStateDefinition] = Vector.empty,
     invariants: Vector[AggregateInvariantDefinition] = Vector.empty
@@ -110,6 +112,14 @@ object MComponent {
     validations: Vector[String] = Vector.empty,
     events: Vector[String] = Vector.empty,
     newState: Option[String] = None
+  )
+
+  final case class AggregateCreateDefinition(
+    name: String,
+    input: Map[String, String] = Map.empty,
+    validations: Vector[String] = Vector.empty,
+    events: Vector[String] = Vector.empty,
+    initialState: Option[String] = None
   )
 
   final case class AggregateStateDefinition(

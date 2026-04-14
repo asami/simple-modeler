@@ -8,7 +8,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Apr. 14, 2026
+ *  version Apr. 14, 2026
+ * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -329,6 +330,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"entityName = ${_string_literal(d.entityName)},")
               _ <- _aggregate_members("members", d.members)
               _ <- println(",")
+              _ <- _aggregate_creates("creates", d.creates)
+              _ <- println(",")
               _ <- _aggregate_commands("commands", d.commands)
               _ <- println(",")
               _ <- _aggregate_state("state", d.state)
@@ -367,6 +370,36 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"join = ${_option_string_literal(d.join)},")
               _ <- println(s"joinFieldName = ${_option_string_literal(d.joinFieldName)},")
               _ <- println(s"multiplicity = ${_option_string_literal(d.multiplicity)}")
+              _ <- outdent
+              _ <- println(")")
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+
+  private def _aggregate_creates(
+    label: String,
+    defs: Vector[SComponent.AggregateCreateDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty)
+      println(s"$label = Vector.empty")
+    else
+      for {
+        _ <- println(s"$label = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- println("org.goldenport.cncf.entity.aggregate.AggregateCreateDefinition(")
+              _ <- indent
+              _ <- println(s"name = ${_string_literal(d.name)},")
+              _ <- println(s"input = ${_string_map_literal(d.input)},")
+              _ <- println(s"validations = ${_string_vector_literal(d.validations)},")
+              _ <- println(s"events = ${_string_vector_literal(d.events)},")
+              _ <- println(s"initialState = ${_option_string_literal(d.initialState)}")
               _ <- outdent
               _ <- println(")")
               _ <- if (i < defs.length - 1) println(",") else unit
