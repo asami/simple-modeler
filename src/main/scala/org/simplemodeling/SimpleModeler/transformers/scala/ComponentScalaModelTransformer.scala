@@ -10,7 +10,6 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- *  version Apr. 14, 2026
  * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -225,7 +224,8 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               input = c.input,
               validations = c.validations,
               events = c.events,
-              initialState = c.initialState
+              initialState = c.initialState,
+              implementation = c.implementation
             )
           },
           commands = p.commands.map { c =>
@@ -234,7 +234,8 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               input = c.input,
               validations = c.validations,
               events = c.events,
-              newState = c.newState
+              newState = c.newState,
+              implementation = c.implementation
             )
           },
           state = p.state.map { s =>

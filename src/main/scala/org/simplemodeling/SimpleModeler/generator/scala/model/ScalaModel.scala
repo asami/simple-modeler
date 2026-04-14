@@ -24,7 +24,6 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- *  version Apr. 14, 2026
  * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -933,7 +932,8 @@ object SComponent {
     input: Map[String, String] = Map.empty,
     validations: Vector[String] = Vector.empty,
     events: Vector[String] = Vector.empty,
-    newState: Option[String] = None
+    newState: Option[String] = None,
+    implementation: Option[String] = None
   )
 
   final case class AggregateCreateDefinition(
@@ -941,7 +941,8 @@ object SComponent {
     input: Map[String, String] = Map.empty,
     validations: Vector[String] = Vector.empty,
     events: Vector[String] = Vector.empty,
-    initialState: Option[String] = None
+    initialState: Option[String] = None,
+    implementation: Option[String] = None
   )
 
   final case class AggregateStateDefinition(

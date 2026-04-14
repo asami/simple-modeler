@@ -9,7 +9,6 @@ import org.simplemodeling.model._
  *  version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- *  version Apr. 14, 2026
  * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -111,7 +110,8 @@ object MComponent {
     input: Map[String, String] = Map.empty,
     validations: Vector[String] = Vector.empty,
     events: Vector[String] = Vector.empty,
-    newState: Option[String] = None
+    newState: Option[String] = None,
+    implementation: Option[String] = None
   )
 
   final case class AggregateCreateDefinition(
@@ -119,7 +119,8 @@ object MComponent {
     input: Map[String, String] = Map.empty,
     validations: Vector[String] = Vector.empty,
     events: Vector[String] = Vector.empty,
-    initialState: Option[String] = None
+    initialState: Option[String] = None,
+    implementation: Option[String] = None
   )
 
   final case class AggregateStateDefinition(

@@ -18,8 +18,7 @@ import Generator.{State => GState, _}
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- *  version Apr.  2, 2026
- * @version Apr. 13, 2026
+ * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -285,7 +284,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- _simple_entity_projection_attribute_definitions
     } yield ()
 
-  protected def section_methods: GenM[Unit] = unit
+  protected def section_methods: GenM[Unit] =
+    if (is_aggregate)
+      aggregate_command_methods
+    else
+      unit
 
   protected def section_methods(p: SMethod): GenM[Unit] = unit
 
@@ -302,9 +305,18 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- properties_method
       _ <- component_class_part()
       _ <- to_record_method
+      _ <- if (is_aggregate) separator.flatMap(_ => aggregate_instance_hook_methods) else unit
       _ <- to_view_record_method
       _ <- to_data_store_method
       _ <- value_convert_methods
+    } yield ()
+
+  protected def aggregate_instance_hook_methods: GenM[Unit] =
+    for {
+      _ <- println(s"protected def aggregateCommandNotImplemented[A](commandName: String): Consequence[A] =")
+      _ <- indent
+      _ <- println(s"""Consequence.notImplemented(s"${clazz.className.name} aggregate command is not implemented: $${commandName}")""")
+      _ <- outdent
     } yield ()
 
   protected def schema_accessor_method: GenM[Unit] =
@@ -774,6 +786,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     for {
       _ <- println(s"override def create_from_record(record: Record): Consequence[${clazz.className.name}] = createC(record)")
       _ <- separator
+      _ <- aggregate_object_hook_methods
+      _ <- separator
+      _ <- aggregate_create_methods
+      _ <- if (clazz.methodCompartment.methods.exists(_is_aggregate_create_method)) separator else unit
       _ <- println(s"override def attach_member(aggregate: ${clazz.className.name}, member_name: String, members: Vector[Any]): Consequence[${clazz.className.name}] = member_name match {")
       _ <- indent
       _ <- if (members.isEmpty)
@@ -786,6 +802,89 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("}")
     } yield ()
   }
+
+  protected def aggregate_object_hook_methods: GenM[Unit] =
+    for {
+      _ <- println(s"def aggregateCreateNotImplemented[A](commandName: String): Consequence[A] =")
+      _ <- indent
+      _ <- println(s"""Consequence.notImplemented(s"${clazz.className.name} aggregate create is not implemented: $${commandName}")""")
+      _ <- outdent
+    } yield ()
+
+  protected def aggregate_create_methods: GenM[Unit] = {
+    val methods = clazz.methodCompartment.methods.filter(_is_aggregate_create_method)
+    intercalateTraverse_(methods, separator) { op =>
+      val name = op.name.name
+      for {
+        _ <- println(s"def ${name}(input: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[${clazz.className.name}] =")
+        _ <- indent
+        _ <- block("for") {
+          for {
+            _ <- println("r <- createC(input)")
+          } yield ()
+        }
+        _ <- println("yield r")
+        _ <- outdent
+      } yield ()
+    }
+  }
+
+  protected def aggregate_command_methods: GenM[Unit] = {
+    val methods = clazz.methodCompartment.methods.filterNot(_is_aggregate_create_method)
+    intercalateTraverse_(methods, separator) { op =>
+      val name = op.name.name
+      val isDefaultUpdate = _is_aggregate_default_update_method(op)
+      for {
+        _ <- println(s"def ${name}(input: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[${clazz.className.name}] =")
+        _ <- indent
+        _ <- block("for") {
+          for {
+            _ <- if (isDefaultUpdate)
+              for {
+                _ <- println("r <- createC(input)")
+                _ <- println(s"""_ <- if (r.id == id) Consequence.success(()) else Consequence.argumentInvalid(s"Aggregate id mismatch in ${name}: expected $${id}, actual $${r.id}")""")
+              } yield ()
+            else
+              println(s"""r <- aggregateCommandNotImplemented[${clazz.className.name}](${_scala_string_literal(name)})""")
+          } yield ()
+        }
+        _ <- println("yield r")
+        _ <- outdent
+      } yield ()
+    }
+  }
+
+  private def _is_aggregate_create_method(op: SMethod): Boolean =
+    op.name.name.toLowerCase.startsWith("create")
+
+  private def _is_aggregate_default_update_method(op: SMethod): Boolean =
+    op.name.name == s"update${clazz.className.name}"
+
+  private def _aggregate_name_literal: String =
+    _scala_string_literal(_aggregate_name_token(clazz.className.name))
+
+  private def _aggregate_name_token(name: String): String = {
+    val b = new StringBuilder
+    name.zipWithIndex.foreach { case (c, i) =>
+      if (
+        c.isUpper && i > 0 &&
+        (name.charAt(i - 1).isLower || (i + 1 < name.length && name.charAt(i + 1).isLower))
+      )
+        b.append('_')
+      b.append(c.toLower)
+    }
+    b.toString
+  }
+
+  private def _scala_string_literal(p: String): String =
+    "\"" + p.flatMap {
+      case '\\' => "\\\\"
+      case '"' => "\\\""
+      case '\n' => "\\n"
+      case '\r' => "\\r"
+      case '\t' => "\\t"
+      case c => c.toString
+    } + "\""
 
   private def _aggregate_attach_member_case(p: Attribute): GenM[Unit] = {
     val n = p.name.name

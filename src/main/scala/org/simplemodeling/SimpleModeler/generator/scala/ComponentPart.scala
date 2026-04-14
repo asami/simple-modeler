@@ -8,7 +8,6 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- *  version Apr. 14, 2026
  * @version Apr. 15, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -399,7 +398,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"input = ${_string_map_literal(d.input)},")
               _ <- println(s"validations = ${_string_vector_literal(d.validations)},")
               _ <- println(s"events = ${_string_vector_literal(d.events)},")
-              _ <- println(s"initialState = ${_option_string_literal(d.initialState)}")
+              _ <- println(s"initialState = ${_option_string_literal(d.initialState)},")
+              _ <- println(s"implementation = ${_option_string_literal(d.implementation)}")
               _ <- outdent
               _ <- println(")")
               _ <- if (i < defs.length - 1) println(",") else unit
@@ -429,7 +429,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"input = ${_string_map_literal(d.input)},")
               _ <- println(s"validations = ${_string_vector_literal(d.validations)},")
               _ <- println(s"events = ${_string_vector_literal(d.events)},")
-              _ <- println(s"newState = ${_option_string_literal(d.newState)}")
+              _ <- println(s"newState = ${_option_string_literal(d.newState)},")
+              _ <- println(s"implementation = ${_option_string_literal(d.implementation)}")
               _ <- outdent
               _ <- println(")")
               _ <- if (i < defs.length - 1) println(",") else unit
@@ -1091,12 +1092,59 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- outdent
         _ <- println(s")")
         _ <- separator
+        _ <- _aggregate_factory_methods
+        _ <- separator
         _ <- actioncalldescs.setup
         _ <- outdent
         _ <- println(s"}")
         _ <- actioncalldescs.define
       } yield ()
     }
+
+    private def _aggregate_factory_methods: GenM[Unit] = {
+      val defs = component.aggregateDefinitions.groupBy(_.entityName).values.toVector.map(_.head).sortBy(_.entityName)
+      if (defs.isEmpty)
+        unit
+      else
+        for {
+          _ <- println("override def create_aggregate_from_record(")
+          _ <- indent
+          _ <- println("entityName: String,")
+          _ <- println("record: Record,")
+          _ <- println("default: => Consequence[Any]")
+          _ <- outdent
+          _ <- println("): Consequence[Any] = entityName match {")
+          _ <- indent
+          _ <- defs.foldLeft(unit) { (z, d) =>
+            z.flatMap(_ => println(s"""case ${_string_literal(d.entityName)} => ${_aggregate_factory_method_name(d)}(record)"""))
+          }
+          _ <- println("case _ => default")
+          _ <- outdent
+          _ <- println("}")
+          _ <- separator
+          _ <- intercalateTraverse_(defs, separator)(d => _aggregate_factory_method(d))
+        } yield ()
+    }
+
+    private def _aggregate_factory_method(
+      d: SComponent.AggregateDefinition
+    ): GenM[Unit] =
+      println(s"def ${_aggregate_factory_method_name(d)}(record: Record): Consequence[Any] = ${_aggregate_class_name(d)}.createC(record)")
+
+    private def _aggregate_factory_method_name(
+      d: SComponent.AggregateDefinition
+    ): String =
+      s"create${_aggregate_entity_class_name(d.entityName)}Aggregate"
+
+    private def _aggregate_class_name(
+      d: SComponent.AggregateDefinition
+    ): String =
+      s"_root_.${component.packageName.name}.entity.aggregate.${_aggregate_entity_class_name(d.entityName)}"
+
+    private def _aggregate_entity_class_name(
+      name: String
+    ): String =
+      name.split("[^A-Za-z0-9]+").toVector.filter(_.nonEmpty).map(make_title).mkString
 
     private def _action_call_factory(actioncalldescs: ActionCallDescriptorCollection): GenM[Unit] = {
       actioncalldescs.methodsInServices
