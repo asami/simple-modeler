@@ -18,7 +18,7 @@ import Generator.{State => GState, _}
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 15, 2026
+ * @version Apr. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1009,10 +1009,57 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println(s"datatype = ${_schema_datatype_expr(p.typeName)},")
       _ <- println(s"multiplicity = ${_schema_multiplicity_expr(p.typeName)}")
       _ <- outdent
-      _ <- println(")")
+      _ <- println("),")
+      _ <- println(s"web = ${_schema_web_column_expr(p)}")
       _ <- outdent
       _ <- print(")")
     } yield ()
+
+  private def _schema_web_column_expr(p: Attribute): String = {
+    val web = _schema_effective_web_attribute(p)
+    if (web.isEmpty)
+      "org.goldenport.schema.WebColumn.empty"
+    else {
+      val args = Vector(
+        web.controlType.map(x => s"controlType = Some(${_scala_string_literal(x)})"),
+        web.required.map(x => s"required = Some(${x})"),
+        _option_when(web.hidden, "hidden = true"),
+        _option_when(web.system, "system = true"),
+        _option_when(web.readonly, "readonly = true"),
+        _option_when(web.values.nonEmpty, s"values = Vector(${web.values.map(_scala_string_literal).mkString(", ")})"),
+        _option_when(web.multiple, "multiple = true"),
+        web.placeholder.map(x => s"placeholder = Some(${_scala_string_literal(x)})"),
+        web.help.map(x => s"help = Some(${_scala_string_literal(x)})")
+      ).flatten
+      s"org.goldenport.schema.WebColumn(${args.mkString(", ")})"
+    }
+  }
+
+  private def _option_when[A](condition: Boolean, value: => A): Option[A] =
+    if (condition) Some(value) else None
+
+  private def _schema_effective_web_attribute(p: Attribute): WebAttribute =
+    p.web.copy(
+      controlType = p.web.controlType.orElse(_schema_default_control_type(p)),
+      required = p.web.required.orElse(Some(_schema_default_required(p.typeName)))
+    )
+
+  private def _schema_default_required(p: TypeName): Boolean =
+    _schema_multiplicity_expr(p) match {
+      case "org.goldenport.schema.Multiplicity.ZeroOne" | "org.goldenport.schema.Multiplicity.ZeroMore" => false
+      case _ => true
+    }
+
+  private def _schema_default_control_type(p: Attribute): Option[String] = {
+    val datatype = _schema_datatype_expr(p.typeName)
+    val name = p.name.name.toLowerCase(java.util.Locale.ROOT)
+    if (datatype.endsWith("XBoolean")) Some("checkbox")
+    else if (datatype.endsWith("XInt") || datatype.endsWith("XLong") || datatype.endsWith("XFloat") || datatype.endsWith("XDouble") || datatype.endsWith("XInteger") || datatype.endsWith("XNonNegativeInteger") || datatype.endsWith("XPositiveInteger") || datatype.endsWith("XDecimal")) Some("number")
+    else if (datatype.endsWith("XDateTime") || datatype.endsWith("XLocalDateTime")) Some("datetime-local")
+    else if (datatype.endsWith("XDate")) Some("date")
+    else if (datatype.endsWith("XText") || name.contains("body") || name.contains("content") || name.contains("description") || name.contains("comment") || name.contains("message")) Some("textarea")
+    else None
+  }
 
   private def _schema_datatype_expr(p: TypeName): String = {
     val base = _schema_base_type(p)

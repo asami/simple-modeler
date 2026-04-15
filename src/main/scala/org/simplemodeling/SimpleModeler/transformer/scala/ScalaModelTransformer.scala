@@ -2,6 +2,7 @@ package org.simplemodeling.SimpleModeler.transformer.scala
 
 import org.goldenport.RAISE
 import org.goldenport.context.Consequence
+import org.goldenport.record.v2.Column
 import org.goldenport.record.v2.XStateMachine
 import org.goldenport.record.v2.XString
 import org.goldenport.util.StringUtils
@@ -16,7 +17,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- * @version Apr.  9, 2026
+ * @version Apr. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -168,7 +169,8 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       constraints = constraints,
       dbColumnName = dbcolumnname,
       dbColumnType = dbcolumntype,
-      externalName = externalname
+      externalName = externalname,
+      web = to_web_attribute(p)
     )
   }
 
@@ -180,6 +182,30 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     Field(FieldName(p.name), typename)
   }
 
+  protected def to_web_attribute(p: MAttribute): WebAttribute =
+    WebAttribute(
+      controlType = Some(_web_control_type(p)).filterNot(_ == "text"),
+      required = Some(p.isRequired),
+      hidden = p.column.exists(_.form.hidden),
+      readonly = p.readonly || p.column.exists(_.form.readonly),
+      placeholder = p.column.flatMap(_.form.placeholder).map(_.distillDefault).map(_.trim).filterNot(_.isEmpty),
+      help = _description_text(p.description)
+    )
+
+  private def _web_control_type(p: MAttribute): String = {
+    val name = p.name.toLowerCase(java.util.Locale.ROOT)
+    val datatype = p.column.map(_.datatype).getOrElse(org.goldenport.record.v2.XString).name.toLowerCase(java.util.Locale.ROOT)
+    if (datatype.contains("bool")) "checkbox"
+    else if (datatype.contains("text") || datatype.contains("memo") || name.contains("body") || name.contains("content") || name.contains("description") || name.contains("comment") || name.contains("message")) "textarea"
+    else if (datatype.contains("int") || datatype.contains("long") || datatype.contains("decimal") || datatype.contains("number")) "number"
+    else if (datatype.contains("datetime") || datatype.contains("timestamp")) "datetime-local"
+    else if (datatype.contains("date")) "date"
+    else "text"
+  }
+
+  private def _description_text(p: org.smartdox.Description): Option[String] =
+    Option(p.summary.toText()).map(_.trim).filterNot(_.isEmpty).
+      orElse(Option(p.content.toText()).map(_.trim).filterNot(_.isEmpty))
   protected def to_attributes(ps: List[MAttribute]): AttributeSequence =
     AttributeSequence(ps.toVector.map(to_attribute))
 
@@ -188,7 +214,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     val dbcolumnname = p.column.flatMap(x => Option(x.sql.name).map(_.trim).filterNot(_.isEmpty))
     val dbcolumntype = p.column.flatMap(_.sql.datatype.map(_.fullName))
     val externalname = p.column.flatMap(_.aliases.headOption).map(_.trim).filterNot(_.isEmpty)
-    Attribute(AttributeName(p.name), typename, dbcolumnname, dbcolumntype, externalname)
+    Attribute(AttributeName(p.name), typename, dbcolumnname, dbcolumntype, externalname, to_web_attribute(p))
   }
 
   def to_typename(p: MAttribute): TypeName =

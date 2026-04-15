@@ -24,7 +24,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 15, 2026
+ * @version Apr. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -411,7 +411,8 @@ case class Parameter(
   constraints: Vector[PConstraint] = Vector.empty,
   dbColumnName: Option[String] = None,
   dbColumnType: Option[String] = None,
-  externalName: Option[String] = None
+  externalName: Option[String] = None,
+  web: WebAttribute = WebAttribute.empty
 ) {
   def isRequired: Boolean = typeName.isRequired
   def titleName = name.toTitle
@@ -446,7 +447,8 @@ case class ParameterSequence(
           m.typeName,
           m.dbColumnName,
           m.dbColumnType,
-          m.externalName
+          m.externalName,
+          m.web
         )
       )
       case _ => None
@@ -464,9 +466,30 @@ case class Attribute(
   typeName: TypeName,
   dbColumnName: Option[String] = None,
   dbColumnType: Option[String] = None,
-  externalName: Option[String] = None
+  externalName: Option[String] = None,
+  web: WebAttribute = WebAttribute.empty
 ) {
 }
+
+case class WebAttribute(
+  controlType: Option[String] = None,
+  required: Option[Boolean] = None,
+  hidden: Boolean = false,
+  system: Boolean = false,
+  readonly: Boolean = false,
+  values: Vector[String] = Vector.empty,
+  multiple: Boolean = false,
+  placeholder: Option[String] = None,
+  help: Option[String] = None
+) {
+  def isEmpty: Boolean =
+    this == WebAttribute.empty
+}
+
+object WebAttribute {
+  val empty: WebAttribute = WebAttribute()
+}
+
 object Attribute {
   def apply(name: String, typeName: TypeName): Attribute = Attribute(
     AttributeName(name), typeName
@@ -497,6 +520,22 @@ object Attribute {
     dbColumnName,
     dbColumnType,
     externalName
+  )
+
+  def apply(
+    name: String,
+    typeName: TypeName,
+    dbColumnName: Option[String],
+    dbColumnType: Option[String],
+    externalName: Option[String],
+    web: WebAttribute
+  ): Attribute = Attribute(
+    AttributeName(name),
+    typeName,
+    dbColumnName,
+    dbColumnType,
+    externalName,
+    web
   )
 }
 

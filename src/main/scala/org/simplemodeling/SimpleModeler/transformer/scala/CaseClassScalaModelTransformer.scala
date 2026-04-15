@@ -6,7 +6,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Sep. 23, 2025
  *  version Sep. 30, 2025
- * @version Mar. 25, 2026
+ *  version Mar. 25, 2026
+ * @version Apr. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class CaseClassScalaModelTransformer() extends ScalaModelTransformer() {
@@ -27,7 +28,8 @@ abstract class CaseClassScalaModelTransformer() extends ScalaModelTransformer() 
       constraints = constraints,
       dbColumnName = dbcolumnname,
       dbColumnType = dbcolumntype,
-      externalName = externalname
+      externalName = externalname,
+      web = to_web_attribute(p)
     )
   }
 
