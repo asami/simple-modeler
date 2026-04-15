@@ -1029,11 +1029,45 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _option_when(web.values.nonEmpty, s"values = Vector(${web.values.map(_scala_string_literal).mkString(", ")})"),
         _option_when(web.multiple, "multiple = true"),
         web.placeholder.map(x => s"placeholder = Some(${_scala_string_literal(x)})"),
-        web.help.map(x => s"help = Some(${_scala_string_literal(x)})")
+        web.help.map(x => s"help = Some(${_scala_string_literal(x)})"),
+        _schema_web_validation_hints_expr(p).map(x => s"validation = ${x}")
       ).flatten
       s"org.goldenport.schema.WebColumn(${args.mkString(", ")})"
     }
   }
+
+  private def _schema_web_validation_hints_expr(p: Attribute): Option[String] = {
+    val stringLike = p.typeName.contentType.isString
+    val args = p.constraints.flatMap { c =>
+      c.name match {
+        case "min_length" | "minLength" | "min-length" =>
+          Some(s"minLength = Some(${c.literal})")
+        case "max_length" | "maxLength" | "max-length" =>
+          Some(s"maxLength = Some(${c.literal})")
+        case "min" if stringLike =>
+          Some(s"minLength = Some(${c.literal})")
+        case "max" if stringLike =>
+          Some(s"maxLength = Some(${c.literal})")
+        case "min" =>
+          Some(s"min = Some(${_schema_web_decimal_expr(c.literal)})")
+        case "max" =>
+          Some(s"max = Some(${_schema_web_decimal_expr(c.literal)})")
+        case "step" =>
+          Some(s"step = Some(${_schema_web_decimal_expr(c.literal)})")
+        case "pattern" | "regex" =>
+          Some(s"pattern = Some(${_scala_string_literal(c.value.toString)})")
+        case _ =>
+          None
+      }
+    }
+    if (args.isEmpty)
+      None
+    else
+      Some(s"org.goldenport.schema.WebValidationHints(${args.mkString(", ")})")
+  }
+
+  private def _schema_web_decimal_expr(p: String): String =
+    s"BigDecimal(${_scala_string_literal(p)})"
 
   private def _option_when[A](condition: Boolean, value: => A): Option[A] =
     if (condition) Some(value) else None

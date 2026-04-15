@@ -443,12 +443,13 @@ case class ParameterSequence(
     parameters.flatMap {
       case m if (m.isAttribute) => Some(
         Attribute(
-          m.name.name,
+          AttributeName(m.name.name),
           m.typeName,
           m.dbColumnName,
           m.dbColumnType,
           m.externalName,
-          m.web
+          m.web,
+          m.constraints
         )
       )
       case _ => None
@@ -467,7 +468,8 @@ case class Attribute(
   dbColumnName: Option[String] = None,
   dbColumnType: Option[String] = None,
   externalName: Option[String] = None,
-  web: WebAttribute = WebAttribute.empty
+  web: WebAttribute = WebAttribute.empty,
+  constraints: Vector[PConstraint] = Vector.empty
 ) {
 }
 
