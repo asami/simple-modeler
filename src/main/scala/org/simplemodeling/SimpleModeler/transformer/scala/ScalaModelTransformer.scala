@@ -57,13 +57,15 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       val parentclass = to_scala_core_parent(p)
       val traits = to_scala_core_traits(p)
       val attrs = effective_attributes(p)
-      val parameters = to_parameters(attrs)
-      val fields = to_fields(attrs)
+      val concreteattrs = attrs.filterNot(_.isDerived)
+      val derivedattrs = to_attributes(attrs.filter(_.isDerived)).attributes
+      val parameters = to_parameters(concreteattrs)
+      val fields = to_fields(concreteattrs)
       val methods = to_methods(p.operations)
       val receptions = ReceptionCompartment.empty // TODO
       val directive = Directive.default.withCanonicalSchemaOwner(
         TypeName.Plain(packagename, p.name)
-      )
+      ).withDerivedAttributes(derivedattrs)
       ClassCore(
         packagename,
         declaration,
@@ -150,7 +152,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     ParameterSequence(ps.toVector.flatMap(to_parameter_required))
 
   protected def to_parameter_required(p: MAttribute): Option[Parameter] =
-    if (p.isRequired)
+    if (p.isRequired && !p.isDerived)
       Some(to_parameter(p))
     else
       None
@@ -170,6 +172,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       dbColumnName = dbcolumnname,
       dbColumnType = dbcolumntype,
       externalName = externalname,
+      derived = p.derived,
       web = to_web_attribute(p)
     )
   }
@@ -214,7 +217,16 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     val dbcolumnname = p.column.flatMap(x => Option(x.sql.name).map(_.trim).filterNot(_.isEmpty))
     val dbcolumntype = p.column.flatMap(_.sql.datatype.map(_.fullName))
     val externalname = p.column.flatMap(_.aliases.headOption).map(_.trim).filterNot(_.isEmpty)
-    Attribute(AttributeName(p.name), typename, dbcolumnname, dbcolumntype, externalname, to_web_attribute(p))
+    Attribute(
+      AttributeName(p.name),
+      typename,
+      p.designation.labelI18N.map(_.c),
+      dbcolumnname,
+      dbcolumntype,
+      externalname,
+      p.derived,
+      to_web_attribute(p)
+    )
   }
 
   def to_typename(p: MAttribute): TypeName =

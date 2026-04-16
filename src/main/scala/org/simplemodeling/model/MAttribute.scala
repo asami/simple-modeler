@@ -30,7 +30,9 @@ import org.simplemodeling.parser.SimpleModelParser
  *  version Jun. 20, 2021
  *  version Sep. 23, 2025
  *  version Feb. 10, 2026
- * @version Mar. 19, 2026
+ *  version Mar. 19, 2026
+ *  version Apr. 16, 2026
+ * @version Apr. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MAttribute(
@@ -43,9 +45,11 @@ case class MAttribute(
   column: Option[Column],
   //
   readonly: Boolean = false,
+  derived: Option[String] = None,
   description: Description = Description.empty
 ) extends MElement {
   def isRequired: Boolean = multiplicity.isRequired
+  def isDerived: Boolean = derived.nonEmpty
 }
 
 object MAttribute {
@@ -63,6 +67,11 @@ object MAttribute {
     val constraints = p.getStringCaseInsensitive(config.constraintNames).
       map(MConstraint.create).
       toList
+    val derived = _string_value_flexible(p, config.derivedNames.list).orElse(
+      p.getStringCaseInsensitive(config.derivedNames).map(_.trim).filterNot(_.isEmpty)
+    ).orElse(
+      p.getString("5").map(_.trim).filterNot(_.isEmpty)
+    )
     val dbcolumnname = p.getStringCaseInsensitive(config.dbColumnNameNames).map(_.trim).filterNot(_.isEmpty)
     val dbcolumntype = p.getStringCaseInsensitive(config.dbColumnTypeNames).map(_.trim).filterNot(_.isEmpty)
     val externalname = p.getStringCaseInsensitive(config.externalNameNames).map(_.trim).filterNot(_.isEmpty)
@@ -74,13 +83,25 @@ object MAttribute {
           case _ => org.goldenport.record.v2.XString
         },
         multiplicity = multiplicity.multiplicity,
+        label = label.map(_.c),
         aliases = externalname.toList,
         sql = _sql_column(dbcolumnname, dbcolumntype)
       )
     )
     val designation = Designation.nameLabel(name, label)
-    MAttribute(designation, datatype, multiplicity, constraints, column)
+    MAttribute(designation, datatype, multiplicity, constraints, column, derived = derived)
   }
+
+  private def _string_value_flexible(p: Record, keys: Seq[String]): Option[String] = {
+    val normalized = keys.map(_normalize_key).toSet
+    p.fields.collectFirst {
+      case field if normalized.contains(_normalize_key(field.name)) =>
+        field.value.asString.trim
+    }.filterNot(_.isEmpty)
+  }
+
+  private def _normalize_key(p: String): String =
+    p.toLowerCase.replaceAll("[\\s_\\-　]+", "")
 
   private def _sql_column(
     dbcolumnname: Option[String],

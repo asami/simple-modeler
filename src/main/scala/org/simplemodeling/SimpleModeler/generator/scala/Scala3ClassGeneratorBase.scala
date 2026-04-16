@@ -282,6 +282,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     for {
       _ <- _simple_object_attribute_alias_definitions
       _ <- _simple_entity_projection_attribute_definitions
+      _ <- _derived_attribute_methods
     } yield ()
 
   protected def section_methods: GenM[Unit] =
@@ -514,7 +515,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("case org.simplemodeling.model.directive.Condition.In(candidates) => candidates.toVector.map(_to_external_value)")
         _ <- println("case m: Record => m")
         _ <- println("""case m: org.goldenport.value.NameAttributes => Record.dataAuto("name" -> _to_external_value(m.name), "label" -> _to_external_value(m.label), "title" -> _to_external_value(m.title))""")
-        _ <- println("""case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_external_value(m.headline), "summary" -> _to_external_value(m.summary), "description" -> _to_external_value(m.description))""")
+        _ <- println("""case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_external_value(m.headline), "summary" -> _to_external_value(m.summary), "description" -> _to_external_value(m.description), "content" -> _to_external_value(m.content))""")
         _ <- println("""case m: org.simplemodeling.model.value.LifecycleAttributes => Record.dataAuto("created_at" -> _to_external_value(m.createdAt), "updated_at" -> _to_external_value(m.updatedAt), "created_by" -> _to_external_value(m.createdBy), "updated_by" -> _to_external_value(m.updatedBy), "post_status" -> _to_external_value(m.postStatus), "aliveness" -> _to_external_value(m.aliveness))""")
         _ <- println("""case m: org.simplemodeling.model.value.PublicationAttributes => Record.dataAuto("publish_at" -> _to_external_value(m.publishAt), "public_at" -> _to_external_value(m.publicAt), "close_at" -> _to_external_value(m.closeAt), "start_at" -> _to_external_value(m.startAt), "end_at" -> _to_external_value(m.endAt))""")
         _ <- println("""case m: org.simplemodeling.model.value.SecurityAttributes => Record.dataAuto("owner_id" -> _to_external_value(m.ownerId), "group_id" -> _to_external_value(m.groupId), "rights" -> _to_external_value(m.rights), "privilege_id" -> _to_external_value(m.privilegeId))""")
@@ -551,7 +552,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("  case m: org.simplemodeling.model.statemachine.StateMachine => m.dbValue")
         _ <- println("  case m: org.simplemodeling.model.powertype.Powertype => m.dbValue.getOrElse(m.value)")
         _ <- println("""  case m: org.goldenport.value.NameAttributes => Record.dataAuto("name" -> _to_data_store_value(m.name), "label" -> _to_data_store_value(m.label), "title" -> _to_data_store_value(m.title))""")
-        _ <- println("""  case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_data_store_value(m.headline), "summary" -> _to_data_store_value(m.summary), "description" -> _to_data_store_value(m.description))""")
+        _ <- println("""  case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_data_store_value(m.headline), "summary" -> _to_data_store_value(m.summary), "description" -> _to_data_store_value(m.description), "content" -> _to_data_store_value(m.content))""")
         _ <- println("  case m: org.simplemodeling.model.value.LifecycleAttributes => _to_external_value(m)")
         _ <- println("  case m: org.simplemodeling.model.value.PublicationAttributes => _to_external_value(m)")
         _ <- println("  case m: org.simplemodeling.model.value.SecurityAttributes => _to_external_value(m)")
@@ -579,9 +580,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _external_record_attributes: Vector[Attribute] =
     if (_is_external_flat_record)
-      attributes_vector.filterNot(p => _internal_entity_attribute_names.contains(p.name.name))
-    else
+      attributes_vector.filterNot(p => _internal_entity_attribute_names.contains(p.name.name)) ++ clazz.directive.derivedAttributes
+    else if (_is_projection_command_class)
       attributes_vector
+    else
+      attributes_vector ++ clazz.directive.derivedAttributes
 
   private def _is_external_flat_record: Boolean =
     is_entity_value && !is_entity_value_create && !is_update
@@ -637,10 +640,16 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     print("\"", p._1, "\" -> _to_external_value(", p._2, ")")
 
   private def _view_record_direct_attributes: Vector[(String, String)] =
-    attributes_vector.collect {
+    (_record_direct_source_attributes).collect {
       case p if !_simple_object_attribute_names.contains(p.name.name) =>
         (_record_external_key(p), p.name.name)
     }
+
+  private def _record_direct_source_attributes: Vector[Attribute] =
+    if (_is_projection_command_class)
+      attributes_vector
+    else
+      attributes_vector ++ clazz.directive.derivedAttributes
 
   private def _view_record_properties: Vector[(String, String)] = {
     val names = attributes_vector.map(_.name.name).toSet
@@ -655,6 +664,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       b += "headline" -> s"$attr.headline"
       b += "summary" -> s"$attr.summary"
       b += "description" -> s"$attr.description"
+      b += "content" -> s"$attr.content"
     }
     _select_attribute_name(names, "lifecycleAttributes", "lifecycle_Attributes").foreach { attr =>
       b += "created_at" -> s"$attr.createdAt"
@@ -990,8 +1000,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     clazz.directive.canonicalSchemaOwner.map(_.fullName).getOrElse(clazz.className.name)
 
   private def _schema_columns: GenM[Unit] = {
-    val n = attributes_vector.length
-    attributes_vector.zipWithIndex.traverse_ { case (a, i) =>
+    val xs = attributes_vector ++ clazz.directive.derivedAttributes
+    val n = xs.length
+    xs.zipWithIndex.traverse_ { case (a, i) =>
       for {
         _ <- _schema_column(a)
         _ <- if (i + 1 < n) println(",") else println()
@@ -1010,6 +1021,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println(s"multiplicity = ${_schema_multiplicity_expr(p.typeName)}")
       _ <- outdent
       _ <- println("),")
+      _ <- p.label match {
+        case Some(label) => println(s"label = Some(org.goldenport.datatype.I18nLabel(${_scala_string_literal(label)})),")
+        case None => unit
+      }
       _ <- println(s"web = ${_schema_web_column_expr(p)}")
       _ <- outdent
       _ <- print(")")
@@ -1468,6 +1483,68 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- define_method_unsafe_consequence_take(name, rtype, params)
     } yield ()
   }
+
+  private def _derived_attribute_methods: GenM[Unit] =
+    intercalateTraverse_(clazz.directive.derivedAttributes, separator)(_derived_attribute_methods)
+
+  private def _derived_attribute_methods(p: Attribute): GenM[Unit] =
+    if (_is_projection_command_class)
+      unit
+    else
+      p.derived.map(_.trim).filterNot(_.isEmpty) match {
+        case Some(target) if !target.contains(",") =>
+          _derived_alias_methods(p, target)
+        case Some(_) =>
+          _derived_computed_placeholder(p)
+        case None =>
+          unit
+      }
+
+  private def _is_projection_command_class: Boolean = {
+    val pkg = clazz.packageName.name
+    pkg.endsWith(".query") || pkg.endsWith(".update")
+  }
+
+  private def _derived_alias_methods(
+    p: Attribute,
+    target: String
+  ): GenM[Unit] = {
+    val name = p.name.name
+    val title = StringUtils.makeTitle(name)
+    target match {
+      case "title" =>
+        for {
+          _ <- println(s"def $name: String = title")
+          _ <- println()
+          _ <- println(s"def $name(locale: java.util.Locale): String = title(locale)")
+          _ <- println()
+          _ <- println(s"def with$title(value: String): ${clazz.className.name} =")
+          _ <- indent
+          _ <- println("withNameAttributes(org.simplemodeling.model.value.NameAttributes.Builder(nameAttributes).withTitle(value).build())")
+          _ <- outdent
+        } yield ()
+      case "content" =>
+        for {
+          _ <- println(s"def $name: Option[org.goldenport.datatype.I18nText] = content")
+          _ <- println()
+          _ <- println(s"def $name(locale: java.util.Locale): Option[String] = content(locale)")
+          _ <- println()
+          _ <- println(s"def with$title(value: String): ${clazz.className.name} =")
+          _ <- indent
+          _ <- println("withDescriptiveAttributes(org.simplemodeling.model.value.DescriptiveAttributes.Builder(descriptiveAttributes).withContent(value).build())")
+          _ <- outdent
+        } yield ()
+      case other =>
+        for {
+          _ <- println(s"def $name = $other")
+        } yield ()
+    }
+  }
+
+  private def _derived_computed_placeholder(p: Attribute): GenM[Unit] =
+    for {
+      _ <- println(s"// derived computed attribute ${p.name.name}: ${p.derived.getOrElse("")}")
+    } yield ()
 
   protected def define_cmethods_unsafe(
     name: String,
@@ -2279,7 +2356,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("  case m: String => NameAttributes.simple(m)")
       _ <- println("}),")
       _ <- println("_record_get_as_c[Name](record, List(\"name\")),")
-      _ <- println("_record_get_as_c[String](record, List(\"title\"))")
+      _ <- println("_record_get_as_c[String](record, ", _record_keys_for_derived_target("title"), ")")
       _ <- outdent
       _ <- println(").mapN { (attrv, namev, titlev) =>")
       _ <- indent
@@ -2302,23 +2379,33 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("  case m: Record => DescriptiveAttributes.Builder(")
       _ <- println("    headline = m.getAny(\"headline\").collect { case s: String => I18nBrief(s) },")
       _ <- println("    summary = m.getAny(\"summary\").collect { case s: String => I18nSummary(s) },")
-      _ <- println("    description = m.getAny(\"description\").collect { case s: String => I18nDescription(s) }")
+      _ <- println("    description = m.getAny(\"description\").collect { case s: String => I18nDescription(s) },")
+      _ <- println("    content = m.getAny(\"content\").collect { case s: String => I18nText(s) }")
       _ <- println("  ).build()")
       _ <- println("}),")
       _ <- println("_record_get_as_c[String](record, List(\"headline\")),")
       _ <- println("_record_get_as_c[String](record, List(\"summary\")),")
-      _ <- println("_record_get_as_c[String](record, List(\"description\"))")
+      _ <- println("_record_get_as_c[String](record, List(\"description\")),")
+      _ <- println("_record_get_as_c[String](record, ", _record_keys_for_derived_target("content"), ")")
       _ <- outdent
-      _ <- println(").mapN { (attrv, headlinev, summaryv, descriptionv) =>")
+      _ <- println(").mapN { (attrv, headlinev, summaryv, descriptionv, contentv) =>")
       _ <- indent
       _ <- println("DescriptiveAttributes.Builder(attrv.orElse(", p.name.name, "))")
       _ <- println("  .copy(headline = headlinev.map(I18nBrief(_)))")
       _ <- println("  .copy(summary = summaryv.map(I18nSummary(_)))")
       _ <- println("  .copy(description = descriptionv.map(I18nDescription(_)))")
+      _ <- println("  .copy(content = contentv.map(I18nText(_)))")
       _ <- println("  .build()")
       _ <- outdent
       _ <- println("}")
     } yield ()
+
+  private def _record_keys_for_derived_target(target: String): String = {
+    val keys = target +: clazz.directive.derivedAttributes.flatMap { attr =>
+      attr.derived.map(_.trim).filter(_ == target).map(_ => attr.name.name)
+    }
+    keys.distinct.map(x => "\"" + x + "\"").mkString("List(", ", ", ")")
+  }
 
   private def _build_param_or_var_container(
     p: Parameter,

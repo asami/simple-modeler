@@ -12,7 +12,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  */
 abstract class CaseClassScalaModelTransformer() extends ScalaModelTransformer() {
   override protected def to_parameters(ps: List[MAttribute]): ParameterSequence =
-    ParameterSequence(ps.toVector.map(to_parameter))
+    ParameterSequence(ps.toVector.filterNot(_.isDerived).map(to_parameter))
 
   override protected def to_parameter(p: MAttribute): Parameter = {
     val typename = to_typename(p)
@@ -26,12 +26,15 @@ abstract class CaseClassScalaModelTransformer() extends ScalaModelTransformer() 
       isAttribute = true,
       isDefault = false,
       constraints = constraints,
+      label = p.designation.labelI18N.map(_.c),
       dbColumnName = dbcolumnname,
       dbColumnType = dbcolumntype,
       externalName = externalname,
+      derived = p.derived,
       web = to_web_attribute(p)
     )
   }
 
-  override protected def to_attributes(ps: List[MAttribute]) = AttributeSequence.empty
+  override protected def to_attributes(ps: List[MAttribute]) =
+    AttributeSequence(ps.toVector.filter(_.isDerived).map(to_attribute))
 }

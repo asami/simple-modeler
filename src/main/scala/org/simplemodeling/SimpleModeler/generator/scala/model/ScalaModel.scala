@@ -24,7 +24,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 16, 2026
+ * @version Apr. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -409,9 +409,11 @@ case class Parameter(
   isDefault: Boolean = false,
   value: Option[SClassBase] = None,
   constraints: Vector[PConstraint] = Vector.empty,
+  label: Option[String] = None,
   dbColumnName: Option[String] = None,
   dbColumnType: Option[String] = None,
   externalName: Option[String] = None,
+  derived: Option[String] = None,
   web: WebAttribute = WebAttribute.empty
 ) {
   def isRequired: Boolean = typeName.isRequired
@@ -445,9 +447,11 @@ case class ParameterSequence(
         Attribute(
           AttributeName(m.name.name),
           m.typeName,
+          m.label,
           m.dbColumnName,
           m.dbColumnType,
           m.externalName,
+          m.derived,
           m.web,
           m.constraints
         )
@@ -465,12 +469,15 @@ object ParameterSequence {
 case class Attribute(
   name: AttributeName,
   typeName: TypeName,
+  label: Option[String] = None,
   dbColumnName: Option[String] = None,
   dbColumnType: Option[String] = None,
   externalName: Option[String] = None,
+  derived: Option[String] = None,
   web: WebAttribute = WebAttribute.empty,
   constraints: Vector[PConstraint] = Vector.empty
 ) {
+  def isDerived: Boolean = derived.nonEmpty
 }
 
 case class WebAttribute(
@@ -505,6 +512,7 @@ object Attribute {
   ): Attribute = Attribute(
     AttributeName(name),
     typeName,
+    None,
     dbColumnName,
     dbColumnType,
     None
@@ -519,6 +527,7 @@ object Attribute {
   ): Attribute = Attribute(
     AttributeName(name),
     typeName,
+    None,
     dbColumnName,
     dbColumnType,
     externalName
@@ -534,10 +543,11 @@ object Attribute {
   ): Attribute = Attribute(
     AttributeName(name),
     typeName,
+    None,
     dbColumnName,
     dbColumnType,
     externalName,
-    web
+    web = web
   )
 }
 
@@ -633,6 +643,7 @@ case class Directive(
   classKind: Option[ClassKind] = None,
   purpose: Option[Purpose] = None,
   canonicalSchemaOwner: Option[TypeName.Plain] = None,
+  derivedAttributes: Vector[Attribute] = Vector.empty,
   enumerationValues: Vector[Directive.EnumerationValue] = Vector.empty
 ) {
   def isPlain: Boolean = purpose.fold(true)(_ == Purpose.Plain)
@@ -644,6 +655,7 @@ case class Directive(
   def withEntityValue = copy(classKind = Some(ClassKind.EntityValue))
   def withPurpose(purpose: Purpose) = copy(purpose = Some(purpose))
   def withCanonicalSchemaOwner(owner: TypeName.Plain) = copy(canonicalSchemaOwner = Some(owner))
+  def withDerivedAttributes(attributes: Vector[Attribute]) = copy(derivedAttributes = attributes)
   def withEnumerationValues(values: Vector[Directive.EnumerationValue]) = copy(enumerationValues = values)
 }
 object Directive {
@@ -1174,7 +1186,8 @@ object SComponent {
     packageName: PackageName,
     usageKind: Option[String] = None,
     operationKind: Option[String] = None,
-    applicationDomain: Option[String] = None
+    applicationDomain: Option[String] = None,
+    viewNames: Vector[String] = Vector.empty
   ) {
     def entityObjectName: String =
       if (packageName.name.isEmpty)

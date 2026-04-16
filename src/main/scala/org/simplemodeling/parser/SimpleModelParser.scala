@@ -27,7 +27,8 @@ import org.simplemodeling.model.domain._
  *  version Dec. 27, 2020
  *  version Jun. 20, 2021
  *  version Feb. 27, 2026
- * @version Mar. 19, 2026
+ *  version Mar. 19, 2026
+ * @version Apr. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 case class SimpleModelParser(config: SimpleModelParser.Config) {
@@ -61,6 +62,7 @@ object SimpleModelParser {
     multiplicityNames: NonEmptyVector[String],
     labelNames: NonEmptyVector[String],
     constraintNames: NonEmptyVector[String],
+    derivedNames: NonEmptyVector[String],
     dbColumnNameNames: NonEmptyVector[String],
     dbColumnTypeNames: NonEmptyVector[String],
     externalNameNames: NonEmptyVector[String]
@@ -99,6 +101,7 @@ object SimpleModelParser {
       _multiplicity_names,
       _label_names,
       _constraint_names,
+      _derived_names,
       _db_column_name_names,
       _db_column_type_names,
       _external_name_names
@@ -137,9 +140,15 @@ object SimpleModelParser {
 
   private val _multiplicity_names = NonEmptyVector("多重度")
 
-  private val _label_names = NonEmptyVector("ラベル")
+  private val _label_names = NonEmptyVector.create(
+    "ラベル", "label", "caption", "display name", "displayName"
+  )
 
   private val _constraint_names = NonEmptyVector("制約")
+
+  private val _derived_names = NonEmptyVector.create(
+    "派生", "derived", "derivedFrom", "derived from"
+  )
 
   private val _db_column_name_names = NonEmptyVector.create(
     "DBカラム名", "dbカラム名", "dbcolumnname", "db_column_name", "db column name", "column_name"

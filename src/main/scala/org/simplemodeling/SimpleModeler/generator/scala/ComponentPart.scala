@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Apr. 15, 2026
+ * @version Apr. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -104,7 +104,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println("maxEntitiesPerPartition = 10000,")
       _ <- println(s"usageKind = org.goldenport.cncf.security.EntityUsageKind.parse(${usageKind}),")
       _ <- println(s"operationKind = org.goldenport.cncf.security.EntityOperationKind.parse(${operationKind}),")
-      _ <- println(s"applicationDomain = org.goldenport.cncf.security.EntityApplicationDomain.parse(${applicationDomain})")
+      _ <- println(s"applicationDomain = org.goldenport.cncf.security.EntityApplicationDomain.parse(${applicationDomain}),")
+      _ <- println(s"viewNames = ${_string_vector_expr(d.viewNames)}")
       _ <- outdent
       _ <- println(")")
     } yield ()

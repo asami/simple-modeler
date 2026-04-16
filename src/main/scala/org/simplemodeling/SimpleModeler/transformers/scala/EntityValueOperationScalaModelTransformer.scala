@@ -91,6 +91,7 @@ class EntityValueOperationScalaModelTransformer() extends EntityCaseClassScalaMo
   private val _inherited_simple_entity_keys: Set[String] = Set(
     "id",
     "name",
-    "title"
+    "title",
+    "content"
   )
 }
