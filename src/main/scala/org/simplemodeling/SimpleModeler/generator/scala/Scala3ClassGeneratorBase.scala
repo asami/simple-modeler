@@ -18,7 +18,7 @@ import Generator.{State => GState, _}
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 16, 2026
+ * @version Apr. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1027,7 +1027,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     clazz.directive.canonicalSchemaOwner.map(_.fullName).getOrElse(clazz.className.name)
 
   private def _schema_columns: GenM[Unit] = {
-    val xs = attributes_vector ++ clazz.directive.derivedAttributes
+    val xs = attributes_vector ++ clazz.directive.schemaAttributes ++ clazz.directive.derivedAttributes
     val n = xs.length
     xs.zipWithIndex.traverse_ { case (a, i) =>
       for {

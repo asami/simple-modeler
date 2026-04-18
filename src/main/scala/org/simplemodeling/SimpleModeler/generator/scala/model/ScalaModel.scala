@@ -24,8 +24,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- *  version Apr. 17, 2026
- * @version Apr. 18, 2026
+ * @version Apr. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -644,6 +643,7 @@ case class Directive(
   classKind: Option[ClassKind] = None,
   purpose: Option[Purpose] = None,
   canonicalSchemaOwner: Option[TypeName.Plain] = None,
+  schemaAttributes: Vector[Attribute] = Vector.empty,
   derivedAttributes: Vector[Attribute] = Vector.empty,
   enumerationValues: Vector[Directive.EnumerationValue] = Vector.empty
 ) {
@@ -656,6 +656,7 @@ case class Directive(
   def withEntityValue = copy(classKind = Some(ClassKind.EntityValue))
   def withPurpose(purpose: Purpose) = copy(purpose = Some(purpose))
   def withCanonicalSchemaOwner(owner: TypeName.Plain) = copy(canonicalSchemaOwner = Some(owner))
+  def withSchemaAttributes(attributes: Vector[Attribute]) = copy(schemaAttributes = attributes)
   def withDerivedAttributes(attributes: Vector[Attribute]) = copy(derivedAttributes = attributes)
   def withEnumerationValues(values: Vector[Directive.EnumerationValue]) = copy(enumerationValues = values)
 }
