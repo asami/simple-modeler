@@ -31,8 +31,6 @@ import org.simplemodeling.parser.SimpleModelParser
  *  version Sep. 23, 2025
  *  version Feb. 10, 2026
  *  version Mar. 19, 2026
- *  version Apr. 16, 2026
- *  version Apr. 17, 2026
  * @version Apr. 19, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -128,7 +126,7 @@ object MAttribute {
 
     def parse(p: Record): Web =
       Web(
-        label = _string_value_flexible(p, Seq("web-label", "webLabel")),
+        label = _string_value_flexible(p, Seq("web-label", "webLabel")).orElse(_string_value_flexible(p, Seq("label"))),
         controlType = _string_value_flexible(p, Seq("web-control-type", "web-controlType", "webControlType", "web-control", "webControl", "web-widget", "webWidget")),
         placeholder = _string_value_flexible(p, Seq("web-placeholder", "webPlaceholder")),
         help = _string_value_flexible(p, Seq("web-help", "webHelp")),

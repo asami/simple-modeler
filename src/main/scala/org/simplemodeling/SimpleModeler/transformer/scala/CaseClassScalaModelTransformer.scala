@@ -7,7 +7,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Sep. 23, 2025
  *  version Sep. 30, 2025
  *  version Mar. 25, 2026
- * @version Apr. 16, 2026
+ * @version Apr. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class CaseClassScalaModelTransformer() extends ScalaModelTransformer() {
@@ -26,7 +26,7 @@ abstract class CaseClassScalaModelTransformer() extends ScalaModelTransformer() 
       isAttribute = true,
       isDefault = false,
       constraints = constraints,
-      label = p.designation.labelI18N.map(_.c),
+      label = p.web.label.orElse(p.designation.labelI18N.map(_.c)),
       dbColumnName = dbcolumnname,
       dbColumnType = dbcolumntype,
       externalName = externalname,

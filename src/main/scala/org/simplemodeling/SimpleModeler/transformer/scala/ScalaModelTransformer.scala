@@ -17,7 +17,6 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- *  version Apr. 16, 2026
  * @version Apr. 19, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -222,7 +221,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     Attribute(
       AttributeName(p.name),
       typename,
-      p.designation.labelI18N.map(_.c),
+      p.web.label.orElse(p.designation.labelI18N.map(_.c)),
       dbcolumnname,
       dbcolumntype,
       externalname,
