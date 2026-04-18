@@ -24,7 +24,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 17, 2026
+ *  version Apr. 17, 2026
+ * @version Apr. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -1018,6 +1019,7 @@ object SComponent {
     name: String,
     entityName: String,
     viewNames: Vector[String] = Vector.empty,
+    viewFields: Map[String, Vector[String]] = Map.empty,
     queries: Vector[ViewQueryDefinition] = Vector.empty,
     sourceEvents: Vector[String] = Vector.empty,
     rebuildable: Option[Boolean] = None
@@ -1159,7 +1161,14 @@ object SComponent {
     outputDescription: Option[String] = None,
     inputValueKind: String,
     access: Option[OperationAccess] = None,
-    parameters: Vector[OperationField] = Vector.empty
+    parameters: Vector[OperationField] = Vector.empty,
+    operationAuthorization: Option[OperationAuthorization] = None
+  )
+
+  final case class OperationAuthorization(
+    operationModes: Vector[String] = Vector.empty,
+    allowAnonymous: Option[Boolean] = None,
+    anonymousOperationModes: Vector[String] = Vector.empty
   )
 
   final case class OperationAccess(
@@ -1178,7 +1187,12 @@ object SComponent {
   final case class OperationField(
     name: String,
     datatype: String,
-    multiplicity: String = "1"
+    multiplicity: String = "1",
+    label: Option[String] = None,
+    controlType: Option[String] = None,
+    placeholder: Option[String] = None,
+    help: Option[String] = None,
+    required: Option[Boolean] = None
   )
 
   final case class EntityRuntimeDescriptor(

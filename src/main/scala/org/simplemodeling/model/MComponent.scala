@@ -9,7 +9,8 @@ import org.simplemodeling.model._
  *  version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version Apr. 17, 2026
+ *  version Apr. 17, 2026
+ * @version Apr. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -143,6 +144,7 @@ object MComponent {
     name: String,
     entityName: String,
     viewNames: Vector[String] = Vector.empty,
+    viewFields: Map[String, Vector[String]] = Map.empty,
     queries: Vector[ViewQueryDefinition] = Vector.empty,
     sourceEvents: Vector[String] = Vector.empty,
     rebuildable: Option[Boolean] = None
@@ -284,7 +286,14 @@ object MComponent {
     outputDescription: Option[String] = None,
     inputValueKind: String,
     access: Option[OperationAccess] = None,
-    parameters: Vector[OperationField] = Vector.empty
+    parameters: Vector[OperationField] = Vector.empty,
+    operationAuthorization: Option[OperationAuthorization] = None
+  )
+
+  final case class OperationAuthorization(
+    operationModes: Vector[String] = Vector.empty,
+    allowAnonymous: Option[Boolean] = None,
+    anonymousOperationModes: Vector[String] = Vector.empty
   )
 
   final case class OperationAccess(
@@ -303,7 +312,12 @@ object MComponent {
   final case class OperationField(
     name: String,
     datatype: String,
-    multiplicity: String = "1"
+    multiplicity: String = "1",
+    label: Option[String] = None,
+    controlType: Option[String] = None,
+    placeholder: Option[String] = None,
+    help: Option[String] = None,
+    required: Option[Boolean] = None
   )
 
   final case class EntityRuntimeDescriptor(

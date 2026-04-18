@@ -8,7 +8,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Apr. 17, 2026
+ *  version Apr. 17, 2026
+ * @version Apr. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -525,6 +526,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"name = ${_string_literal(d.name)},")
               _ <- println(s"entityName = ${_string_literal(d.entityName)},")
               _ <- println(s"viewNames = ${_string_vector_expr(d.viewNames)},")
+              _ <- println(s"viewFields = ${_string_vector_map_expr(d.viewFields)},")
               _ <- println(s"queries = ${_view_query_definitions_expr(d.queries)},")
               _ <- println(s"sourceEvents = ${_string_vector_expr(d.sourceEvents)},")
               _ <- println(s"rebuildable = ${_option_boolean_expr(d.rebuildable)}")
@@ -571,6 +573,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
             }.getOrElse("None")
             val entityName = d.entityName.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val entityNames = d.entityNames.map(_string_literal).mkString("Vector(", ", ", ")")
+            val operationAuthorization = _operation_authorization_expr(d.operationAuthorization)
             for {
               _ <- println("org.goldenport.cncf.operation.CmlOperationDefinition(")
               _ <- indent
@@ -589,7 +592,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"outputDescription = ${outputDescription},")
               _ <- println(s"inputValueKind = ${_string_literal(d.inputValueKind)},")
               _ <- println(s"access = ${access},")
-              _ <- println(s"parameters = ${_operation_fields_expr(d.parameters)}")
+              _ <- println(s"parameters = ${_operation_fields_expr(d.parameters)},")
+              _ <- println(s"operationAuthorization = ${operationAuthorization}")
               _ <- outdent
               _ <- println(")")
               _ <- if (i < defs.length - 1) println(",") else unit
@@ -621,6 +625,38 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- outdent
         _ <- println(")")
       } yield ()
+    }
+
+  private def _operation_authorization_expr(
+    p: Option[SComponent.OperationAuthorization]
+  ): String =
+    p.map { x =>
+      val operationModes = _operation_modes_expr(x.operationModes)
+      val allowAnonymous = x.allowAnonymous.map(_.toString).map(v => s"Some($v)").getOrElse("None")
+      val anonymousOperationModes = _operation_modes_expr(x.anonymousOperationModes)
+      s"Some(org.goldenport.cncf.security.OperationAuthorizationRule(operationModes = ${operationModes}, allowAnonymous = ${allowAnonymous}.getOrElse(false), anonymousOperationModes = ${anonymousOperationModes}))"
+    }.getOrElse("None")
+
+  private def _operation_modes_expr(
+    xs: Vector[String]
+  ): String =
+    if (xs.isEmpty)
+      "Vector.empty"
+    else
+      xs.map { x =>
+        s"org.goldenport.cncf.config.OperationMode.${_operation_mode_term(x)}"
+      }.mkString("Vector(", ", ", ")")
+
+  private def _operation_mode_term(
+    p: String
+  ): String =
+    p.trim.toLowerCase(java.util.Locale.ROOT) match {
+      case "production" | "prod" => "Production"
+      case "demo" => "Demo"
+      case "develop" | "development" | "dev" => "Develop"
+      case "test" => "Test"
+      case other =>
+        other.split("[-_\\s]+").toVector.filter(_.nonEmpty).map(_.capitalize).mkString
     }
 
   private def _subsystem_definitions_method(
@@ -736,7 +772,17 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       "Vector.empty"
     else
       p.map { x =>
-        s"""org.goldenport.cncf.operation.CmlOperationField(name = ${_string_literal(x.name)}, datatype = ${_string_literal(x.datatype)}, multiplicity = ${_string_literal(x.multiplicity)})"""
+        val args = Vector(
+          Some(s"name = ${_string_literal(x.name)}"),
+          Some(s"datatype = ${_string_literal(x.datatype)}"),
+          Some(s"multiplicity = ${_string_literal(x.multiplicity)}"),
+          x.label.map(v => s"label = Some(${_string_literal(v)})"),
+          x.controlType.map(v => s"controlType = Some(${_string_literal(v)})"),
+          x.placeholder.map(v => s"placeholder = Some(${_string_literal(v)})"),
+          x.help.map(v => s"help = Some(${_string_literal(v)})"),
+          x.required.map(v => s"required = Some(${v})")
+        ).flatten
+        s"""org.goldenport.cncf.operation.CmlOperationField(${args.mkString(", ")})"""
       }.mkString("Vector(", ", ", ")")
 
   private def _use_case_vector_expr(
@@ -847,6 +893,16 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       "Vector.empty"
     else
       p.map(_string_literal).mkString("Vector(", ", ", ")")
+
+  private def _string_vector_map_expr(
+    p: Map[String, Vector[String]]
+  ): String =
+    if (p.isEmpty)
+      "Map.empty"
+    else
+      p.toVector.sortBy(_._1).map {
+        case (key, values) => s"${_string_literal(key)} -> ${_string_vector_expr(values)}"
+      }.mkString("Map(", ", ", ")")
 
   private def _event_category_expr(
     p: String

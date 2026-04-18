@@ -229,7 +229,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     else if (classKind == ClassKind.Component)
       List("CollectionTransitionRuleProvider")
     else if (is_entity_value)
-      List("EntityPersistable", "org.goldenport.record.RecordPresentable")
+      List("EntityPersistable", "EntityDisplayable", "org.goldenport.record.RecordPresentable")
     else if (is_value)
       List("org.goldenport.record.RecordPresentable")
     else
@@ -306,6 +306,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- properties_method
       _ <- component_class_part()
       _ <- to_record_method
+      _ <- to_display_record_method
       _ <- if (is_aggregate) separator.flatMap(_ => aggregate_instance_hook_methods) else unit
       _ <- to_view_record_method
       _ <- to_data_store_method
@@ -472,6 +473,32 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println(")")
         _ <- outdent
         _ <- println("}")
+      } yield ()
+    } else {
+      unit
+    }
+
+  protected def to_display_record_method: GenM[Unit] =
+    if (is_entity_value) {
+      for {
+        _ <- println()
+        _ <- println("def toDisplayRecord(view: String, fields: Vector[String]): Record = {")
+        _ <- indent
+        _ <- println("val source = toRecord()")
+        _ <- println("val sourceMap = source.asMap")
+        _ <- println("val rows = fields.flatMap { field =>")
+        _ <- indent
+        _ <- println("sourceMap.find { case (key, _) => _normalized_field_name(key) == _normalized_field_name(field) }.map { case (_, value) => field -> value }")
+        _ <- outdent
+        _ <- println("}")
+        _ <- println("Record.dataAuto(rows*)")
+        _ <- outdent
+        _ <- println("}")
+        _ <- println()
+        _ <- println("private def _normalized_field_name(name: String): String =")
+        _ <- indent
+        _ <- println("name.filter(_.isLetterOrDigit).toLowerCase(java.util.Locale.ROOT)")
+        _ <- outdent
       } yield ()
     } else {
       unit

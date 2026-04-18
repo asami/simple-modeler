@@ -10,7 +10,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version Apr. 17, 2026
+ *  version Apr. 17, 2026
+ * @version Apr. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -263,6 +264,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
           name = p.name,
           entityName = p.entityName,
           viewNames = p.viewNames,
+          viewFields = p.viewFields,
           queries = p.queries.map(q => SComponent.ViewQueryDefinition(q.name, q.expression)),
           sourceEvents = p.sourceEvents,
           rebuildable = p.rebuildable
@@ -302,11 +304,23 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               condition = a.condition
             )
           ),
+          operationAuthorization = p.operationAuthorization.map(a =>
+            SComponent.OperationAuthorization(
+              operationModes = a.operationModes,
+              allowAnonymous = a.allowAnonymous,
+              anonymousOperationModes = a.anonymousOperationModes
+            )
+          ),
           parameters = p.parameters.map { x =>
             SComponent.OperationField(
               name = x.name,
               datatype = x.datatype,
-              multiplicity = x.multiplicity
+              multiplicity = x.multiplicity,
+              label = x.label,
+              controlType = x.controlType,
+              placeholder = x.placeholder,
+              help = x.help,
+              required = x.required
             )
           }
         )
