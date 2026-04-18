@@ -32,7 +32,8 @@ import org.simplemodeling.parser.SimpleModelParser
  *  version Feb. 10, 2026
  *  version Mar. 19, 2026
  *  version Apr. 16, 2026
- * @version Apr. 17, 2026
+ *  version Apr. 17, 2026
+ * @version Apr. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MAttribute(
@@ -46,6 +47,7 @@ case class MAttribute(
   //
   readonly: Boolean = false,
   derived: Option[String] = None,
+  web: MAttribute.Web = MAttribute.Web.empty,
   description: Description = Description.empty
 ) extends MElement {
   def isRequired: Boolean = multiplicity.isRequired
@@ -64,13 +66,17 @@ object MAttribute {
       map(MMultiplicity.create).getOrElse(MOne)
     val label = p.getStringCaseInsensitive(config.labelNames).
       map(I18NString.parse)
+    val web = Web.parse(p)
     val constraints = p.getStringCaseInsensitive(config.constraintNames).
       map(MConstraint.create).
-      toList
+      toList ++ web.validationConstraints
     val derived = _string_value_flexible(p, config.derivedNames.list).orElse(
       p.getStringCaseInsensitive(config.derivedNames).map(_.trim).filterNot(_.isEmpty)
     ).orElse(
-      p.getString("5").map(_.trim).filterNot(_.isEmpty)
+      if (_has_web_field(p))
+        None
+      else
+        p.getString("5").map(_.trim).filterNot(_.isEmpty)
     )
     val dbcolumnname = p.getStringCaseInsensitive(config.dbColumnNameNames).map(_.trim).filterNot(_.isEmpty)
     val dbcolumntype = p.getStringCaseInsensitive(config.dbColumnTypeNames).map(_.trim).filterNot(_.isEmpty)
@@ -89,7 +95,53 @@ object MAttribute {
       )
     )
     val designation = Designation.nameLabel(name, label)
-    MAttribute(designation, datatype, multiplicity, constraints, column, derived = derived)
+    MAttribute(designation, datatype, multiplicity, constraints, column, derived = derived, web = web)
+  }
+
+  case class Web(
+    label: Option[String] = None,
+    controlType: Option[String] = None,
+    placeholder: Option[String] = None,
+    help: Option[String] = None,
+    required: Option[Boolean] = None,
+    hidden: Option[Boolean] = None,
+    readonly: Option[Boolean] = None,
+    minLength: Option[String] = None,
+    maxLength: Option[String] = None,
+    min: Option[String] = None,
+    max: Option[String] = None,
+    step: Option[String] = None,
+    pattern: Option[String] = None
+  ) {
+    def validationConstraints: List[MConstraint] =
+      List(
+        minLength.map(LiteralConstraint("min_length", _)),
+        maxLength.map(LiteralConstraint("max_length", _)),
+        min.map(LiteralConstraint("min", _)),
+        max.map(LiteralConstraint("max", _)),
+        step.map(LiteralConstraint("step", _)),
+        pattern.map(LiteralConstraint("pattern", _))
+      ).flatten
+  }
+  object Web {
+    val empty: Web = Web()
+
+    def parse(p: Record): Web =
+      Web(
+        label = _string_value_flexible(p, Seq("web-label", "webLabel")),
+        controlType = _string_value_flexible(p, Seq("web-control-type", "web-controlType", "webControlType", "web-control", "webControl", "web-widget", "webWidget")),
+        placeholder = _string_value_flexible(p, Seq("web-placeholder", "webPlaceholder")),
+        help = _string_value_flexible(p, Seq("web-help", "webHelp")),
+        required = _boolean_value_flexible(p, Seq("web-required", "webRequired")),
+        hidden = _boolean_value_flexible(p, Seq("web-hidden", "webHidden")),
+        readonly = _boolean_value_flexible(p, Seq("web-readonly", "webReadonly", "web-read-only", "webReadOnly")),
+        minLength = _string_value_flexible(p, Seq("web-min-length", "webMinLength")),
+        maxLength = _string_value_flexible(p, Seq("web-max-length", "webMaxLength")),
+        min = _string_value_flexible(p, Seq("web-min", "webMin")),
+        max = _string_value_flexible(p, Seq("web-max", "webMax")),
+        step = _string_value_flexible(p, Seq("web-step", "webStep")),
+        pattern = _string_value_flexible(p, Seq("web-pattern", "webPattern", "web-regex", "webRegex"))
+      )
   }
 
   private def _string_value_flexible(p: Record, keys: Seq[String]): Option[String] = {
@@ -100,8 +152,17 @@ object MAttribute {
     }.filterNot(_.isEmpty)
   }
 
+  private def _boolean_value_flexible(p: Record, keys: Seq[String]): Option[Boolean] =
+    _string_value_flexible(p, keys).map(_.trim.toLowerCase(java.util.Locale.ROOT)).collect {
+      case "true" | "yes" | "on" | "1" => true
+      case "false" | "no" | "off" | "0" => false
+    }
+
   private def _normalize_key(p: String): String =
     p.toLowerCase.replaceAll("[\\s_\\-　]+", "")
+
+  private def _has_web_field(p: Record): Boolean =
+    p.fields.exists(field => _normalize_key(field.name).startsWith("web"))
 
   private def _sql_column(
     dbcolumnname: Option[String],

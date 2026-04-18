@@ -11,7 +11,8 @@ import org.goldenport.record.v2
  *  version Aug.  7, 2019
  *  version Nov.  4, 2019
  *  version Jan.  5, 2020
- * @version Mar. 25, 2026
+ *  version Mar. 25, 2026
+ * @version Apr. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MConstraint {
@@ -34,6 +35,11 @@ case class RConstraint(constraint: v2.Constraint) extends MConstraint {
     case m => m.label
   }
 }
+
+case class LiteralConstraint(
+  override val name: String,
+  override val value: Any
+) extends MConstraint
 
 object MConstraint {
   def create(p: String): MConstraint = new MConstraint {

@@ -17,7 +17,8 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Sep. 29, 2025
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
- * @version Apr. 16, 2026
+ *  version Apr. 16, 2026
+ * @version Apr. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -166,6 +167,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     Parameter(
       ParameterName(p.name),
       typename,
+      label = p.web.label.orElse(p.designation.labelI18N.map(_.c)),
       isAttribute = true,
       isDefault = false,
       constraints = constraints,
@@ -187,12 +189,12 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
 
   protected def to_web_attribute(p: MAttribute): WebAttribute =
     WebAttribute(
-      controlType = Some(_web_control_type(p)).filterNot(_ == "text"),
-      required = Some(p.isRequired),
-      hidden = p.column.exists(_.form.hidden),
-      readonly = p.readonly || p.column.exists(_.form.readonly),
-      placeholder = p.column.flatMap(_.form.placeholder).map(_.distillDefault).map(_.trim).filterNot(_.isEmpty),
-      help = _description_text(p.description)
+      controlType = p.web.controlType.orElse(Some(_web_control_type(p)).filterNot(_ == "text")),
+      required = p.web.required.orElse(Some(p.isRequired)),
+      hidden = p.web.hidden.getOrElse(p.column.exists(_.form.hidden)),
+      readonly = p.web.readonly.getOrElse(p.readonly || p.column.exists(_.form.readonly)),
+      placeholder = p.web.placeholder.orElse(p.column.flatMap(_.form.placeholder).map(_.distillDefault).map(_.trim).filterNot(_.isEmpty)),
+      help = p.web.help.orElse(_description_text(p.description))
     )
 
   private def _web_control_type(p: MAttribute): String = {
@@ -225,7 +227,8 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       dbcolumntype,
       externalname,
       p.derived,
-      to_web_attribute(p)
+      to_web_attribute(p),
+      to_constraints(p.constraints)
     )
   }
 
