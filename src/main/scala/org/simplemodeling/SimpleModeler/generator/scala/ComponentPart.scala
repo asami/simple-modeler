@@ -8,8 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- *  version Apr. 17, 2026
- * @version Apr. 18, 2026
+ * @version Apr. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -1280,6 +1279,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               for {
                 _ <- println("copy(")
                 _ <- indent
+                _ <- println(s"request = ${_request_definition_expr(op)},")
                 _ <- println(s"""response = ResponseDefinition(result = List(org.goldenport.schema.DataType.Named("${outputtype}")))""")
                 _ <- outdent
                 _ <- println(").build()")
@@ -1297,6 +1297,34 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- _action(servicename, op)
         ds <- _action_call(op)
       } yield ds
+    }
+
+    private def _request_definition_expr(op: SMethod): String = {
+      val params = _request_parameters(op)
+      if (params.isEmpty)
+        "RequestDefinition.empty"
+      else
+        s"RequestDefinition(parameters = List(${params.map(_parameter_definition_expr).mkString(", ")}))"
+    }
+
+    private def _request_parameters(op: SMethod): Vector[Parameter] = {
+      def flatten(p: Parameter): Vector[Parameter] =
+        p.value match {
+          case Some(v) => v.parameterSequence.parameters.filterNot(_.name.name == "_failures").flatMap(flatten)
+          case None if p.typeName.fullName == "org.goldenport.record.Record" => Vector.empty
+          case None => Vector(p)
+        }
+      op.parameters.parameters.flatMap(flatten)
+    }
+
+    private def _parameter_definition_expr(p: Parameter): String = {
+      val name = _string_literal(p.name.name)
+      val multiplicity =
+        if (p.typeName.isRequired)
+          "org.goldenport.schema.Multiplicity.One"
+        else
+          "org.goldenport.schema.Multiplicity.ZeroOne"
+      s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = org.goldenport.schema.XString, multiplicity = $multiplicity))"
     }
 
     private def _action(servicename: String, op: SMethod): GenM[Unit] = {

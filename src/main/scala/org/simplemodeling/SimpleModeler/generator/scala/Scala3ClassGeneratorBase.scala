@@ -1149,6 +1149,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _schema_datatype_expr_by_name(name: String): String = {
     val key = Option(name).getOrElse("").trim.toLowerCase(java.util.Locale.ROOT)
     val schema = "org.goldenport.schema."
+    def named(p: String): String = schema + "DataType.Named(\"" + p + "\")"
     key match {
       case "string" => s"${schema}XString"
       case "boolean" => s"${schema}XBoolean"
@@ -1162,25 +1163,29 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "nonnegativeinteger" => s"${schema}XNonNegativeInteger"
       case "positiveinteger" => s"${schema}XPositiveInteger"
       case "decimal" => s"${schema}XDecimal"
-      case "name" => s"${schema}XName"
-      case "identifier" => s"${schema}XIdentifier"
-      case "text" => s"${schema}XText"
-      case "token" => s"${schema}XToken"
-      case "url" | "uri" | "urn" => s"${schema}XLink"
-      case "blob" => s"${schema}XBinary"
-      case "clob" => s"${schema}XText"
-      case "date" | "localdate" => s"${schema}XDate"
-      case "time" | "localtime" => s"${schema}XTime"
       case "datetime" | "instant" => s"${schema}XDateTime"
       case "localdatetime" => s"${schema}XLocalDateTime"
-      case "year" => s"${schema}XYear"
       case "yearmonth" => s"${schema}XYearMonth"
-      case "month" => s"${schema}XMonth"
-      case "monthday" => s"${schema}XMonthDay"
-      case "day" => s"${schema}XDay"
-      case "duration" => s"${schema}XDuration"
       case "locale" | "timezone" => s"${schema}XString"
       case "age" => s"${schema}XInt"
+      case "name" => named("name")
+      case "identifier" => named("identifier")
+      case "text" => named("text")
+      case "token" => named("token")
+      case "url" => named("url")
+      case "uri" => named("uri")
+      case "urn" => named("urn")
+      case "blob" => named("blob")
+      case "clob" => named("clob")
+      case "date" => named("date")
+      case "localdate" => named("localDate")
+      case "time" => named("time")
+      case "localtime" => named("localTime")
+      case "year" => named("year")
+      case "month" => named("month")
+      case "monthday" => named("monthDay")
+      case "day" => named("day")
+      case "duration" => named("duration")
       case _ => s"${schema}XString"
     }
   }
