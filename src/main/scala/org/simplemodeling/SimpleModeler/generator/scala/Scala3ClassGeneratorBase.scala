@@ -18,7 +18,7 @@ import Generator.{State => GState, _}
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 20, 2026
+ * @version Apr. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -743,6 +743,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     clazz.parentClass.exists {
       case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.simplemodeling.model" => true
       case TypeName.Plain(pkg, "SimpleEntityCreate", _) if pkg.name == "org.simplemodeling.model" => true
+      case TypeName.Plain(pkg, "SimpleEntityUpdate", _) if pkg.name == "org.simplemodeling.model" => true
+      case _ => false
+    }
+
+  private def _is_simple_entity_update_parent: Boolean =
+    clazz.parentClass.exists {
+      case TypeName.Plain(pkg, "SimpleEntityUpdate", _) if pkg.name == "org.simplemodeling.model" => true
       case _ => false
     }
 
@@ -774,10 +781,16 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         (key, p.name.name, "_to_data_store_value")
     }
 
-  private def _to_data_store_simple_entity_properties: Vector[(String, String, String)] =
+  private def _to_data_store_simple_entity_properties: Vector[(String, String, String)] = {
+    val valuefn =
+      if (_is_simple_entity_update_parent)
+        "_to_data_store_value"
+      else
+        "_to_external_value"
     _view_record_properties.map { case (key, expr) =>
-      (key, expr, "_to_external_value")
+      (key, expr, valuefn)
     }
+  }
 
   // protected final def traverse_with_separator[T](ps: Vector[T]): GenM[Unit] =
   //   ???
@@ -2260,6 +2273,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _build_param_or_var_raw(p: Parameter)(param: => GenM[Unit]): GenM[Unit] =
     if (_is_name_attributes_raw_parameter(p))
       _build_param_or_var_name_attributes(p)
+    else if (_is_name_attributes_update_raw_parameter(p))
+      _build_param_or_var_name_attributes_update(p)
     else if (_is_descriptive_attributes_raw_parameter(p))
       _build_param_or_var_descriptive_attributes(p)
     else if (_is_simple_object_attribute_parameter(p))
@@ -2286,6 +2301,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _is_name_attributes_raw_parameter(p: Parameter): Boolean =
     (p.name.name == "name_Attributes" || p.name.name == "nameAttributes") &&
       p.toRawType.typeName.name == "NameAttributes"
+
+  private def _is_name_attributes_update_raw_parameter(p: Parameter): Boolean =
+    (p.name.name == "name_Attributes" || p.name.name == "nameAttributes") &&
+      p.toRawType.typeName.name == "NameAttributesUpdate"
 
   private def _is_descriptive_attributes_raw_parameter(p: Parameter): Boolean =
     (p.name.name == "descriptive_Attributes" || p.name.name == "descriptiveAttributes") &&
@@ -2396,6 +2415,41 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("  .copy(name = if (attrv.isDefined) None else namev.map(Name(_)))")
       _ <- println("  .copy(title = titlev.map(I18nTitle(_)))")
       _ <- println("  .build()")
+      _ <- outdent
+      _ <- println("}")
+    } yield ()
+
+  private def _build_param_or_var_name_attributes_update(p: Parameter): GenM[Unit] =
+    for {
+      _ <- println("(")
+      _ <- indent
+      _ <- println("Consequence.success(",
+        input_keys_name(p.name.name),
+        ".iterator.flatMap(record.asMap.get).collectFirst {")
+      _ <- println("  case m: NameAttributesUpdate => m")
+      _ <- println("  case m: Record => NameAttributesUpdate(")
+      _ <- println("    name = m.getAny(\"name\").collect {")
+      _ <- println("      case n: Name => Update.set(n)")
+      _ <- println("      case s: String => Update.set(Name(s))")
+      _ <- println("    }.getOrElse(Update.noop[Name]),")
+      _ <- println("    title = m.getAny(\"title\").collect {")
+      _ <- println("      case t: I18nTitle => Update.set(t)")
+      _ <- println("      case s: String => Update.set(I18nTitle(s))")
+      _ <- println("    }.getOrElse(Update.noop[I18nTitle])")
+      _ <- println("  )")
+      _ <- println("}),")
+      _ <- println("_record_get_as_c[String](record, List(\"nameAttributes.name\", \"name_attributes.name\", \"name\")),")
+      _ <- println("_record_get_as_c[String](record, List(\"nameAttributes.title\", \"name_attributes.title\") ++ ", _record_keys_for_derived_target("title"), ")")
+      _ <- outdent
+      _ <- println(").mapN { (attrv, namev, titlev) =>")
+      _ <- indent
+      _ <- println("val base = attrv.orElse(", p.name.name, ").getOrElse(NameAttributesUpdate())")
+      _ <- println("base.copy(")
+      _ <- indent
+      _ <- println("name = namev.map(s => Update.set(Name(s))).getOrElse(base.name),")
+      _ <- println("title = titlev.map(s => Update.set(I18nTitle(s))).getOrElse(base.title)")
+      _ <- outdent
+      _ <- println(")")
       _ <- outdent
       _ <- println("}")
     } yield ()
