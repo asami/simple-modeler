@@ -18,7 +18,7 @@ import Generator.{State => GState, _}
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 19, 2026
+ * @version Apr. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -2376,19 +2376,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         ".iterator.flatMap(record.asMap.get).collectFirst {")
       _ <- println("  case m: NameAttributes => m")
       _ <- println("  case m: Record => NameAttributes.Builder(")
-      _ <- println("    name = m.getAny(\"name\").collect { case s: String => Name(s) },")
+      _ <- println("    name = m.getAny(\"name\").collect { case n: Name => n; case s: String => Name(s) },")
       _ <- println("    title = m.getAny(\"title\").collect { case s: String => I18nTitle(s) }")
       _ <- println("  ).build()")
       _ <- println("  case m: Name => NameAttributes.simple(m)")
       _ <- println("  case m: String => NameAttributes.simple(m)")
       _ <- println("}),")
-      _ <- println("_record_get_as_c[Name](record, List(\"name\")),")
-      _ <- println("_record_get_as_c[String](record, ", _record_keys_for_derived_target("title"), ")")
+      _ <- println("_record_get_as_c[String](record, List(\"nameAttributes.name\", \"name_attributes.name\", \"name\")),")
+      _ <- println("_record_get_as_c[String](record, List(\"nameAttributes.title\", \"name_attributes.title\") ++ ", _record_keys_for_derived_target("title"), ")")
       _ <- outdent
       _ <- println(").mapN { (attrv, namev, titlev) =>")
       _ <- indent
       _ <- println("NameAttributes.Builder(attrv.orElse(", p.name.name, "))")
-      _ <- println("  .copy(name = namev)")
+      _ <- println("  .copy(name = if (attrv.isDefined) None else namev.map(Name(_)))")
       _ <- println("  .copy(title = titlev.map(I18nTitle(_)))")
       _ <- println("  .build()")
       _ <- outdent
