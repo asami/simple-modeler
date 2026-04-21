@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Apr. 20, 2026
+ * @version Apr. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -1130,12 +1130,12 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- separator
         _ <- println(s"class Factory extends Component.Factory {")
         _ <- indent
-        _ <- println("protected def create_Components(params: ComponentCreate): Vector[Component] =")
+        _ <- println("protected def create_Component(params: ComponentCreate): Component =")
         _ <- indent
-        _ <- println(s"Vector(${component_class_name}())")
+        _ <- println(s"${component_class_name}()")
         _ <- outdent
         _ <- separator
-        _ <- println(s"protected def create_Core(")
+        _ <- println(s"override protected def create_Core(")
         _ <- indent
         _ <- println(s"params: ComponentCreate,")
         _ <- println(s"comp: Component")
@@ -1701,10 +1701,10 @@ object SampleCollaboratorComponent {
   val componentId = ComponentId(name)
 
   class Factory extends Component.Factory {
-    protected def create_Components(params: ComponentCreate): Vector[Component] =
-      Vector(SampleComponent())
+    protected def create_Component(params: ComponentCreate): Component =
+      SampleComponent()
 
-    protected def create_Core(
+    override protected def create_Core(
       params: ComponentCreate,
       comp: Component
     ): Component.Core = spec_create(
