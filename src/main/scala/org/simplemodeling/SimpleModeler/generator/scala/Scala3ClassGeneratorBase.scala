@@ -1162,6 +1162,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val schema = "org.goldenport.schema."
     def named(p: String): String = schema + "DataType.Named(\"" + p + "\")"
     key match {
+      case "date-time" => RAISE.syntaxErrorFault("Unsupported datatype: date-time; use instant for absolute lifecycle timestamps or datetime for zoned datetime values.")
       case "string" => s"${schema}XString"
       case "boolean" => s"${schema}XBoolean"
       case "byte" => s"${schema}XInt"
@@ -1174,7 +1175,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "nonnegativeinteger" => s"${schema}XNonNegativeInteger"
       case "positiveinteger" => s"${schema}XPositiveInteger"
       case "decimal" => s"${schema}XDecimal"
-      case "datetime" | "instant" => s"${schema}XDateTime"
+      case "datetime" | "zoneddatetime" | "offsetdatetime" | "instant" => s"${schema}XDateTime"
       case "localdatetime" => s"${schema}XLocalDateTime"
       case "yearmonth" => s"${schema}XYearMonth"
       case "locale" | "timezone" => s"${schema}XString"
@@ -1197,7 +1198,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "monthday" => named("monthDay")
       case "day" => named("day")
       case "duration" => named("duration")
-      case _ => s"${schema}XString"
+      case _ => named(name)
     }
   }
 
@@ -2640,9 +2641,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "name" =>
         Some("Some(Name(ctx.security.principal.id.value))")
       case "createdat" =>
-        Some("Some(java.time.ZonedDateTime.now(ctx.clock.withZone(ctx.timezone)))")
+        Some("Some(java.time.Instant.now(ctx.clock))")
       case "updatedat" =>
-        Some("Some(java.time.ZonedDateTime.now(ctx.clock.withZone(ctx.timezone)))")
+        Some("Some(java.time.Instant.now(ctx.clock))")
       case "createdby" =>
         Some("Some(Identifier(ctx.security.principal.id.value))")
       case "updatedby" =>
@@ -2694,9 +2695,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "descriptiveAttributes" =>
         Some("org.simplemodeling.model.value.DescriptiveAttributes.empty")
       case "lifecycle_Attributes" =>
-        Some("org.simplemodeling.model.value.LifecycleAttributes(java.time.ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC), None, Identifier(\"system\"), None, org.simplemodeling.model.statemachine.PostStatus.default, org.simplemodeling.model.statemachine.Aliveness.default)")
+        Some("org.simplemodeling.model.value.LifecycleAttributes(java.time.Instant.EPOCH, java.time.Instant.EPOCH, Identifier(\"system\"), Identifier(\"system\"), org.simplemodeling.model.statemachine.PostStatus.default, org.simplemodeling.model.statemachine.Aliveness.default)")
       case "lifecycleAttributes" =>
-        Some("org.simplemodeling.model.value.LifecycleAttributes(java.time.ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC), None, Identifier(\"system\"), None, org.simplemodeling.model.statemachine.PostStatus.default, org.simplemodeling.model.statemachine.Aliveness.default)")
+        Some("org.simplemodeling.model.value.LifecycleAttributes(java.time.Instant.EPOCH, java.time.Instant.EPOCH, Identifier(\"system\"), Identifier(\"system\"), org.simplemodeling.model.statemachine.PostStatus.default, org.simplemodeling.model.statemachine.Aliveness.default)")
       case "publication_Attributes" =>
         Some("org.simplemodeling.model.value.PublicationAttributes(None, None, None, None, None)")
       case "publicationAttributes" =>
