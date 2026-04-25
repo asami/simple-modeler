@@ -18,7 +18,7 @@ import Generator.{State => GState, _}
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 21, 2026
+ * @version Apr. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -960,9 +960,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _is_object_parameter_type(p: TypeName): Boolean =
     p.contentType match {
       case TypeName.Plain(pkg, _, _) =>
-        !pkg.name.startsWith("org.goldenport.datatype") &&
-        !pkg.name.startsWith("scala") &&
-        !pkg.name.startsWith("java")
+        pkg.name.contains(".entity.aggregate")
       case _ => false
     }
 
@@ -2047,7 +2045,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected def builder_buildc_method: GenM[Unit] = {
     val m = SMethod.query("buildC", TypeName.consequence(clazz)) {
-      _builder_buildc_method_body(builder_parameters)
+      _builder_buildc_method_body(builder_parameter)
     }
     define_method(m)
   }
@@ -2059,33 +2057,57 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- print(TypeName.consequence(clazz).name)
         _ <- println(" = {")
         _ <- indent
-        _ <- _builder_buildc_method_body(builder_parameters_with_execution_context)
+        _ <- _builder_buildc_method_body(builder_parameter_with_execution_context)
         _ <- outdent
         _ <- println("}")
       } yield ()
     else
       unit
 
-  private def _builder_buildc_method_body(body: => GenM[Unit]): GenM[Unit] = {
-    val arity = clazz.parameterSequence.parameters.size
+  private def _builder_buildc_method_body(param: Parameter => GenM[Unit]): GenM[Unit] = {
+    val params = clazz.parameterSequence.parameters
+    if (params.isEmpty)
+      println(s"Consequence.success(${clazz.className.name}.apply())")
+    else
+      for {
+        _ <- println("Consequence.ValidatedBuilder.run { builder =>")
+        _ <- indent
+        _ <- _builder_buildc_validated_reads(params, param)
+        _ <- println("builder.build {")
+        _ <- indent
+        _ <- _builder_buildc_validated_constructor(params)
+        _ <- outdent
+        _ <- println("}")
+        _ <- outdent
+        _ <- println("}")
+      } yield ()
+  }
+
+  private def _builder_buildc_validated_reads(
+    params: Seq[Parameter],
+    param: Parameter => GenM[Unit]
+  ): GenM[Unit] =
+    params.toList.zipWithIndex.traverse_ { case (p, i) =>
+      for {
+        _ <- print(s"val v${i} = builder.read(")
+        _ <- param(p)
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _builder_buildc_validated_constructor(params: Seq[Parameter]): GenM[Unit] = {
+    val values = params.toList.zipWithIndex
     for {
-      _ <- if (arity == 0) {
-        println(s"Consequence.success(${clazz.className.name}.apply())")
-      } else {
-        for {
-          _ <- println("(")
-          _ <- indent
-          _ <- body
-          _ <- outdent
-          _ <- if (arity == 1)
-            print(").map(")
-          else
-            print(").mapN(")
-          _ <- print(clazz.className.name)
-          _ <- print(".apply")
-          _ <- println(")")
-        } yield ()
+      _ <- println(s"${clazz.className.name}(")
+      _ <- indent
+      _ <- values.traverse_ { case (_, i) =>
+        if (i == values.length - 1)
+          println(s"v${i}.value")
+        else
+          println(s"v${i}.value,")
       }
+      _ <- outdent
+      _ <- println(")")
     } yield ()
   }
 
@@ -2112,19 +2134,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   protected def builder_parameter(p: Parameter): GenM[Unit] =
-    for {
-      _ <- print(builder_parameter_line(p))
-      _ <- println(",")
-    } yield ()
+    print(builder_parameter_line(p))
 
   protected def builder_parameter_last(p: Parameter): GenM[Unit] =
     println(builder_parameter_line(p))
 
   protected def builder_parameter_with_execution_context(p: Parameter): GenM[Unit] =
-    for {
-      _ <- print(builder_parameter_line_with_execution_context(p))
-      _ <- println(",")
-    } yield ()
+    print(builder_parameter_line_with_execution_context(p))
 
   protected def builder_parameter_with_execution_context_last(p: Parameter): GenM[Unit] =
     println(builder_parameter_line_with_execution_context(p))
@@ -2200,7 +2216,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected def builder_build_recordc_method: GenM[Unit] = {
     val m = SMethod.query("buildC", TypeName.consequence(clazz), Parameter.record) {
-      _builder_buildc_method_body(_builder_record_parameters)
+      _builder_buildc_method_body(_build_record_param)
     }
     define_method(m)
   }
@@ -2212,7 +2228,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- print(TypeName.consequence(clazz).name)
         _ <- println(" = {")
         _ <- indent
-        _ <- _builder_buildc_method_body(_builder_record_parameters_with_execution_context)
+        _ <- _builder_buildc_method_body(_build_record_param_with_execution_context)
         _ <- outdent
         _ <- println("}")
       } yield ()
