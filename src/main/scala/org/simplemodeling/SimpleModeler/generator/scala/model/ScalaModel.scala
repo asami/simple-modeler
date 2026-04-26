@@ -24,7 +24,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 25, 2026
+ * @version Apr. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -194,9 +194,15 @@ object TypeName {
 
     def createMarshalling(p: DataType): Primitive = p match {
       case XString => string
+      case XShort => short
       case XInt => int
+      case XLong => long
+      case XFloat => float
+      case XDouble => double
+      case XInteger => bigint
+      case XDecimal => bigdecimal
       case XAge => int
-      case _ => string
+      case _ => RAISE.syntaxErrorFault(s"Unsupported scalar marshalling datatype: ${p.name}")
     }
 
     def create(name: String): Primitive = ???
