@@ -18,7 +18,7 @@ import Generator.{State => GState, _}
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 25, 2026
+ * @version Apr. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -590,6 +590,12 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("  case m: org.simplemodeling.model.value.SimpleObjectContent => _to_external_value(m)")
         _ <- println("  case other => _to_external_value(other)")
         _ <- println("}")
+        _ <- println()
+        _ <- println("private def _permission_json(rights: org.simplemodeling.model.value.SecurityAttributes.Rights): String = {")
+        _ <- println("  def p(x: org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions): io.circe.Json =")
+        _ <- println("    io.circe.Json.obj(\"read\" -> io.circe.Json.fromBoolean(x.read), \"write\" -> io.circe.Json.fromBoolean(x.write), \"execute\" -> io.circe.Json.fromBoolean(x.execute))")
+        _ <- println("  io.circe.Json.obj(\"owner\" -> p(rights.owner), \"group\" -> p(rights.group), \"other\" -> p(rights.other)).noSpaces")
+        _ <- println("}")
       } yield ()
     } else {
       unit
@@ -772,7 +778,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   private def _to_data_store(p: (String, String, String)): GenM[Unit] =
-    print("\"", p._1, "\" -> ", p._3, "(", p._2, ")")
+    if (p._3.isEmpty)
+      print("\"", p._1, "\" -> ", p._2)
+    else
+      print("\"", p._1, "\" -> ", p._3, "(", p._2, ")")
 
   private def _to_data_store_direct_attributes: Vector[(String, String, String)] =
     attributes_vector.collect {
@@ -787,9 +796,56 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         "_to_data_store_value"
       else
         "_to_external_value"
-    _view_record_properties.map { case (key, expr) =>
-      (key, expr, valuefn)
+    val names = attributes_vector.map(_.name.name).toSet
+    val b = Vector.newBuilder[(String, String, String)]
+    _select_attribute_name(names, "nameAttributes", "name_Attributes").foreach { attr =>
+      b += (("name", s"$attr.name", valuefn))
+      b += (("label", s"$attr.label", valuefn))
+      if (_is_simple_entity_parent)
+        b += (("title", s"$attr.title", valuefn))
     }
+    _select_attribute_name(names, "descriptiveAttributes", "descriptive_Attributes").foreach { attr =>
+      b += (("headline", s"$attr.headline", valuefn))
+      b += (("summary", s"$attr.summary", valuefn))
+      b += (("description", s"$attr.description", valuefn))
+      b += (("content", s"$attr.content", valuefn))
+    }
+    _select_attribute_name(names, "lifecycleAttributes", "lifecycle_Attributes").foreach { attr =>
+      b += (("created_at", s"$attr.createdAt", valuefn))
+      b += (("updated_at", s"$attr.updatedAt", valuefn))
+      b += (("created_by", s"$attr.createdBy", valuefn))
+      b += (("updated_by", s"$attr.updatedBy", valuefn))
+      b += (("post_status", s"$attr.postStatus", valuefn))
+      b += (("aliveness", s"$attr.aliveness", valuefn))
+    }
+    _select_attribute_name(names, "publicationAttributes", "publication_Attributes").foreach { attr =>
+      b += (("publish_at", s"$attr.publishAt", valuefn))
+      b += (("public_at", s"$attr.publicAt", valuefn))
+      b += (("close_at", s"$attr.closeAt", valuefn))
+      b += (("start_at", s"$attr.startAt", valuefn))
+      b += (("end_at", s"$attr.endAt", valuefn))
+    }
+    _select_attribute_name(names, "securityAttributes", "security_Attributes").foreach { attr =>
+      b += (("owner_id", s"$attr.ownerId", valuefn))
+      b += (("group_id", s"$attr.groupId", valuefn))
+      b += (("privilege_id", s"$attr.privilegeId", valuefn))
+      if (!_is_simple_entity_update_parent)
+        b += (("permission", s"_permission_json($attr.rights)", ""))
+    }
+    _select_attribute_name(names, "resourceAttributes", "resource_Attributes").foreach { attr =>
+      b += (("activated_at", s"$attr.activatedAt", valuefn))
+      b += (("deactivated_at", s"$attr.deactivatedAt", valuefn))
+      b += (("expires_at", s"$attr.expiresAt", valuefn))
+      b += (("activation_status", s"$attr.activationStatus", valuefn))
+    }
+    _select_attribute_name(names, "mediaAttributes", "media_Attributes").foreach { attr =>
+      b += (("url", s"$attr.url", valuefn))
+      b += (("images", s"$attr.images", valuefn))
+      b += (("audios", s"$attr.audios", valuefn))
+      b += (("videos", s"$attr.videos", valuefn))
+      b += (("attachments", s"$attr.atathments", valuefn))
+    }
+    b.result()
   }
 
   // protected final def traverse_with_separator[T](ps: Vector[T]): GenM[Unit] =
@@ -3008,8 +3064,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       for {
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
         _ <- println(s"given EntityPersistentUpdate[$name] with")
-        _ <- println(s"  def toRecord(e: $name): Record = e.toDataStore()")
+        _ <- println(s"  def toRecord(e: $name): Record = e.toRecord()")
         _ <- println(s"  def fromRecord(r: Record): Consequence[$name] = createC(r)")
+        _ <- println(s"  override def toStoreRecord(e: $name): Record = e.toDataStore()")
+        _ <- println(s"  override def fromStoreRecord(r: Record): Consequence[$name] = createC(r)")
         _ <- println(s"  def collection(e: $name): EntityCollectionId = collectionId")
       } yield ()
     } else if (is_entity_value_create) {
@@ -3018,15 +3076,18 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println(s"given EntityPersistentCreate[$name] with")
         _ <- println(s"  def id(e: $name): Option[EntityId] = e.id")
         _ <- println(s"  def collection(e: $name): EntityCollectionId = collectionId")
-        _ <- println(s"  def toRecord(e: $name): Record = e.toDataStore()")
+        _ <- println(s"  def toRecord(e: $name): Record = e.toRecord()")
+        _ <- println(s"  override def toStoreRecord(e: $name): Record = e.toDataStore()")
       } yield ()
     } else if (is_entity_value) {
       for {
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
         _ <- println(s"given EntityPersistent[$name] with")
         _ <- println(s"  def id(e: $name): EntityId = e.id")
-        _ <- println(s"  def toRecord(e: $name): Record = e.toDataStore()")
+        _ <- println(s"  def toRecord(e: $name): Record = e.toRecord()")
         _ <- println(s"  def fromRecord(r: Record): Consequence[$name] = createC(r)")
+        _ <- println(s"  override def toStoreRecord(e: $name): Record = e.toDataStore()")
+        _ <- println(s"  override def fromStoreRecord(r: Record): Consequence[$name] = createC(r)")
       } yield ()
     } else {
       unit
