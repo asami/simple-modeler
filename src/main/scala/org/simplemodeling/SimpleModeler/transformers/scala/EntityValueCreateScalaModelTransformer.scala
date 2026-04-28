@@ -12,7 +12,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  *  version Sep. 23, 2025
  *  version Feb. 27, 2026
  *  version Mar. 24, 2026
- * @version Apr.  2, 2026
+ * @version Apr. 29, 2026
  *  version Sep. 23, 2025
  *  version Feb. 27, 2026
  * @author  ASAMI, Tomoharu
@@ -36,13 +36,6 @@ class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModel
     purpose: Purpose
   ): Consequence[Vector[SClassBase]] =
     super.transform_entity(p, purpose).map(_.map(_normalize_create_parameters))
-
-  override protected def to_typename(p: MDataType): TypeName =
-    p.datatype match {
-      case XEntityId => TypeName.option(super.to_typename(p))
-      case m => super.to_typename(p)
-    }
-//    TypeName.Primitive.createMarshalling(p)
 
   override protected def to_parameter(p: MAttribute): Parameter = {
     val base = super.to_parameter(p)

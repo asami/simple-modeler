@@ -24,7 +24,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 26, 2026
+ * @version Apr. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -168,6 +168,7 @@ object TypeName {
     override def isPlatform: Boolean = true
   }
   object Primitive {
+    val boolean = Primitive(XBoolean)
     val string = Primitive(XString, isString = true)
     val short = Primitive(XInt, isNumber = true)
     val int = Primitive(XInt, isNumber = true)
@@ -180,6 +181,7 @@ object TypeName {
     def create(p: DataType): Primitive = createOption(p).get
 
     def createOption(p: DataType): Option[Primitive] = Option(p).collect {
+      case XBoolean => boolean
       case XString => string
       case XShort => short
       case XInt => int
@@ -193,6 +195,7 @@ object TypeName {
     def createMarshalling(p: MDataType): Primitive = createMarshalling(p.datatype)
 
     def createMarshalling(p: DataType): Primitive = p match {
+      case XBoolean => boolean
       case XString => string
       case XShort => short
       case XInt => int
