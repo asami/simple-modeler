@@ -9,8 +9,7 @@ import org.simplemodeling.model._
  *  version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- *  version Apr. 17, 2026
- * @version Apr. 18, 2026
+ * @version Apr. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -150,6 +149,53 @@ object MComponent {
     rebuildable: Option[Boolean] = None
   )
 
+  final case class RelationshipDefinition(
+    name: String,
+    kind: String,
+    sourceEntityName: String,
+    targetEntityName: String,
+    targetModelKind: String = "entity",
+    sourceRole: Option[String] = None,
+    targetRole: Option[String] = None,
+    multiplicity: Option[String] = None,
+    storageMode: String = "association-record",
+    parentIdField: Option[String] = None,
+    valueField: Option[String] = None,
+    sortOrderField: Option[String] = None,
+    associationDomain: Option[String] = None,
+    targetKind: Option[String] = None,
+    lifecyclePolicy: Option[String] = None
+  )
+
+  final case class OperationAssociationBinding(
+    domain: String,
+    targetKind: String,
+    createsAssociation: Boolean = false,
+    detachesAssociation: Boolean = false,
+    roles: Vector[String] = Vector.empty,
+    parameters: Vector[String] = Vector.empty,
+    sourceEntityIdMode: String = "none",
+    sourceEntityIdParameters: Vector[String] = Vector.empty,
+    sourceEntityIdResultFields: Vector[String] = Vector("entity_id", "entityId", "id"),
+    targetIdParameters: Vector[String] = Vector.empty,
+    sortOrderParameters: Vector[String] = Vector.empty
+  )
+
+  final case class OperationChildEntityBinding(
+    name: String,
+    entityName: String,
+    inputParameter: String,
+    parentIdField: String,
+    relationshipName: Option[String] = None,
+    sourceEntityIdMode: String = "none",
+    sourceEntityIdParameters: Vector[String] = Vector.empty,
+    sourceEntityIdResultFields: Vector[String] = Vector("entity_id", "entityId", "id"),
+    childIdField: Option[String] = Some("id"),
+    sortOrderField: Option[String] = None,
+    createsEntity: Boolean = false,
+    failurePolicy: String = "compensate-parent-on-create"
+  )
+
   final case class ComponentCoordinate(
     group: String,
     artifact: String,
@@ -287,7 +333,9 @@ object MComponent {
     inputValueKind: String,
     access: Option[OperationAccess] = None,
     parameters: Vector[OperationField] = Vector.empty,
-    operationAuthorization: Option[OperationAuthorization] = None
+    operationAuthorization: Option[OperationAuthorization] = None,
+    childEntityBindings: Vector[OperationChildEntityBinding] = Vector.empty,
+    associationBinding: Option[OperationAssociationBinding] = None
   )
 
   final case class OperationAuthorization(
@@ -339,6 +387,7 @@ object MComponent {
     eventSubscriptionDefinitions: Vector[EventSubscriptionDefinition] = Vector.empty,
     aggregateDefinitions: Vector[AggregateDefinition] = Vector.empty,
     viewDefinitions: Vector[ViewDefinition] = Vector.empty,
+    relationshipDefinitions: Vector[RelationshipDefinition] = Vector.empty,
     operationDefinitions: Vector[OperationDefinition] = Vector.empty,
     componentDefinitions: Vector[ComponentDefinition] = Vector.empty,
     subsystemDefinitions: Vector[SubsystemDefinition] = Vector.empty
@@ -356,6 +405,7 @@ object MComponent {
       def eventSubscriptionDefinitions = componentCore.eventSubscriptionDefinitions
       def aggregateDefinitions = componentCore.aggregateDefinitions
       def viewDefinitions = componentCore.viewDefinitions
+      def relationshipDefinitions = componentCore.relationshipDefinitions
       def operationDefinitions = componentCore.operationDefinitions
       def componentDefinitions = componentCore.componentDefinitions
       def subsystemDefinitions = componentCore.subsystemDefinitions

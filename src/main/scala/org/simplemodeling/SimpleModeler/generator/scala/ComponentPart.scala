@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Apr. 22, 2026
+ * @version Apr. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -44,6 +44,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           _ <- _component_descriptors_method(s)
           _ <- _aggregate_definitions_method(s.aggregateDefinitions)
           _ <- _view_definitions_method(s.viewDefinitions)
+          _ <- _relationship_definitions_method(s.relationshipDefinitions)
           _ <- _operation_definitions_method(s.operationDefinitions)
           _ <- _component_definitions_method(s.componentDefinitions)
           _ <- _subsystem_definitions_method(s.subsystemDefinitions)
@@ -573,6 +574,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
             val entityName = d.entityName.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val entityNames = d.entityNames.map(_string_literal).mkString("Vector(", ", ", ")")
             val operationAuthorization = _operation_authorization_expr(d.operationAuthorization)
+            val childEntityBindings = _operation_child_entity_bindings_expr(d.childEntityBindings)
+            val associationBinding = _operation_association_binding_expr(d.associationBinding)
             for {
               _ <- println("org.goldenport.cncf.operation.CmlOperationDefinition(")
               _ <- indent
@@ -592,7 +595,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"inputValueKind = ${_string_literal(d.inputValueKind)},")
               _ <- println(s"access = ${access},")
               _ <- println(s"parameters = ${_operation_fields_expr(d.parameters)},")
-              _ <- println(s"operationAuthorization = ${operationAuthorization}")
+              _ <- println(s"operationAuthorization = ${operationAuthorization},")
+              _ <- println(s"childEntityBindings = ${childEntityBindings},")
+              _ <- println(s"associationBinding = ${associationBinding}")
               _ <- outdent
               _ <- println(")")
               _ <- if (i < defs.length - 1) println(",") else unit
@@ -603,6 +608,83 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- println(")")
       } yield ()
     }
+
+  private def _relationship_definitions_method(
+    defs: Vector[SComponent.RelationshipDefinition]
+  ): GenM[Unit] =
+    if (defs.isEmpty) {
+      println("override def relationshipDefinitions: Vector[org.goldenport.cncf.operation.CmlEntityRelationshipDefinition] = Vector.empty")
+    } else {
+      for {
+        _ <- println("override def relationshipDefinitions: Vector[org.goldenport.cncf.operation.CmlEntityRelationshipDefinition] = Vector(")
+        _ <- indent
+        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+          z.flatMap { _ =>
+            val sourceRole = d.sourceRole.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val targetRole = d.targetRole.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val multiplicity = d.multiplicity.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val parentIdField = d.parentIdField.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val valueField = d.valueField.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val sortOrderField = d.sortOrderField.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val associationDomain = d.associationDomain.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val targetKind = d.targetKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val lifecyclePolicy = d.lifecyclePolicy.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            for {
+              _ <- println("org.goldenport.cncf.operation.CmlEntityRelationshipDefinition(")
+              _ <- indent
+              _ <- println(s"name = ${_string_literal(d.name)},")
+              _ <- println(s"kind = ${_string_literal(d.kind)},")
+              _ <- println(s"sourceEntityName = ${_string_literal(d.sourceEntityName)},")
+              _ <- println(s"targetEntityName = ${_string_literal(d.targetEntityName)},")
+              _ <- if (d.targetModelKind != "entity") println(s"targetModelKind = ${_string_literal(d.targetModelKind)},") else unit
+              _ <- println(s"sourceRole = ${sourceRole},")
+              _ <- println(s"targetRole = ${targetRole},")
+              _ <- println(s"multiplicity = ${multiplicity},")
+              _ <- println(s"storageMode = ${_string_literal(d.storageMode)},")
+              _ <- println(s"parentIdField = ${parentIdField},")
+              _ <- if (d.valueField.nonEmpty) println(s"valueField = ${valueField},") else unit
+              _ <- println(s"sortOrderField = ${sortOrderField},")
+              _ <- println(s"associationDomain = ${associationDomain},")
+              _ <- println(s"targetKind = ${targetKind},")
+              _ <- println(s"lifecyclePolicy = ${lifecyclePolicy}")
+              _ <- outdent
+              _ <- println(")")
+              _ <- if (i < defs.length - 1) println(",") else unit
+            } yield ()
+          }
+        }
+        _ <- outdent
+        _ <- println(")")
+      } yield ()
+    }
+
+  private def _operation_child_entity_bindings_expr(
+    values: Vector[SComponent.OperationChildEntityBinding]
+  ): String =
+    if (values.isEmpty)
+      "Vector.empty"
+    else
+      values.map { x =>
+        val relationshipName = x.relationshipName.map(_string_literal).map(v => s"Some($v)").getOrElse("None")
+        val sourceEntityIdParameters = x.sourceEntityIdParameters.map(_string_literal).mkString("Vector(", ", ", ")")
+        val sourceEntityIdResultFields = x.sourceEntityIdResultFields.map(_string_literal).mkString("Vector(", ", ", ")")
+        val childIdField = x.childIdField.map(_string_literal).map(v => s"Some($v)").getOrElse("None")
+        val sortOrderField = x.sortOrderField.map(_string_literal).map(v => s"Some($v)").getOrElse("None")
+        s"""org.goldenport.cncf.operation.CmlOperationChildEntityBinding(name = ${_string_literal(x.name)}, entityName = ${_string_literal(x.entityName)}, inputParameter = ${_string_literal(x.inputParameter)}, parentIdField = ${_string_literal(x.parentIdField)}, relationshipName = ${relationshipName}, sourceEntityIdMode = ${_string_literal(x.sourceEntityIdMode)}, sourceEntityIdParameters = ${sourceEntityIdParameters}, sourceEntityIdResultFields = ${sourceEntityIdResultFields}, childIdField = ${childIdField}, sortOrderField = ${sortOrderField}, createsEntity = ${x.createsEntity}, failurePolicy = ${_string_literal(x.failurePolicy)})"""
+      }.mkString("Vector(", ", ", ")")
+
+  private def _operation_association_binding_expr(
+    value: Option[SComponent.OperationAssociationBinding]
+  ): String =
+    value.map { x =>
+      val roles = x.roles.map(_string_literal).mkString("Vector(", ", ", ")")
+      val parameters = x.parameters.map(_string_literal).mkString("Vector(", ", ", ")")
+      val sourceEntityIdParameters = x.sourceEntityIdParameters.map(_string_literal).mkString("Vector(", ", ", ")")
+      val sourceEntityIdResultFields = x.sourceEntityIdResultFields.map(_string_literal).mkString("Vector(", ", ", ")")
+      val targetIdParameters = x.targetIdParameters.map(_string_literal).mkString("Vector(", ", ", ")")
+      val sortOrderParameters = x.sortOrderParameters.map(_string_literal).mkString("Vector(", ", ", ")")
+      s"""Some(org.goldenport.cncf.operation.CmlOperationAssociationBinding(domain = ${_string_literal(x.domain)}, targetKind = ${_string_literal(x.targetKind)}, createsAssociation = ${x.createsAssociation}, detachesAssociation = ${x.detachesAssociation}, roles = ${roles}, parameters = ${parameters}, sourceEntityIdMode = ${_string_literal(x.sourceEntityIdMode)}, sourceEntityIdParameters = ${sourceEntityIdParameters}, sourceEntityIdResultFields = ${sourceEntityIdResultFields}, targetIdParameters = ${targetIdParameters}, sortOrderParameters = ${sortOrderParameters}))"""
+    }.getOrElse("None")
 
   private def _component_definitions_method(
     defs: Vector[SComponent.ComponentDefinition]

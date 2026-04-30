@@ -24,7 +24,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 29, 2026
+ * @version Apr. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -1046,6 +1046,53 @@ object SComponent {
     rebuildable: Option[Boolean] = None
   )
 
+  final case class RelationshipDefinition(
+    name: String,
+    kind: String,
+    sourceEntityName: String,
+    targetEntityName: String,
+    targetModelKind: String = "entity",
+    sourceRole: Option[String] = None,
+    targetRole: Option[String] = None,
+    multiplicity: Option[String] = None,
+    storageMode: String = "association-record",
+    parentIdField: Option[String] = None,
+    valueField: Option[String] = None,
+    sortOrderField: Option[String] = None,
+    associationDomain: Option[String] = None,
+    targetKind: Option[String] = None,
+    lifecyclePolicy: Option[String] = None
+  )
+
+  final case class OperationAssociationBinding(
+    domain: String,
+    targetKind: String,
+    createsAssociation: Boolean = false,
+    detachesAssociation: Boolean = false,
+    roles: Vector[String] = Vector.empty,
+    parameters: Vector[String] = Vector.empty,
+    sourceEntityIdMode: String = "none",
+    sourceEntityIdParameters: Vector[String] = Vector.empty,
+    sourceEntityIdResultFields: Vector[String] = Vector("entity_id", "entityId", "id"),
+    targetIdParameters: Vector[String] = Vector.empty,
+    sortOrderParameters: Vector[String] = Vector.empty
+  )
+
+  final case class OperationChildEntityBinding(
+    name: String,
+    entityName: String,
+    inputParameter: String,
+    parentIdField: String,
+    relationshipName: Option[String] = None,
+    sourceEntityIdMode: String = "none",
+    sourceEntityIdParameters: Vector[String] = Vector.empty,
+    sourceEntityIdResultFields: Vector[String] = Vector("entity_id", "entityId", "id"),
+    childIdField: Option[String] = Some("id"),
+    sortOrderField: Option[String] = None,
+    createsEntity: Boolean = false,
+    failurePolicy: String = "compensate-parent-on-create"
+  )
+
   final case class ComponentCoordinate(
     group: String,
     artifact: String,
@@ -1183,7 +1230,9 @@ object SComponent {
     inputValueKind: String,
     access: Option[OperationAccess] = None,
     parameters: Vector[OperationField] = Vector.empty,
-    operationAuthorization: Option[OperationAuthorization] = None
+    operationAuthorization: Option[OperationAuthorization] = None,
+    childEntityBindings: Vector[OperationChildEntityBinding] = Vector.empty,
+    associationBinding: Option[OperationAssociationBinding] = None
   )
 
   final case class OperationAuthorization(
@@ -1242,6 +1291,7 @@ object SComponent {
     eventSubscriptionDefinitions: Vector[EventSubscriptionDefinition] = Vector.empty,
     aggregateDefinitions: Vector[AggregateDefinition] = Vector.empty,
     viewDefinitions: Vector[ViewDefinition] = Vector.empty,
+    relationshipDefinitions: Vector[RelationshipDefinition] = Vector.empty,
     operationDefinitions: Vector[OperationDefinition] = Vector.empty,
     componentDefinitions: Vector[ComponentDefinition] = Vector.empty,
     subsystemDefinitions: Vector[SubsystemDefinition] = Vector.empty,
@@ -1261,6 +1311,7 @@ object SComponent {
       def eventSubscriptionDefinitions = componentCore.eventSubscriptionDefinitions
       def aggregateDefinitions = componentCore.aggregateDefinitions
       def viewDefinitions = componentCore.viewDefinitions
+      def relationshipDefinitions = componentCore.relationshipDefinitions
       def operationDefinitions = componentCore.operationDefinitions
       def componentDefinitions = componentCore.componentDefinitions
       def subsystemDefinitions = componentCore.subsystemDefinitions

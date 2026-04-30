@@ -10,8 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- *  version Apr. 17, 2026
- * @version Apr. 18, 2026
+ * @version Apr. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -77,6 +76,10 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         case m: MComponent.Core.Holder => to_view_definitions(m.viewDefinitions)
         case _ => Vector.empty
       }
+      val relationships = source match {
+        case m: MComponent.Core.Holder => to_relationship_definitions(m.relationshipDefinitions)
+        case _ => Vector.empty
+      }
       val operations = source match {
         case m: MComponent.Core.Holder => to_operation_definitions(m.operationDefinitions)
         case _ => Vector.empty
@@ -100,6 +103,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         eventsubs,
         aggregates,
         views,
+        relationships,
         operations,
         components,
         subsystems,
@@ -311,6 +315,37 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               anonymousOperationModes = a.anonymousOperationModes
             )
           ),
+          childEntityBindings = p.childEntityBindings.map { x =>
+            SComponent.OperationChildEntityBinding(
+              name = x.name,
+              entityName = x.entityName,
+              inputParameter = x.inputParameter,
+              parentIdField = x.parentIdField,
+              relationshipName = x.relationshipName,
+              sourceEntityIdMode = x.sourceEntityIdMode,
+              sourceEntityIdParameters = x.sourceEntityIdParameters,
+              sourceEntityIdResultFields = x.sourceEntityIdResultFields,
+              childIdField = x.childIdField,
+              sortOrderField = x.sortOrderField,
+              createsEntity = x.createsEntity,
+              failurePolicy = x.failurePolicy
+            )
+          },
+          associationBinding = p.associationBinding.map { x =>
+            SComponent.OperationAssociationBinding(
+              domain = x.domain,
+              targetKind = x.targetKind,
+              createsAssociation = x.createsAssociation,
+              detachesAssociation = x.detachesAssociation,
+              roles = x.roles,
+              parameters = x.parameters,
+              sourceEntityIdMode = x.sourceEntityIdMode,
+              sourceEntityIdParameters = x.sourceEntityIdParameters,
+              sourceEntityIdResultFields = x.sourceEntityIdResultFields,
+              targetIdParameters = x.targetIdParameters,
+              sortOrderParameters = x.sortOrderParameters
+            )
+          },
           parameters = p.parameters.map { x =>
             SComponent.OperationField(
               name = x.name,
@@ -323,6 +358,29 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               required = x.required
             )
           }
+        )
+      }
+
+    private def to_relationship_definitions(
+      ps: Vector[MComponent.RelationshipDefinition]
+    ): Vector[SComponent.RelationshipDefinition] =
+      ps.map { p =>
+        SComponent.RelationshipDefinition(
+          name = p.name,
+          kind = p.kind,
+          sourceEntityName = p.sourceEntityName,
+          targetEntityName = p.targetEntityName,
+          targetModelKind = p.targetModelKind,
+          sourceRole = p.sourceRole,
+          targetRole = p.targetRole,
+          multiplicity = p.multiplicity,
+          storageMode = p.storageMode,
+          parentIdField = p.parentIdField,
+          valueField = p.valueField,
+          sortOrderField = p.sortOrderField,
+          associationDomain = p.associationDomain,
+          targetKind = p.targetKind,
+          lifecyclePolicy = p.lifecyclePolicy
         )
       }
 
