@@ -8,7 +8,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 /*
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
- * @version Apr. 30, 2026
+ *  version Apr. 30, 2026
+ * @version May.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -1350,7 +1351,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     private def _operation(servicename: String)(op: SMethod): GenM[ActionCallDescriptor] = {
       val operationobject = operation_object_name(op)
       val operationname = operation_name(op)
-      val actionclassname = action_class_name(op)
+      val actionclassname = _action_value_class_name(op)
       val outputtype = _operation_output_type(op)
       for {
         _ <- _comment(op.description)
@@ -1368,6 +1369,16 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               } yield ()
             }
             _ <- separator
+            _ <- block("def validateRequest(") {
+              println("req: Request")
+            }
+            _ <- block("): Consequence[Unit] =") {
+              for {
+                _ <- println("given Request = req")
+                _ <- println("Consequence.zipN(specification.request.parameters.map(resolveParameter)).map(_ => ())")
+              } yield ()
+            }
+            _ <- separator
             _ <- block("override def createOperationRequest(") {
               println("req: Request")
             }
@@ -1382,11 +1393,16 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     }
 
     private def _request_definition_expr(op: SMethod): String = {
-      val params = _request_parameters(op)
-      if (params.isEmpty)
-        "RequestDefinition.empty"
-      else
-        s"RequestDefinition(parameters = List(${params.map(_parameter_definition_expr).mkString(", ")}))"
+      val fields = _operation_model_definition(op).map(_.parameters).getOrElse(Vector.empty)
+      if (fields.nonEmpty)
+        s"RequestDefinition(parameters = List(${fields.map(_operation_field_parameter_definition_expr).mkString(", ")}))"
+      else {
+        val params = _request_parameters(op)
+        if (params.isEmpty)
+          "RequestDefinition.empty"
+        else
+          s"RequestDefinition(parameters = List(${params.map(_parameter_definition_expr).mkString(", ")}))"
+      }
     }
 
     private def _request_parameters(op: SMethod): Vector[Parameter] = {
@@ -1409,8 +1425,43 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = org.goldenport.schema.XString, multiplicity = $multiplicity))"
     }
 
+    private def _operation_field_parameter_definition_expr(p: SComponent.OperationField): String = {
+      val name = _string_literal(p.name)
+      val multiplicity = _schema_multiplicity_expr(p.multiplicity)
+      val datatype = _schema_datatype_expr(p.datatype)
+      s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = $datatype, multiplicity = $multiplicity))"
+    }
+
+    private def _schema_multiplicity_expr(p: String): String =
+      Option(p).map(_.trim).getOrElse("1") match {
+        case "1" | "one" => "org.goldenport.schema.Multiplicity.One"
+        case "?" | "0..1" | "zero-or-one" => "org.goldenport.schema.Multiplicity.ZeroOne"
+        case "*" | "0..*" | "zero-or-more" => "org.goldenport.schema.Multiplicity.ZeroMore"
+        case "+" | "1..*" | "one-or-more" => "org.goldenport.schema.Multiplicity.OneMore"
+        case _ => "org.goldenport.schema.Multiplicity.ZeroOne"
+      }
+
+    private def _schema_datatype_expr(p: String): String =
+      Option(p).map(_.trim.toLowerCase(java.util.Locale.ROOT)).getOrElse("string") match {
+        case "string" | "text" | "name" => "org.goldenport.schema.XString"
+        case "boolean" | "bool" => "org.goldenport.schema.XBoolean"
+        case "int" => "org.goldenport.schema.XInt"
+        case "integer" => "org.goldenport.schema.XInteger"
+        case "long" => "org.goldenport.schema.XLong"
+        case "float" => "org.goldenport.schema.XFloat"
+        case "double" => "org.goldenport.schema.XDouble"
+        case "decimal" => "org.goldenport.schema.XDecimal"
+        case "blob" => "org.goldenport.schema.XBlob"
+        case "filebundle" => "org.goldenport.schema.XFileBundle"
+        case "datetime" | "dateTime" => "org.goldenport.schema.XDateTime"
+        case "localdatetime" | "localDateTime" => "org.goldenport.schema.XLocalDateTime"
+        case "entityid" => """org.goldenport.schema.DataType.Named("entityid")"""
+        case "record" => """org.goldenport.schema.DataType.Named("record")"""
+        case other => s"""org.goldenport.schema.DataType.Named(${_string_literal(other)})"""
+      }
+
     private def _action(servicename: String, op: SMethod): GenM[Unit] = {
-      val actionclassname = action_class_name(op)
+      val actionclassname = _action_value_class_name(op)
       val actioncallclassname = action_call_class_name(op)
       val factorymethodname = s"create${actioncallclassname}"
       val opkind = op.descriptor.kind match {
@@ -1420,7 +1471,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       val params = _param_descriptors(op)
       for {
         _ <- separator
-        _ <- block(s"final case class ${actionclassname}(") {
+        _ <- block(s"final case class ${actionclassname} private (") {
           for {
             _ <- if (params.nonEmpty)
               println("request: Request,")
@@ -1447,9 +1498,20 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
             } yield ()
           }
         }
-        _ <- _action_companion_object(op, params)
+        _ <- _action_companion_object(op, params, actionclassname, operation_object_name(op))
       } yield ()
     }
+
+    private def _action_value_class_name(op: SMethod): String =
+      _operation_model_definition(op).flatMap { definition =>
+        Option(definition.inputValueKind).map(_.trim.toUpperCase(java.util.Locale.ROOT)) match {
+          case Some("COMMAND_VALUE") | Some("QUERY_VALUE") =>
+            Option(definition.inputType).map(_.trim).filter(_.nonEmpty).map { name =>
+              make_title(name.split("[.#]").last)
+            }
+          case _ => None
+        }
+      }.getOrElse(action_class_name(op))
 
     private def _param_descriptors(op: SMethod): Vector[(String, TypeName)] =
       op.parameters.parameters.headOption match {
@@ -1480,15 +1542,49 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
     private def _action_companion_object(
       op: SMethod,
-      params: Vector[(String, TypeName)]
+      params: Vector[(String, TypeName)],
+      actionclassname: String,
+      operationobjectname: String
     ): GenM[Unit] = {
-      val actionclassname = action_class_name(op)
       block(s"object $actionclassname") {
-        block(s"def create(request: Request): Consequence[$actionclassname] =") {
-          _action_companion_object_create_body(params, actionclassname)
-        }
+        for {
+          _ <- block(s"def create(request: Request): Consequence[$actionclassname] =") {
+            for {
+              _ <- println(s"$operationobjectname.validateRequest(request).flatMap { _ =>")
+              _ <- indent
+              _ <- _action_companion_object_create_body(params, actionclassname)
+              _ <- outdent
+              _ <- println("}")
+            } yield ()
+          }
+          _ <- _action_unsafe_for_test(params, actionclassname)
+        } yield ()
       }
     }
+
+    private def _action_unsafe_for_test(
+      params: Vector[(String, TypeName)],
+      actionclassname: String
+    ): GenM[Unit] =
+      params match {
+        case Vector((paramname, paramtype)) if paramtype.fullName == "org.goldenport.record.Record" =>
+          val pkg = component_packagename.name.split("\\.").lastOption.getOrElse("")
+          val scope = if (pkg.isEmpty) "" else s"private[$pkg] "
+          for {
+            _ <- separator
+            _ <- block(s"${scope}def unsafeForTest(") {
+              for {
+                _ <- println("request: Request,")
+                _ <- println(s"$paramname: Record")
+              } yield ()
+            }
+            _ <- block(s"): $actionclassname =") {
+              println(s"$actionclassname(request, $paramname)")
+            }
+          } yield ()
+        case _ =>
+          unit
+      }
 
     private def _action_companion_object_create_body(
       params: Vector[(String, TypeName)],
@@ -1538,7 +1634,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
     private def _action_call(op: SMethod): GenM[ActionCallDescriptor] = {
       val paramtypename = _param_type_fullname(op)
-      val actionclassname = action_class_name(op)
+      val actionclassname = _action_value_class_name(op)
       val actioncallclassname = action_call_class_name(op)
       val access = op.access.orElse(_operation_access(op))
       for {
@@ -1642,13 +1738,16 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _normalize_operation_marker(op.name.name),
         _normalize_operation_marker(operation_name(op))
       ).filter(_.nonEmpty)
-      _component.flatMap(_.componentCore.operationDefinitions.find { definition =>
-        val defname = _normalize_operation_marker(definition.name)
-        opmarkers.contains(defname)
-      }).flatMap(_.access)
+      _operation_model_definition(op).flatMap(_.access)
     }
 
     private def _operation_output_type(op: SMethod): String = {
+      _operation_model_definition(op).map(_.outputType).getOrElse(op.returnType.name)
+    }
+
+    private def _operation_model_definition(
+      op: SMethod
+    ): Option[SComponent.OperationDefinition] = {
       val opmarkers = Set(
         _normalize_operation_marker(op.name.name),
         _normalize_operation_marker(operation_name(op))
@@ -1656,7 +1755,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _component.flatMap(_.componentCore.operationDefinitions.find { definition =>
         val defname = _normalize_operation_marker(definition.name)
         opmarkers.contains(defname)
-      }).map(_.outputType).getOrElse(op.returnType.name)
+      })
     }
 
     private def _action_program_entity: GenM[Unit] = {
