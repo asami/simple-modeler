@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version Apr. 30, 2026
+ * @version May.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -294,6 +294,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
           outputSummary = p.outputSummary,
           outputDescription = p.outputDescription,
           inputValueKind = p.inputValueKind,
+          visibility = p.visibility,
           access = p.access.map(a =>
             SComponent.OperationAccess(
               policy = a.policy,

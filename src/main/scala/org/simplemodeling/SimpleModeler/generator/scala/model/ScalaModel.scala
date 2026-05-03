@@ -24,7 +24,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version Apr. 30, 2026
+ * @version May.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -1228,6 +1228,7 @@ object SComponent {
     outputSummary: Option[String] = None,
     outputDescription: Option[String] = None,
     inputValueKind: String,
+    visibility: Option[String] = None,
     access: Option[OperationAccess] = None,
     parameters: Vector[OperationField] = Vector.empty,
     operationAuthorization: Option[OperationAuthorization] = None,

@@ -9,7 +9,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
  *  version Apr. 30, 2026
- * @version May.  1, 2026
+ * @version May.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -560,6 +560,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
             val inputDescription = d.inputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val outputSummary = d.outputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val outputDescription = d.outputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val visibility = d.visibility.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val access = d.access.map { a =>
               val resource = a.resource.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
               val target = a.target.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
@@ -594,6 +595,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"outputSummary = ${outputSummary},")
               _ <- println(s"outputDescription = ${outputDescription},")
               _ <- println(s"inputValueKind = ${_string_literal(d.inputValueKind)},")
+              _ <- println(s"visibility = ${visibility},")
               _ <- println(s"access = ${access},")
               _ <- println(s"parameters = ${_operation_fields_expr(d.parameters)},")
               _ <- println(s"operationAuthorization = ${operationAuthorization},")

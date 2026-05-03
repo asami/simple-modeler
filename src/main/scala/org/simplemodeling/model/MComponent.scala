@@ -9,7 +9,7 @@ import org.simplemodeling.model._
  *  version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version Apr. 30, 2026
+ * @version May.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -331,6 +331,7 @@ object MComponent {
     outputSummary: Option[String] = None,
     outputDescription: Option[String] = None,
     inputValueKind: String,
+    visibility: Option[String] = None,
     access: Option[OperationAccess] = None,
     parameters: Vector[OperationField] = Vector.empty,
     operationAuthorization: Option[OperationAuthorization] = None,

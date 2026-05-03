@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Sep. 19, 2025
  *  version Sep. 23, 2025
  *  version Mar. 24, 2026
- * @version Apr. 19, 2026
+ * @version May.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -52,6 +52,7 @@ class EntityValueScalaModelTransformer() extends EntityCaseClassScalaModelTransf
         val compositeparams = Vector(
           _simple_object_parameter("nameAttributes", "NameAttributes"),
           _simple_object_parameter("descriptiveAttributes", "DescriptiveAttributes"),
+          _simple_object_parameter("contentAttributes", "ContentAttributes"),
           _simple_object_parameter("lifecycleAttributes", "LifecycleAttributes"),
           _simple_object_parameter("publicationAttributes", "PublicationAttributes"),
           _simple_object_parameter("securityAttributes", "SecurityAttributes"),
@@ -93,6 +94,7 @@ class EntityValueScalaModelTransformer() extends EntityCaseClassScalaModelTransf
     "id",
     "name",
     "title",
+    "contentAttributes",
     "content"
   )
 }

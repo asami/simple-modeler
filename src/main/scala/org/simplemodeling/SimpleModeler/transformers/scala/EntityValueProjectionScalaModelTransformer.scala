@@ -8,7 +8,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Apr.  2, 2026
- * @version Apr.  2, 2026
+ * @version May.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueProjectionScalaModelTransformer(
@@ -36,6 +36,7 @@ class EntityValueProjectionScalaModelTransformer(
         val compositeparams = Vector(
           _simple_object_parameter("nameAttributes", "NameAttributes"),
           _simple_object_parameter("descriptiveAttributes", "DescriptiveAttributes"),
+          _simple_object_parameter("contentAttributes", "ContentAttributes"),
           _simple_object_parameter("lifecycleAttributes", "LifecycleAttributes"),
           _simple_object_parameter("publicationAttributes", "PublicationAttributes"),
           _simple_object_parameter("securityAttributes", "SecurityAttributes"),
@@ -106,6 +107,7 @@ class EntityValueProjectionScalaModelTransformer(
     "id",
     "name",
     "title",
+    "contentAttributes",
     "content"
   )
 }
