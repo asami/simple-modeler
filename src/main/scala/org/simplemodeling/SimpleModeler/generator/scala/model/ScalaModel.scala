@@ -24,7 +24,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version May.  3, 2026
+ *  version Apr. 30, 2026
+ * @version May.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -321,6 +322,10 @@ object TypeName {
       case "localtime" | "local_time" => Plain.create("java.time", "LocalTime")
       case "localdatetime" | "local_datetime" => Plain.create("java.time", "LocalDateTime")
       case "yearmonth" | "year_month" => Plain.create("java.time", "YearMonth")
+      case "charset" => Plain.create("java.nio.charset", "Charset")
+      case "mimetype" | "mime_type" => Plain(datatypePkg, "MimeType")
+      case "contentbody" | "content_body" => Plain.create("org.simplemodeling.model.value", "ContentBody")
+      case "contentmarkup" | "content_markup" => Plain.create("org.simplemodeling.model.value", "ContentMarkup")
       case _ =>
         p match {
           case XEntityId => Plain(modelDatatypePkg, "EntityId")

@@ -9,7 +9,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
  *  version Apr. 30, 2026
- * @version May.  3, 2026
+ * @version May.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -1455,6 +1455,10 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         case "decimal" => "org.goldenport.schema.XDecimal"
         case "blob" => "org.goldenport.schema.XBlob"
         case "filebundle" => "org.goldenport.schema.XFileBundle"
+        case "mimetype" | "mime_type" => "org.goldenport.schema.XMimeType"
+        case "charset" => "org.goldenport.schema.XCharset"
+        case "contentbody" | "content_body" => "org.goldenport.schema.XContentBody"
+        case "contentmarkup" | "content_markup" => "org.goldenport.schema.XContentMarkup"
         case "datetime" | "dateTime" => "org.goldenport.schema.XDateTime"
         case "localdatetime" | "localDateTime" => "org.goldenport.schema.XLocalDateTime"
         case "entityid" => """org.goldenport.schema.DataType.Named("entityid")"""

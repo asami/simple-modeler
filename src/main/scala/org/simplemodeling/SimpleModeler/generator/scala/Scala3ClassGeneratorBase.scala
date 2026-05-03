@@ -18,7 +18,8 @@ import Generator.{State => GState, _}
  *  version Nov. 18, 2025
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
- * @version May.  3, 2026
+ *  version Apr. 26, 2026
+ * @version May.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -536,6 +537,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("case m: org.goldenport.datatype.I18nSummary => m.toI18nString.displayMessage")
         _ <- println("case m: org.goldenport.datatype.I18nDescription => m.toI18nString.displayMessage")
         _ <- println("case m: org.goldenport.datatype.I18nText => m.toI18nString.displayMessage")
+        _ <- println("case m: org.goldenport.datatype.MimeType => m.print")
+        _ <- println("case m: java.nio.charset.Charset => m.name()")
+        _ <- println("case m: org.goldenport.value.ContentBody => m.value")
+        _ <- println("case m: org.goldenport.value.ContentMarkup => m.value")
         _ <- println("case m: org.goldenport.datatype.ObjectId => _to_external_value(m.id)")
         _ <- println("case _: org.simplemodeling.model.directive.Condition.Any.type => null")
         _ <- println("case org.simplemodeling.model.directive.Condition.Is(expected) => _to_external_value(expected)")
@@ -578,6 +583,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("  case m: org.goldenport.datatype.I18nSummary => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
         _ <- println("  case m: org.goldenport.datatype.I18nDescription => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
         _ <- println("  case m: org.goldenport.datatype.I18nText => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
+        _ <- println("  case m: org.goldenport.datatype.MimeType => m.print")
+        _ <- println("  case m: java.nio.charset.Charset => m.name()")
+        _ <- println("  case m: org.goldenport.value.ContentBody => m.value")
+        _ <- println("  case m: org.goldenport.value.ContentMarkup => m.value")
         _ <- println("  case m: org.simplemodeling.model.statemachine.StateMachine => m.dbValue")
         _ <- println("  case m: org.simplemodeling.model.powertype.Powertype => m.dbValue.getOrElse(m.value)")
         _ <- println("""  case m: org.goldenport.value.NameAttributes => Record.dataAuto("name" -> _to_data_store_value(m.name), "label" -> _to_data_store_value(m.label), "title" -> _to_data_store_value(m.title))""")
@@ -706,6 +715,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     _select_attribute_name(names, "contentAttributes", "content_Attributes").foreach { attr =>
       b += "content" -> s"$attr.content"
       b += "content_mime_type" -> s"$attr.mimeType"
+      b += "content_charset" -> s"$attr.charset"
       b += "content_markup" -> s"$attr.markup"
       b += "content_references" -> s"$attr.references"
     }
@@ -822,6 +832,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     _select_attribute_name(names, "contentAttributes", "content_Attributes").foreach { attr =>
       b += (("content", s"$attr.content", valuefn))
       b += (("content_mime_type", s"$attr.mimeType", valuefn))
+      b += (("content_charset", s"$attr.charset", valuefn))
       b += (("content_markup", s"$attr.markup", valuefn))
       b += (("content_references", s"$attr.references", valuefn))
     }
@@ -1260,6 +1271,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "urn" => named("urn")
       case "blob" => named("blob")
       case "clob" => named("clob")
+      case "mimetype" | "mime_type" => s"${schema}XMimeType"
+      case "charset" => s"${schema}XCharset"
+      case "contentbody" | "content_body" => s"${schema}XContentBody"
+      case "contentmarkup" | "content_markup" => s"${schema}XContentMarkup"
       case "date" => named("date")
       case "localdate" => named("localDate")
       case "time" => named("time")
@@ -2638,16 +2653,18 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("(")
       _ <- indent
       _ <- println("_record_get_as_c[ContentAttributes](record, ", input_keys_name(p.name.name), "),")
-      _ <- println("_record_get_as_c[String](record, ", _record_keys_for_derived_target("content"), "),")
-      _ <- println("_record_get_as_c[String](record, List(\"contentMimeType\", \"content_mime_type\", \"mimeType\", \"mime_type\", \"contentType\", \"content_type\")),")
-      _ <- println("_record_get_as_c[String](record, List(\"contentMarkup\", \"content_markup\", \"markup\")),")
+      _ <- println("_record_get_as_c[ContentBody](record, ", _record_keys_for_derived_target("content"), "),")
+      _ <- println("_record_get_as_c[MimeType](record, List(\"contentMimeType\", \"content_mime_type\", \"mimeType\", \"mime_type\", \"contentType\", \"content_type\")),")
+      _ <- println("_record_get_as_c[java.nio.charset.Charset](record, List(\"contentCharset\", \"content_charset\", \"charset\")),")
+      _ <- println("_record_get_as_c[ContentMarkup](record, List(\"contentMarkup\", \"content_markup\", \"markup\")),")
       _ <- println("_record_get_vector_of_record_c(record, List(\"contentReferences\", \"content_references\", \"references\"))(ContentReferenceOccurrence.createC)")
       _ <- outdent
-      _ <- println(").mapN { (attrv, contentv, mimev, markupv, referencesv) =>")
+      _ <- println(").mapN { (attrv, contentv, mimev, charsetv, markupv, referencesv) =>")
       _ <- indent
       _ <- println("ContentAttributes.Builder(attrv.orElse(", p.name.name, "))")
-      _ <- println("  .copy(content = contentv.map(I18nText(_)))")
+      _ <- println("  .copy(content = contentv)")
       _ <- println("  .copy(mimeType = mimev)")
+      _ <- println("  .copy(charset = charsetv)")
       _ <- println("  .copy(markup = markupv)")
       _ <- println("  .copy(references = referencesv)")
       _ <- println("  .build()")
