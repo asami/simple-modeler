@@ -9,7 +9,8 @@ import org.simplemodeling.model._
  *  version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version May.  3, 2026
+ *  version May.  3, 2026
+ * @version May.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -372,6 +373,7 @@ object MComponent {
   final case class EntityRuntimeDescriptor(
     entityName: String,
     packageName: String,
+    entityKind: Option[String] = None,
     usageKind: Option[String] = None,
     operationKind: Option[String] = None,
     applicationDomain: Option[String] = None,

@@ -92,8 +92,17 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
   private def _entity_runtime_descriptor_expr(
     d: SComponent.EntityRuntimeDescriptor
   ): GenM[Unit] = {
+    val entityKind = _string_literal(d.entityKind.getOrElse(""))
     val usageKind = _string_literal(d.usageKind.getOrElse(""))
     val operationKind = _string_literal(d.operationKind.getOrElse(""))
+    val entityKindExpr = d.entityKind
+      .map(_ => s"org.goldenport.cncf.entity.runtime.EntityKind.parse(${entityKind})")
+      .orElse(d.operationKind.map(_ => s"org.goldenport.cncf.entity.runtime.EntityRuntimeDescriptor.legacyEntityKind(org.goldenport.cncf.security.EntityOperationKind.parse(${operationKind}))"))
+      .getOrElse("org.goldenport.cncf.entity.runtime.EntityKind.default")
+    val operationKindExpr = d.operationKind
+      .map(_ => s"org.goldenport.cncf.security.EntityOperationKind.parse(${operationKind})")
+      .orElse(d.entityKind.map(_ => s"org.goldenport.cncf.entity.runtime.EntityKind.parse(${entityKind}).legacyOperationKind"))
+      .getOrElse("org.goldenport.cncf.security.EntityOperationKind.default")
     val applicationDomain = _string_literal(d.applicationDomain.getOrElse(""))
     for {
       _ <- println("org.goldenport.cncf.entity.runtime.EntityRuntimeDescriptor(")
@@ -104,9 +113,11 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println("partitionStrategy = org.goldenport.cncf.entity.runtime.PartitionStrategy.byOrganizationMonthUTC,")
       _ <- println("maxPartitions = 64,")
       _ <- println("maxEntitiesPerPartition = 10000,")
+      _ <- println(s"entityKind = ${entityKindExpr},")
       _ <- println(s"usageKind = org.goldenport.cncf.security.EntityUsageKind.parse(${usageKind}),")
-      _ <- println(s"operationKind = org.goldenport.cncf.security.EntityOperationKind.parse(${operationKind}),")
+      _ <- println(s"operationKind = ${operationKindExpr},")
       _ <- println(s"applicationDomain = org.goldenport.cncf.security.EntityApplicationDomain.parse(${applicationDomain}),")
+      _ <- println(s"entityKindExplicit = ${d.entityKind.isDefined},")
       _ <- println(s"viewNames = ${_string_vector_expr(d.viewNames)}")
       _ <- outdent
       _ <- println(")")

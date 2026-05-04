@@ -19,7 +19,8 @@ import org.simplemodeling.model._
  *  version Aug.  1, 2020
  *  version Nov. 18, 2020
  *  version Jun. 20, 2021
- * @version Apr. 13, 2026
+ *  version Apr. 13, 2026
+ * @version May.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MDomainResource(
@@ -33,6 +34,7 @@ case class MDomainResource(
   associations: List[MAssociation],
   operations: List[MOperation],
   stateMachines: List[MStateMachineRef],
+  override val entityKind: Option[String] = None,
   override val usageKind: Option[String] = None,
   override val operationKind: Option[String] = None,
   override val applicationDomain: Option[String] = None

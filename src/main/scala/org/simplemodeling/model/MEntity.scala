@@ -14,10 +14,12 @@ import org.simplemodeling.model._
  *  version Aug.  7, 2019
  *  version May. 10, 2020
  *  version Feb. 11, 2026
- * @version Apr. 13, 2026
+ *  version Apr. 13, 2026
+ * @version May.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MEntity extends MObject {
+  def entityKind: Option[String] = None
   def usageKind: Option[String] = None
   def operationKind: Option[String] = None
   def applicationDomain: Option[String] = None

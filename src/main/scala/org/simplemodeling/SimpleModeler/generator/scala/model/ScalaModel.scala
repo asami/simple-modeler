@@ -1274,6 +1274,7 @@ object SComponent {
   final case class EntityRuntimeDescriptor(
     entityName: String,
     packageName: PackageName,
+    entityKind: Option[String] = None,
     usageKind: Option[String] = None,
     operationKind: Option[String] = None,
     applicationDomain: Option[String] = None,

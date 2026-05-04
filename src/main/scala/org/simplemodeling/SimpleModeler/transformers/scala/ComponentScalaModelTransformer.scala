@@ -10,7 +10,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version May.  3, 2026
+ *  version May.  3, 2026
+ * @version May.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -119,6 +120,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         SComponent.EntityRuntimeDescriptor(
           entityName = p.entityName,
           packageName = PackageName(p.packageName),
+          entityKind = p.entityKind,
           usageKind = p.usageKind,
           operationKind = p.operationKind,
           applicationDomain = p.applicationDomain,
