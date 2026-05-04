@@ -118,6 +118,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"operationKind = ${operationKindExpr},")
       _ <- println(s"applicationDomain = org.goldenport.cncf.security.EntityApplicationDomain.parse(${applicationDomain}),")
       _ <- println(s"entityKindExplicit = ${d.entityKind.isDefined},")
+      _ <- println(s"operationKindExplicit = ${d.operationKind.isDefined},")
       _ <- println(s"viewNames = ${_string_vector_expr(d.viewNames)}")
       _ <- outdent
       _ <- println(")")
