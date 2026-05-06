@@ -9,8 +9,7 @@ import org.simplemodeling.model._
  *  version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- *  version May.  3, 2026
- * @version May.  4, 2026
+ * @version May.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -322,6 +321,9 @@ object MComponent {
     kind: String,
     summary: Option[String] = None,
     execution: Option[String] = None,
+    commandKind: Option[String] = None,
+    commandExecutionProperties: Map[String, String] = Map.empty,
+    commandExecutionPolicy: Option[String] = None,
     implementation: Option[String] = None,
     entityName: Option[String] = None,
     entityNames: Vector[String] = Vector.empty,

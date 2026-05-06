@@ -9,7 +9,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
  *  version Apr. 30, 2026
- * @version May.  4, 2026
+ * @version May.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -567,6 +567,12 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           z.flatMap { _ =>
             val summary = d.summary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val execution = d.execution.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val commandKind = d.commandKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val commandExecutionProperties = _string_map_record_expr(d.commandExecutionProperties)
+            val commandExecutionPolicy = d.commandExecutionPolicy
+              .map(_string_literal)
+              .map(x => s"org.goldenport.cncf.action.CommandExecutionPolicy.parse($x)")
+              .getOrElse("None")
             val implementation = d.implementation.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val inputSummary = d.inputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val inputDescription = d.inputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
@@ -597,6 +603,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"kind = ${_string_literal(d.kind)},")
               _ <- println(s"summary = ${summary},")
               _ <- println(s"execution = ${execution},")
+              _ <- println(s"commandKind = ${commandKind},")
+              _ <- println(s"commandExecutionProperties = ${commandExecutionProperties},")
+              _ <- println(s"commandExecutionPolicy = ${commandExecutionPolicy},")
               _ <- println(s"implementation = ${implementation},")
               _ <- println(s"entityName = ${entityName},")
               _ <- println(s"entityNames = ${entityNames},")
@@ -999,6 +1008,16 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       p.toVector.sortBy(_._1).map {
         case (key, values) => s"${_string_literal(key)} -> ${_string_vector_expr(values)}"
       }.mkString("Map(", ", ", ")")
+
+  private def _string_map_record_expr(
+    p: Map[String, String]
+  ): String =
+    if (p.isEmpty)
+      "org.goldenport.record.Record.empty"
+    else
+      p.toVector.sortBy(_._1).map {
+        case (key, value) => s"${_string_literal(key)} -> ${_string_literal(value)}"
+      }.mkString("org.goldenport.record.Record.data(", ", ", ")")
 
   private def _event_category_expr(
     p: String

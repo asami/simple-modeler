@@ -10,8 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- *  version May.  3, 2026
- * @version May.  4, 2026
+ * @version May.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -286,6 +285,9 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
           kind = p.kind,
           summary = p.summary,
           execution = p.execution,
+          commandKind = p.commandKind,
+          commandExecutionProperties = p.commandExecutionProperties,
+          commandExecutionPolicy = p.commandExecutionPolicy,
           implementation = p.implementation,
           entityName = p.entityName,
           entityNames = p.entityNames,

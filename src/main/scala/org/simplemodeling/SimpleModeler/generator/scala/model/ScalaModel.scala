@@ -25,7 +25,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  *  version Apr. 30, 2026
- * @version May.  4, 2026
+ * @version May.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -1223,6 +1223,9 @@ object SComponent {
     kind: String,
     summary: Option[String] = None,
     execution: Option[String] = None,
+    commandKind: Option[String] = None,
+    commandExecutionProperties: Map[String, String] = Map.empty,
+    commandExecutionPolicy: Option[String] = None,
     implementation: Option[String] = None,
     entityName: Option[String] = None,
     entityNames: Vector[String] = Vector.empty,
