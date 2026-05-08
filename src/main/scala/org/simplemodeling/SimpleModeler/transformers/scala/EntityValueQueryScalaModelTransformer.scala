@@ -9,7 +9,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 18, 2026
  *  version Feb. 19, 2026
- * @version Mar. 24, 2026
+ *  version Mar. 24, 2026
+ * @version May.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueQueryScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -25,7 +26,7 @@ class EntityValueQueryScalaModelTransformer() extends EntityCaseClassScalaModelT
 
   override protected def to_parameter(p: MAttribute): Parameter = {
     val t = _condition_type(to_typename(p))
-    Parameter(ParameterName(p.name), t, true, false)
+    Parameter(ParameterName(p.name), t, true, false, web = to_web_attribute(p), confidentiality = p.confidentiality)
   }
 
   private def _condition_type(p: TypeName): TypeName = {

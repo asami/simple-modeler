@@ -9,7 +9,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
  *  version Apr. 30, 2026
- * @version May.  7, 2026
+ * @version May.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -885,7 +885,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           x.controlType.map(v => s"controlType = Some(${_string_literal(v)})"),
           x.placeholder.map(v => s"placeholder = Some(${_string_literal(v)})"),
           x.help.map(v => s"help = Some(${_string_literal(v)})"),
-          x.required.map(v => s"required = Some(${v})")
+          x.required.map(v => s"required = Some(${v})"),
+          x.confidentiality.map(v => s"confidentiality = Some(${_string_literal(v)})")
         ).flatten
         s"""org.goldenport.cncf.operation.CmlOperationField(${args.mkString(", ")})"""
       }.mkString("Vector(", ", ", ")")
@@ -1455,15 +1456,27 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           "org.goldenport.schema.Multiplicity.One"
         else
           "org.goldenport.schema.Multiplicity.ZeroOne"
-      s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = org.goldenport.schema.XString, multiplicity = $multiplicity))"
+      val confidentiality = _parameter_confidentiality_expr(p)
+      s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = org.goldenport.schema.XString, multiplicity = $multiplicity), web = org.goldenport.schema.WebColumn(confidentiality = $confidentiality), confidentiality = $confidentiality)"
     }
+
+    private def _parameter_confidentiality_expr(p: Parameter): String =
+      p.confidentiality
+        .orElse(p.web.confidentiality)
+        .map(v => s"org.goldenport.schema.DataConfidentiality.getOrPublic(Some(${_string_literal(v)}))")
+        .getOrElse("org.goldenport.schema.DataConfidentiality.Public")
 
     private def _operation_field_parameter_definition_expr(p: SComponent.OperationField): String = {
       val name = _string_literal(p.name)
       val multiplicity = _schema_multiplicity_expr(p.multiplicity)
       val datatype = _schema_datatype_expr(p.datatype)
-      s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = $datatype, multiplicity = $multiplicity))"
+      s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = $datatype, multiplicity = $multiplicity), web = org.goldenport.schema.WebColumn(confidentiality = ${_operation_field_confidentiality_expr(p)}), confidentiality = ${_operation_field_confidentiality_expr(p)})"
     }
+
+    private def _operation_field_confidentiality_expr(p: SComponent.OperationField): String =
+      p.confidentiality
+        .map(v => s"org.goldenport.schema.DataConfidentiality.getOrPublic(Some(${_string_literal(v)}))")
+        .getOrElse("org.goldenport.schema.DataConfidentiality.Public")
 
     private def _schema_multiplicity_expr(p: String): String =
       Option(p).map(_.trim).getOrElse("1") match {

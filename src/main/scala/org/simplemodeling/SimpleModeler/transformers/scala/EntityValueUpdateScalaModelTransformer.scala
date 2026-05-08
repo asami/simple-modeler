@@ -12,9 +12,9 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  *  version Sep. 23, 2025
  *  version Feb. 18, 2026
  *  version Mar. 24, 2026
- * @version May.  3, 2026
  *  version Sep. 23, 2025
  *  version Feb. 18, 2026
+ * @version May.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -41,7 +41,7 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
 
   override protected def to_parameter(p: MAttribute): Parameter = {
     val t = _update_type(to_typename(p))
-    Parameter(ParameterName(p.name), t, true, false)
+    Parameter(ParameterName(p.name), t, true, false, web = to_web_attribute(p), confidentiality = p.confidentiality)
   }
 
   private def _is_id_attribute(p: MAttribute): Boolean =

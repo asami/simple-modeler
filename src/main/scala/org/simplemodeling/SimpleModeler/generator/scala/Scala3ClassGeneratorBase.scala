@@ -19,7 +19,7 @@ import Generator.{State => GState, _}
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  *  version Apr. 26, 2026
- * @version May.  4, 2026
+ * @version May.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1145,7 +1145,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         case Some(label) => println(s"label = Some(org.goldenport.datatype.I18nLabel(${_scala_string_literal(label)})),")
         case None => unit
       }
-      _ <- println(s"web = ${_schema_web_column_expr(p)}")
+      _ <- println(s"web = ${_schema_web_column_expr(p)},")
+      _ <- println(s"confidentiality = ${_schema_confidentiality_expr(p.confidentiality)}")
       _ <- outdent
       _ <- print(")")
     } yield ()
@@ -1165,11 +1166,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _option_when(web.multiple, "multiple = true"),
         web.placeholder.map(x => s"placeholder = Some(${_scala_string_literal(x)})"),
         web.help.map(x => s"help = Some(${_scala_string_literal(x)})"),
-        _schema_web_validation_hints_expr(p).map(x => s"validation = ${x}")
+        _schema_web_validation_hints_expr(p).map(x => s"validation = ${x}"),
+        web.confidentiality.map(x => s"confidentiality = ${_schema_confidentiality_expr(Some(x))}")
       ).flatten
       s"org.goldenport.schema.WebColumn(${args.mkString(", ")})"
     }
   }
+
+  private def _schema_confidentiality_expr(
+    p: Option[String]
+  ): String =
+    p.map { x =>
+      s"org.goldenport.schema.DataConfidentiality.getOrPublic(Some(${_scala_string_literal(x)}))"
+    }.getOrElse("org.goldenport.schema.DataConfidentiality.Public")
 
   private def _schema_web_validation_hints_expr(p: Attribute): Option[String] = {
     val stringLike = p.typeName.contentType.isString

@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version May.  7, 2026
+ * @version May.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -360,7 +360,8 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               controlType = x.controlType,
               placeholder = x.placeholder,
               help = x.help,
-              required = x.required
+              required = x.required,
+              confidentiality = x.confidentiality
             )
           }
         )

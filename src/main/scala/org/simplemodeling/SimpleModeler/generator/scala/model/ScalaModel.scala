@@ -25,7 +25,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  *  version Apr. 30, 2026
- * @version May.  7, 2026
+ * @version May.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -439,7 +439,8 @@ case class Parameter(
   dbColumnType: Option[String] = None,
   externalName: Option[String] = None,
   derived: Option[String] = None,
-  web: WebAttribute = WebAttribute.empty
+  web: WebAttribute = WebAttribute.empty,
+  confidentiality: Option[String] = None
 ) {
   def isRequired: Boolean = typeName.isRequired
   def titleName = name.toTitle
@@ -478,7 +479,8 @@ case class ParameterSequence(
           m.externalName,
           m.derived,
           m.web,
-          m.constraints
+          m.constraints,
+          m.web.confidentiality
         )
       )
       case _ => None
@@ -500,7 +502,8 @@ case class Attribute(
   externalName: Option[String] = None,
   derived: Option[String] = None,
   web: WebAttribute = WebAttribute.empty,
-  constraints: Vector[PConstraint] = Vector.empty
+  constraints: Vector[PConstraint] = Vector.empty,
+  confidentiality: Option[String] = None
 ) {
   def isDerived: Boolean = derived.nonEmpty
 }
@@ -514,7 +517,8 @@ case class WebAttribute(
   values: Vector[String] = Vector.empty,
   multiple: Boolean = false,
   placeholder: Option[String] = None,
-  help: Option[String] = None
+  help: Option[String] = None,
+  confidentiality: Option[String] = None
 ) {
   def isEmpty: Boolean =
     this == WebAttribute.empty
@@ -1271,7 +1275,8 @@ object SComponent {
     controlType: Option[String] = None,
     placeholder: Option[String] = None,
     help: Option[String] = None,
-    required: Option[Boolean] = None
+    required: Option[Boolean] = None,
+    confidentiality: Option[String] = None
   )
 
   final case class EntityRuntimeDescriptor(

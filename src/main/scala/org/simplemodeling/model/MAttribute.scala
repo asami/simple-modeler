@@ -31,7 +31,8 @@ import org.simplemodeling.parser.SimpleModelParser
  *  version Sep. 23, 2025
  *  version Feb. 10, 2026
  *  version Mar. 19, 2026
- * @version Apr. 19, 2026
+ *  version Apr. 19, 2026
+ * @version May.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MAttribute(
@@ -46,6 +47,7 @@ case class MAttribute(
   readonly: Boolean = false,
   derived: Option[String] = None,
   web: MAttribute.Web = MAttribute.Web.empty,
+  confidentiality: Option[String] = None,
   description: Description = Description.empty
 ) extends MElement {
   def isRequired: Boolean = multiplicity.isRequired
@@ -65,6 +67,7 @@ object MAttribute {
     val label = p.getStringCaseInsensitive(config.labelNames).
       map(I18NString.parse)
     val web = Web.parse(p)
+    val confidentiality = _string_value_flexible(p, Seq("confidentiality", "confidentiality-level", "confidentialityLevel", "security-level", "securityLevel"))
     val constraints = p.getStringCaseInsensitive(config.constraintNames).
       map(MConstraint.create).
       toList ++ web.validationConstraints
@@ -93,7 +96,7 @@ object MAttribute {
       )
     )
     val designation = Designation.nameLabel(name, label)
-    MAttribute(designation, datatype, multiplicity, constraints, column, derived = derived, web = web)
+    MAttribute(designation, datatype, multiplicity, constraints, column, derived = derived, web = web, confidentiality = confidentiality)
   }
 
   case class Web(
