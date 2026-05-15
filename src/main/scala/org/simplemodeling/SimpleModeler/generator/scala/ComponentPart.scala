@@ -9,7 +9,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
  *  version Apr. 30, 2026
- * @version May.  8, 2026
+ * @version May. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -113,13 +113,18 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println("partitionStrategy = org.goldenport.cncf.entity.runtime.PartitionStrategy.byOrganizationMonthUTC,")
       _ <- println("maxPartitions = 64,")
       _ <- println("maxEntitiesPerPartition = 10000,")
+      _ <- println("workingSet = None,")
+      _ <- println("workingSetPolicy = None,")
+      _ <- println("workingSetPolicySource = None,")
+      _ <- println("schema = None,")
+      _ <- println("aggregateNames = Vector.empty,")
+      _ <- println(s"viewNames = ${_string_vector_expr(d.viewNames)},")
       _ <- println(s"entityKind = ${entityKindExpr},")
       _ <- println(s"usageKind = org.goldenport.cncf.security.EntityUsageKind.parse(${usageKind}),")
       _ <- println(s"operationKind = ${operationKindExpr},")
       _ <- println(s"applicationDomain = org.goldenport.cncf.security.EntityApplicationDomain.parse(${applicationDomain}),")
       _ <- println(s"entityKindExplicit = ${d.entityKind.isDefined},")
-      _ <- println(s"operationKindExplicit = ${d.operationKind.isDefined},")
-      _ <- println(s"viewNames = ${_string_vector_expr(d.viewNames)}")
+      _ <- println(s"operationKindExplicit = ${d.operationKind.isDefined}")
       _ <- outdent
       _ <- println(")")
     } yield ()
@@ -1245,7 +1250,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- println(s"""val name = "${component_name}"""")
         _ <- println(s"val componentId = ComponentId(name) // TODO")
         _ <- separator
-        _ <- println(s"class Factory extends Component.Factory {")
+        _ <- println(s"class Factory extends Component.SinglePrimaryBundleFactory {")
         _ <- indent
         _ <- println("protected def create_Component(params: ComponentCreate): Component =")
         _ <- indent
@@ -1442,12 +1447,39 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     private def _request_parameters(op: SMethod): Vector[Parameter] = {
       def flatten(p: Parameter): Vector[Parameter] =
         p.value match {
-          case Some(v) => v.parameterSequence.parameters.filterNot(_.name.name == "_failures").flatMap(flatten)
+          case Some(v) =>
+            v.parameterSequence.parameters.
+              filterNot(x => x.name.name == "_failures" || _is_simple_object_attribute_parameter(x)).
+              flatMap(flatten)
           case None if p.typeName.fullName == "org.goldenport.record.Record" => Vector.empty
           case None => Vector(p)
         }
       op.parameters.parameters.flatMap(flatten)
     }
+
+    private def _is_simple_object_attribute_parameter(p: Parameter): Boolean =
+      Set(
+        "nameAttributes",
+        "name_Attributes",
+        "descriptiveAttributes",
+        "descriptive_Attributes",
+        "contentAttributes",
+        "content_Attributes",
+        "lifecycleAttributes",
+        "lifecycle_Attributes",
+        "publicationAttributes",
+        "publication_Attributes",
+        "securityAttributes",
+        "security_Attributes",
+        "resourceAttributes",
+        "resource_Attributes",
+        "auditAttributes",
+        "audit_Attributes",
+        "mediaAttributes",
+        "media_Attributes",
+        "contextualAttribute",
+        "contextual_Attribute"
+      ).contains(p.name.name)
 
     private def _parameter_definition_expr(p: Parameter): String = {
       val name = _string_literal(p.name.name)
@@ -1931,7 +1963,7 @@ object SampleCollaboratorComponent {
   val name = "sample"
   val componentId = ComponentId(name)
 
-  class Factory extends Component.Factory {
+  class Factory extends Component.SinglePrimaryBundleFactory {
     protected def create_Component(params: ComponentCreate): Component =
       SampleComponent()
 
