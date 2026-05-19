@@ -20,7 +20,7 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version Sep. 21, 2025
  *  version Feb. 16, 2026
  *  version Mar. 25, 2026
- * @version Mar. 25, 2026
+ * @version May. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ProgramRealmTransformerBase {
@@ -33,7 +33,7 @@ trait ProgramRealmTransformerBase {
   def transform(model: PModel): TransformResult = {
     val src = model.root.elements.foldLeft(Realm.Builder())(_build(model)).build
     val realm = Realm.create()
-    val r = realm.merge(source_Main_Pathname, src)
+    val r = realm.merge(source_main_pathname, src)
     TransformResult(r)
   }
 
@@ -53,9 +53,9 @@ trait ProgramRealmTransformerBase {
     b.set(pathname, make_entity(model, p))
   }
 
-  protected final def make_entity(model: PModel, p: PEntity): String = make_Entity(model, p)
+  protected final def make_entity(model: PModel, p: PEntity): String = make_entity_legacy(model, p)
 
-  protected def make_Entity(model: PModel, p: PEntity): String
+  protected def make_entity_legacy(model: PModel, p: PEntity): String
 
   private def _build_association(b: Realm.Builder, model: PModel, p: PAssociation) = {
     ???
@@ -69,17 +69,17 @@ trait ProgramRealmTransformerBase {
 
   protected final def code_filename(p: PObject): String = s"${p.classNameBase}.${fileSuffix}"
 
-  protected final def package_file_pathname(p: PObject): PathName = package_File_Pathname(p)
+  protected final def package_file_pathname(p: PObject): PathName = package_file_pathname_legacy(p)
 
-  protected def package_File_Pathname(p: PObject): PathName
+  protected def package_file_pathname_legacy(p: PObject): PathName
 
   def transform(model: SimpleModel): TransformResult = {
     val realm = Realm.create()
 
     val whole = model.elements.foldLeft(Realm.Builder())(_build).build
     val (generated, impl) = _distill_realms(whole)
-    val r1 = realm.merge(source_Managed_Main_Pathname, generated)
-    val r2 = r1.merge(source_Main_Pathname, impl)
+    val r1 = realm.merge(source_managed_main_pathname, generated)
+    val r2 = r1.merge(source_main_pathname, impl)
     val r3 = _build_makefile(r2)
     val r = r3
     TransformResult(r)
@@ -125,53 +125,53 @@ trait ProgramRealmTransformerBase {
   }
 
   private def _build_entity(b: Realm.Builder, p: MEntity): Realm.Builder = {
-    build_Entity(b, p)
+    build_entity(b, p)
     // val pathname = object_to_pathname(p)
     // b.set(pathname, make_entity(p))
   }
 
-  protected def build_Entity(b: Realm.Builder, p: MEntity): Realm.Builder
+  protected def build_entity(b: Realm.Builder, p: MEntity): Realm.Builder
 
   private def _build_value(b: Realm.Builder, p: MValue): Realm.Builder =
-    build_Value(b, p)
+    build_value(b, p)
 
-  protected def build_Value(b: Realm.Builder, p: MValue): Realm.Builder = b
+  protected def build_value(b: Realm.Builder, p: MValue): Realm.Builder = b
 
   private def _build_powertype(b: Realm.Builder, p: MPowertype): Realm.Builder =
-    build_Powertype(b, p)
+    build_powertype(b, p)
 
-  protected def build_Powertype(b: Realm.Builder, p: MPowertype): Realm.Builder = b
+  protected def build_powertype(b: Realm.Builder, p: MPowertype): Realm.Builder = b
 
   private def _build_state_machine(b: Realm.Builder, p: MStateMachine): Realm.Builder =
-    build_StateMachine(b, p)
+    build_state_machine(b, p)
 
-  protected def build_StateMachine(b: Realm.Builder, p: MStateMachine): Realm.Builder = b
+  protected def build_state_machine(b: Realm.Builder, p: MStateMachine): Realm.Builder = b
 
-  // protected final def make_entity(p: MEntity): String = make_Entity(p)
+  // protected final def make_entity(p: MEntity): String = make_entity_legacy(p)
 
-  // protected def make_Entity(p: MEntity): String
+  // protected def make_entity_legacy(p: MEntity): String
 
-  protected def source_Main_Pathname: String
+  protected def source_main_pathname: String
 
-  protected def source_Managed_Main_Pathname: String = source_Main_Pathname
+  protected def source_managed_main_pathname: String = source_main_pathname
 
-  protected final def package_to_pathname(p: MObject): String = package_To_Pathname(p)
+  protected final def package_to_pathname(p: MObject): String = package_pathname(p)
 
-  protected def package_To_Pathname(p: MObject): String
+  protected def package_pathname(p: MObject): String
 
-  protected final def object_to_pathname(p: MObject): String = object_To_Pathname(p)
+  protected final def object_to_pathname(p: MObject): String = object_pathname(p)
 
-  protected def object_To_Pathname(p: MObject): String
+  protected def object_pathname(p: MObject): String
 
   private def _build_makefile(b: Realm): Realm =
-    build_Makefile(b)
+    build_makefile(b)
 
-  protected def build_Makefile(b: Realm): Realm = RAISE.notImplementedYetDefect
+  protected def build_makefile(b: Realm): Realm = RAISE.notImplementedYetDefect
 
   private def _build_component(b: Realm.Builder, p: MComponent): Realm.Builder =
-    build_Component(b, p)
+    build_component(b, p)
 
-  protected def build_Component(b: Realm.Builder, p: MComponent): Realm.Builder = RAISE.notImplementedYetDefect
+  protected def build_component(b: Realm.Builder, p: MComponent): Realm.Builder = RAISE.notImplementedYetDefect
 
   private def _distill_realms(p: Realm): (Realm, Realm) = {
     val splitter = new ProgramRealmTransformerBase.Splitter()

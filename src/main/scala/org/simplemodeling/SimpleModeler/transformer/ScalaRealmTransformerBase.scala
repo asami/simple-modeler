@@ -25,7 +25,8 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
  *  version Sep. 21, 2025
  *  version Feb. 28, 2026
  *  version Mar. 25, 2026
- * @version Apr.  5, 2026
+ *  version Apr.  5, 2026
+ * @version May. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
@@ -40,19 +41,19 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
     super.transform(model)
   }
 
-  protected def make_Entity(model: PModel, p: PEntity): String = {
+  protected def make_entity_legacy(model: PModel, p: PEntity): String = {
     val aspects = Nil
     val maker = new ScalaClassDefinition(context, model, aspects, p)
     maker.build()
     maker.toText
   }
 
-  protected def package_File_Pathname(p: PObject): PathName = {
+  protected def package_file_pathname_legacy(p: PObject): PathName = {
     val prjdir = "src" // TODO
     PathName(prjdir) :+ p.affiliation.packageName.replace('.', '/')
   }
 
-  override protected def build_Entity(b: Realm.Builder, p: MEntity): Realm.Builder = {
+  override protected def build_entity(b: Realm.Builder, p: MEntity): Realm.Builder = {
     val g = new Scala3EntityFamilyGenerator()
     g.generate(p) match {
       case Consequence.Success(r, _) => r.build(b)
@@ -60,7 +61,7 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
     }
   }
 
-  override protected def build_Value(b: Realm.Builder, p: MValue): Realm.Builder = {
+  override protected def build_value(b: Realm.Builder, p: MValue): Realm.Builder = {
     p match {
       case m: MDomainValue =>
         val g = new Scala3ValueFamilyGenerator()
@@ -73,7 +74,7 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
     }
   }
 
-  override protected def build_Powertype(b: Realm.Builder, p: MPowertype): Realm.Builder = {
+  override protected def build_powertype(b: Realm.Builder, p: MPowertype): Realm.Builder = {
     val g = new Scala3PowertypeFamilyGenerator()
     g.generate(p) match {
       case Consequence.Success(r, _) => r.build(b)
@@ -81,7 +82,7 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
     }
   }
 
-  override protected def build_StateMachine(b: Realm.Builder, p: MStateMachine): Realm.Builder = {
+  override protected def build_state_machine(b: Realm.Builder, p: MStateMachine): Realm.Builder = {
     val g = new Scala3StateMachineFamilyGenerator()
     g.generate(p) match {
       case Consequence.Success(r, _) => r.build(b)
@@ -92,7 +93,7 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
   // /*
   //  * Lagacy
   //  */
-  // protected def make_Entity(p: MEntity): String = {
+  // protected def make_entity_legacy(p: MEntity): String = {
   //   // val aspects = Nil
   //   // val model = p
   //   // val po = MPEntity(p)
@@ -189,7 +190,7 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
   //   MethodCompartment.empty // TODO
   // }
 
-  protected def source_Main_Pathname = "src/main/scala"
+  protected def source_main_pathname = "src/main/scala"
 
   protected def project_dir = "scala.d"
 
@@ -197,20 +198,35 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
 
   // protected def src_main_scala = s"$src_main/scala"
 
-  protected def src_main_scala = s"${project_dir}/${source_Managed_Main_Pathname}"
+  protected def src_main_scala = s"${project_dir}/${source_managed_main_pathname}"
 
-  protected def package_To_Pathname(p: MObject): String = {
+  protected def package_pathname(p: MObject): String = {
     s"${src_main_scala}/${p.packageName.replace('.', '/')}"
   }
 
-  protected def object_To_Pathname(p: MObject): String = {
-    s"${package_To_Pathname(p)}/${p.name}.scala"
+  protected def object_pathname(p: MObject): String = {
+    s"${package_pathname(p)}/${p.name}.scala"
   }
 
-  override protected def build_Makefile(b: Realm): Realm =
+  override protected def build_makefile(b: Realm): Realm =
     b.setContent("build.sbt", buildsbtcontent)
 
   val buildsbtcontent = """val scala3Version = "3.3.7"
+
+def sampleVersion(envname: String, filename: String, fallback: String): String =
+  sys.env.get(envname)
+    .orElse {
+      sys.env.get("CNCF_SAMPLES_ROOT").flatMap { root =>
+        val versionfile = file(root) / "versions" / filename
+        if (versionfile.isFile)
+          Some(IO.read(versionfile).trim).filter(_.nonEmpty)
+        else
+          None
+      }
+    }
+    .getOrElse(fallback)
+
+val cncfversion = sampleVersion("CNCF_VERSION", "cncf-version.conf", "0.4.8")
 
 lazy val root = project
   .in(file("."))
@@ -226,35 +242,14 @@ lazy val root = project
     resolvers += "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository"),
     resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/maven",
 
-    libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test",
-    libraryDependencies += "org.typelevel" %% "cats-core" % "2.7.0",
-    libraryDependencies += "org.typelevel" %% "cats-kernel-laws" % "2.7.0",
-    libraryDependencies += "org.typelevel" %% "cats-free" % "2.7.0",
-    libraryDependencies += "org.typelevel" %% "cats-effect" % "3.3.0",
-    libraryDependencies += "org.typelevel" %% "kittens" % "3.5.0",
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % "test",
-    libraryDependencies += "org.typelevel" %% "cats-testkit" % "2.7.0" % "test",
-    libraryDependencies += "org.typelevel" %% "discipline-core" % "1.3.0" % "test",
-    libraryDependencies += "org.typelevel" %% "discipline-scalatest" % "2.1.5" % "test",
-    libraryDependencies += "org.typelevel" %% "spire" % "0.18.0",
-    libraryDependencies += "io.circe" %% "circe-core" % "0.14.3",
-    libraryDependencies += "io.circe" %% "circe-generic" % "0.14.3",
-    libraryDependencies += "io.circe" %% "circe-parser" % "0.14.3",
-    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % "0.4.2-SNAPSHOT",
-    libraryDependencies += "org.simplemodeling" %% "simplemodeling-model" % "0.1.2-SNAPSHOT",
-    libraryDependencies += "org.goldenport" % "cncf-collaborator-api" % "0.1.0-SNAPSHOT",
-
-    dependencyOverrides ++= Seq(
-      "org.goldenport" % "cncf-collaborator-api" % "0.1.0-SNAPSHOT",
-      "org.scala-lang.modules" %% "scala-xml" % "2.1.0",
-      "org.scala-lang.modules" %% "scala-parser-combinators" % "2.3.0"
-    ),
+    libraryDependencies += "org.goldenport" %% "goldenport-cncf" % cncfversion,
 
     Compile / unmanagedSourceDirectories += (Compile / sourceManaged).value
   )
 """
 
-  override protected def build_Component(b: Realm.Builder, model: MComponent): Realm.Builder = {
+  override protected def build_component(b: Realm.Builder, model: MComponent): Realm.Builder = {
     val g = new Scala3ComponentFamilyGenerator()
     g.generate(model) match {
       case Consequence.Success(r, _) => r.build(b)

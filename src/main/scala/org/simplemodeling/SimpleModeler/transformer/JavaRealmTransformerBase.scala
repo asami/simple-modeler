@@ -19,20 +19,21 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version Apr. 25, 2020
  *  version May.  4, 2020
  *  version May. 18, 2025
- * @version Sep. 21, 2025
+ *  version Sep. 21, 2025
+ * @version May. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 trait JavaRealmTransformerBase extends ProgramRealmTransformerBase {
   val fileSuffix = "java"
 
-  protected def make_Entity(model: PModel, p: PEntity): String = {
+  protected def make_entity_legacy(model: PModel, p: PEntity): String = {
     val aspects = Nil
     val maker = new JavaClassDefinition(context, model, aspects, p)
     maker.build()
     maker.toText
   }
 
-  protected def package_File_Pathname(p: PObject): PathName = {
+  protected def package_file_pathname_legacy(p: PObject): PathName = {
     val prjdir = "src" // TODO
     PathName(prjdir) :+ p.affiliation.packageName.replace('.', '/')
   }
@@ -40,11 +41,11 @@ trait JavaRealmTransformerBase extends ProgramRealmTransformerBase {
   /*
    * Legacy
    */
-  override protected def build_Entity(b: Realm.Builder, p: MEntity): Realm.Builder = {
+  override protected def build_entity(b: Realm.Builder, p: MEntity): Realm.Builder = {
     RAISE.notImplementedYetDefect
   }
 
-  // protected def make_Entity(p: MEntity): String = {
+  // protected def make_entity_legacy(p: MEntity): String = {
   //   val aspects = Nil
   //   val model = ???
   //   val po = MPEntity(p)
@@ -54,8 +55,8 @@ trait JavaRealmTransformerBase extends ProgramRealmTransformerBase {
   // }
 
 
-  protected def source_Main_Pathname = "src/main/java"
+  protected def source_main_pathname = "src/main/java"
 
-  protected def package_To_Pathname(p: MObject): String = ???
-  protected def object_To_Pathname(p: MObject): String = ???
+  protected def package_pathname(p: MObject): String = ???
+  protected def object_pathname(p: MObject): String = ???
 }

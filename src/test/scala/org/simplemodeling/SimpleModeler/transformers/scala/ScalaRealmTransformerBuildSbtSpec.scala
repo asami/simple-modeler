@@ -1,0 +1,37 @@
+package org.simplemodeling.SimpleModeler.transformers.scala
+
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
+import org.simplemodeling.SimpleModeler.transformer.ScalaRealmTransformerBase
+import org.simplemodeling.SimpleModeler.transformer.maker.PContext
+
+/*
+ * @since   May. 20, 2026
+ * @version May. 20, 2026
+ * @author  ASAMI, Tomoharu
+ */
+class ScalaRealmTransformerBuildSbtSpec extends AnyFunSuite with Matchers {
+  test("build.sbt scaffold uses only direct CNCF and ScalaTest dependencies") {
+    val content = new ScalaRealmTransformerBase {
+      override def context: PContext = null
+
+      def buildSbtContent: String = buildsbtcontent
+    }.buildSbtContent
+
+    content should include("""val cncfversion = sampleVersion("CNCF_VERSION", "cncf-version.conf", "0.4.8")""")
+    content should include(""""org.goldenport" %% "goldenport-cncf"""")
+    content should include(""""org.goldenport" %% "goldenport-cncf" % cncfversion""")
+    content should include(""""org.scalatest" %% "scalatest"""")
+    content should not include "0.4.2-SNAPSHOT"
+    content should not include "junit-interface"
+    content should not include "cats-core"
+    content should not include "kittens"
+    content should not include "spire"
+    content should not include "circe-core"
+    content should not include "cats-testkit"
+    content should not include "discipline-core"
+    content should not include "simplemodeling-model"
+    content should not include "cncf-collaborator-api"
+    content should not include "dependencyOverrides"
+  }
+}
