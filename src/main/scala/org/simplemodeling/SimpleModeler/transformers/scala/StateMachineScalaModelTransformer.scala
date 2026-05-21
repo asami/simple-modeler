@@ -9,12 +9,13 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Mar. 24, 2026
- * @version Mar. 25, 2026
+ *  version Mar. 25, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class StateMachineScalaModelTransformer() extends CaseClassScalaModelTransformer() {
-  protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Plain)
-  protected def is_Accept_Object(p: MObject): Boolean = p.isInstanceOf[MStateMachine]
+  protected def accept_purposes: Vector[Purpose] = Vector(Purpose.Plain)
+  protected def is_accept_object(p: MObject): Boolean = p.isInstanceOf[MStateMachine]
 
   def apply(p: (MObject, Purpose)): Consequence[Vector[SClassBase]] =
     p match {

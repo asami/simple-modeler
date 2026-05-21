@@ -11,18 +11,23 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Mar. 24, 2026
  *  version Mar. 25, 2026
- * @version Apr.  3, 2026
+ *  version Apr.  3, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class PowertypeScalaModelTransformer() extends CaseClassScalaModelTransformer() {
-  protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Plain)
-  protected def is_Accept_Object(p: MObject): Boolean = p.isInstanceOf[MPowertype]
+  protected def accept_purposes: Vector[Purpose] = Vector(Purpose.Plain)
+  protected def is_accept_object(p: MObject): Boolean = p.isInstanceOf[MPowertype]
 
   override protected def to_scala_core_parent(p: MObject): Option[TypeName] =
     Some(TypeName(PackageName("org.simplemodeling.model.powertype"), "Powertype"))
 
   override protected def to_parameters(ps: List[MAttribute]): ParameterSequence =
-    ParameterSequence(Vector(Parameter(ParameterName("value"), TypeName.Primitive.string)))
+    ParameterSequence(Vector(Parameter(
+      ParameterName("value"),
+      TypeName.Primitive.string,
+      isAttribute = true
+    )))
 
   def apply(p: (MObject, Purpose)): Consequence[Vector[SClassBase]] =
     p match {

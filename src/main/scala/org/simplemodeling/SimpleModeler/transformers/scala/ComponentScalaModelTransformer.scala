@@ -10,12 +10,12 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version May.  8, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
-  protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Plain)
-  protected def is_Accept_Object(p: MObject): Boolean = p.isInstanceOf[MComponent]
+  protected def accept_purposes: Vector[Purpose] = Vector(Purpose.Plain)
+  protected def is_accept_object(p: MObject): Boolean = p.isInstanceOf[MComponent]
   def apply(p: (MObject, Purpose)): Consequence[Vector[SClassBase]] =
     p match {
       case (m: MComponent, purpose) if is_accept_purpose(purpose) => transform_component(m)
@@ -45,51 +45,51 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
     def build(): SComponent = {
       val services = to_services(source.services)
       val entitydescs = source match {
-        case m: MComponent.Core.Holder => to_entity_runtime_descriptors(m.entityRuntimeDescriptors)
+        case m: MComponent.Core.Holder => _to_entity_runtime_descriptors(m.entityRuntimeDescriptors)
         case _ => Vector.empty
       }
       val rules = source match {
-        case m: MComponent.Core.Holder => to_transition_rules(m.stateMachineTransitionRules)
+        case m: MComponent.Core.Holder => _to_transition_rules(m.stateMachineTransitionRules)
         case _ => Vector.empty
       }
       val statedefs = source match {
-        case m: MComponent.Core.Holder => to_state_machine_definitions(m.stateMachineDefinitions)
+        case m: MComponent.Core.Holder => _to_state_machine_definitions(m.stateMachineDefinitions)
         case _ => Vector.empty
       }
       val eventdefs = source match {
-        case m: MComponent.Core.Holder => to_event_reception_definitions(m.eventReceptionDefinitions)
+        case m: MComponent.Core.Holder => _to_event_reception_definitions(m.eventReceptionDefinitions)
         case _ => Vector.empty
       }
       val eventroutes = source match {
-        case m: MComponent.Core.Holder => to_event_routing_definitions(m.eventRoutingDefinitions)
+        case m: MComponent.Core.Holder => _to_event_routing_definitions(m.eventRoutingDefinitions)
         case _ => Vector.empty
       }
       val eventsubs = source match {
-        case m: MComponent.Core.Holder => to_event_subscription_definitions(m.eventSubscriptionDefinitions)
+        case m: MComponent.Core.Holder => _to_event_subscription_definitions(m.eventSubscriptionDefinitions)
         case _ => Vector.empty
       }
       val aggregates = source match {
-        case m: MComponent.Core.Holder => to_aggregate_definitions(m.aggregateDefinitions)
+        case m: MComponent.Core.Holder => _to_aggregate_definitions(m.aggregateDefinitions)
         case _ => Vector.empty
       }
       val views = source match {
-        case m: MComponent.Core.Holder => to_view_definitions(m.viewDefinitions)
+        case m: MComponent.Core.Holder => _to_view_definitions(m.viewDefinitions)
         case _ => Vector.empty
       }
       val relationships = source match {
-        case m: MComponent.Core.Holder => to_relationship_definitions(m.relationshipDefinitions)
+        case m: MComponent.Core.Holder => _to_relationship_definitions(m.relationshipDefinitions)
         case _ => Vector.empty
       }
       val operations = source match {
-        case m: MComponent.Core.Holder => to_operation_definitions(m.operationDefinitions)
+        case m: MComponent.Core.Holder => _to_operation_definitions(m.operationDefinitions)
         case _ => Vector.empty
       }
       val components = source match {
-        case m: MComponent.Core.Holder => to_component_definitions(m.componentDefinitions)
+        case m: MComponent.Core.Holder => _to_component_definitions(m.componentDefinitions)
         case _ => Vector.empty
       }
       val subsystems = source match {
-        case m: MComponent.Core.Holder => to_subsystem_definitions(m.subsystemDefinitions)
+        case m: MComponent.Core.Holder => _to_subsystem_definitions(m.subsystemDefinitions)
         case _ => Vector.empty
       }
       val ccore = SComponent.ComponentCore(
@@ -112,7 +112,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       SComponent(core, ccore)
     }
 
-    private def to_entity_runtime_descriptors(
+    private def _to_entity_runtime_descriptors(
       ps: Vector[MComponent.EntityRuntimeDescriptor]
     ): Vector[SComponent.EntityRuntimeDescriptor] =
       ps.map { p =>
@@ -127,30 +127,30 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         )
       }
 
-    private def to_transition_rules(
+    private def _to_transition_rules(
       ps: Vector[MComponent.StateMachineTransitionRule]
     ): Vector[SComponent.StateMachineTransitionRule] =
-      ps.map(to_transition_rule)
+      ps.map(_to_transition_rule)
 
-    private def to_transition_rule(
+    private def _to_transition_rule(
       p: MComponent.StateMachineTransitionRule
     ): SComponent.StateMachineTransitionRule =
       SComponent.StateMachineTransitionRule(
         collectionName = p.collectionName,
-        trigger = to_transition_trigger(p.trigger),
+        trigger = _to_transition_trigger(p.trigger),
         eventName = p.eventName,
         priority = p.priority,
         declarationOrder = p.declarationOrder,
-        guard = p.guard.map(to_rule_guard),
-        plan = to_rule_plan(p.plan)
+        guard = p.guard.map(_to_rule_guard),
+        plan = _to_rule_plan(p.plan)
       )
 
-    private def to_state_machine_definitions(
+    private def _to_state_machine_definitions(
       ps: Vector[MComponent.StateMachineDefinition]
     ): Vector[SComponent.StateMachineDefinition] =
-      ps.map(to_state_machine_definition)
+      ps.map(_to_state_machine_definition)
 
-    private def to_state_machine_definition(
+    private def _to_state_machine_definition(
       p: MComponent.StateMachineDefinition
     ): SComponent.StateMachineDefinition =
       SComponent.StateMachineDefinition(
@@ -159,12 +159,12 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         events = p.events
       )
 
-    private def to_event_reception_definitions(
+    private def _to_event_reception_definitions(
       ps: Vector[MComponent.EventReceptionDefinition]
     ): Vector[SComponent.EventReceptionDefinition] =
-      ps.map(to_event_reception_definition)
+      ps.map(_to_event_reception_definition)
 
-    private def to_event_reception_definition(
+    private def _to_event_reception_definition(
       p: MComponent.EventReceptionDefinition
     ): SComponent.EventReceptionDefinition =
       SComponent.EventReceptionDefinition(
@@ -176,7 +176,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         priority = p.priority
       )
 
-    private def to_event_routing_definitions(
+    private def _to_event_routing_definitions(
       ps: Vector[MComponent.EventRoutingDefinition]
     ): Vector[SComponent.EventRoutingDefinition] =
       ps.map { p =>
@@ -189,7 +189,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         )
       }
 
-    private def to_event_subscription_definitions(
+    private def _to_event_subscription_definitions(
       ps: Vector[MComponent.EventSubscriptionDefinition]
     ): Vector[SComponent.EventSubscriptionDefinition] =
       ps.map { p =>
@@ -207,7 +207,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         )
       }
 
-    private def to_aggregate_definitions(
+    private def _to_aggregate_definitions(
       ps: Vector[MComponent.AggregateDefinition]
     ): Vector[SComponent.AggregateDefinition] =
       ps.map { p =>
@@ -261,7 +261,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         )
       }
 
-    private def to_view_definitions(
+    private def _to_view_definitions(
       ps: Vector[MComponent.ViewDefinition]
     ): Vector[SComponent.ViewDefinition] =
       ps.map { p =>
@@ -276,7 +276,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         )
       }
 
-    private def to_operation_definitions(
+    private def _to_operation_definitions(
       ps: Vector[MComponent.OperationDefinition]
     ): Vector[SComponent.OperationDefinition] =
       ps.map { p =>
@@ -367,7 +367,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         )
       }
 
-    private def to_relationship_definitions(
+    private def _to_relationship_definitions(
       ps: Vector[MComponent.RelationshipDefinition]
     ): Vector[SComponent.RelationshipDefinition] =
       ps.map { p =>
@@ -390,7 +390,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         )
       }
 
-    private def to_component_definitions(
+    private def _to_component_definitions(
       ps: Vector[MComponent.ComponentDefinition]
     ): Vector[SComponent.ComponentDefinition] =
       ps.map { p =>
@@ -504,7 +504,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         )
       }
 
-    private def to_subsystem_definitions(
+    private def _to_subsystem_definitions(
       ps: Vector[MComponent.SubsystemDefinition]
     ): Vector[SComponent.SubsystemDefinition] =
       ps.map { p =>
@@ -613,7 +613,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         )
       }
 
-    private def to_transition_trigger(
+    private def _to_transition_trigger(
       p: MComponent.TransitionTrigger
     ): SComponent.TransitionTrigger =
       p match {
@@ -621,7 +621,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         case MComponent.TransitionTrigger.Update => SComponent.TransitionTrigger.Update
       }
 
-    private def to_rule_guard(
+    private def _to_rule_guard(
       p: MComponent.RuleGuard
     ): SComponent.RuleGuard =
       p match {
@@ -629,16 +629,16 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         case MComponent.RuleGuard.Expression(expr) => SComponent.RuleGuard.Expression(expr)
       }
 
-    private def to_rule_plan(
+    private def _to_rule_plan(
       p: MComponent.RulePlan
     ): SComponent.RulePlan =
       SComponent.RulePlan(
-        exit = p.exit.map(to_rule_action),
-        transition = p.transition.map(to_rule_action),
-        entry = p.entry.map(to_rule_action)
+        exit = p.exit.map(_to_rule_action),
+        transition = p.transition.map(_to_rule_action),
+        entry = p.entry.map(_to_rule_action)
       )
 
-    private def to_rule_action(
+    private def _to_rule_action(
       p: MComponent.RuleAction
     ): SComponent.RuleAction =
       SComponent.RuleAction(p.script)
@@ -788,7 +788,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
     }
 
     private def _impl_package(p: SComponent): PackageName = {
-      val a = sub_Package_Name.fold("")(x => "." + x)
+      val a = sub_package_name.fold("")(x => "." + x)
       PackageName(p.packageName.name + a + ".impl")
     }
   }

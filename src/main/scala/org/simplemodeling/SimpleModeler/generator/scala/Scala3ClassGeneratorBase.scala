@@ -19,7 +19,7 @@ import Generator.{State => GState, _}
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  *  version Apr. 26, 2026
- * @version May.  8, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -316,9 +316,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected def aggregate_instance_hook_methods: GenM[Unit] =
     for {
-      _ <- println(s"protected def aggregateCommandNotImplemented[A](commandName: String): Consequence[A] =")
+      _ <- println(s"protected def aggregate_command_not_implemented[A](commandname: String): Consequence[A] =")
       _ <- indent
-      _ <- println(s"""Consequence.notImplemented(s"${clazz.className.name} aggregate command is not implemented: $${commandName}")""")
+      _ <- println(s"""Consequence.notImplemented(s"${clazz.className.name} aggregate command is not implemented: $${commandname}")""")
       _ <- outdent
     } yield ()
 
@@ -937,9 +937,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected def aggregate_object_hook_methods: GenM[Unit] =
     for {
-      _ <- println(s"def aggregateCreateNotImplemented[A](commandName: String): Consequence[A] =")
+      _ <- println(s"def aggregate_create_not_implemented[A](commandname: String): Consequence[A] =")
       _ <- indent
-      _ <- println(s"""Consequence.notImplemented(s"${clazz.className.name} aggregate create is not implemented: $${commandName}")""")
+      _ <- println(s"""Consequence.notImplemented(s"${clazz.className.name} aggregate create is not implemented: $${commandname}")""")
       _ <- outdent
     } yield ()
 
@@ -977,7 +977,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
                 _ <- println(s"""_ <- if (r.id == id) Consequence.success(()) else Consequence.argumentInvalid(s"Aggregate id mismatch in ${name}: expected $${id}, actual $${r.id}")""")
               } yield ()
             else
-              println(s"""r <- aggregateCommandNotImplemented[${clazz.className.name}](${_scala_string_literal(name)})""")
+              println(s"""r <- aggregate_command_not_implemented[${clazz.className.name}](${_scala_string_literal(name)})""")
           } yield ()
         }
         _ <- println("yield r")

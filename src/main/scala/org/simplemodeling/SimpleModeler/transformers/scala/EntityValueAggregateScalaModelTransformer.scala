@@ -10,11 +10,11 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Mar. 17, 2026
  *  version Mar. 30, 2026
  *  version Apr.  2, 2026
- * @version May.  3, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
-  protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Aggregate)
+  protected def accept_purposes: Vector[Purpose] = Vector(Purpose.Aggregate)
   def apply(p: MObject): Consequence[Vector[SClassBase]] =
     apply(p, Purpose.Aggregate)
 

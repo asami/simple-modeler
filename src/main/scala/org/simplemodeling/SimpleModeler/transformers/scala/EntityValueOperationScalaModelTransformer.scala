@@ -9,12 +9,12 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Sep. 20, 2025
  *  version Sep. 23, 2025
- * @version May.  3, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueOperationScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
-  protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Operation)
-  override protected def sub_Package_Name: Option[String] = Some("operation")
+  protected def accept_purposes: Vector[Purpose] = Vector(Purpose.Operation)
+  override protected def sub_package_name: Option[String] = Some("operation")
 
   override protected def transform_entity(
     p: MEntity,

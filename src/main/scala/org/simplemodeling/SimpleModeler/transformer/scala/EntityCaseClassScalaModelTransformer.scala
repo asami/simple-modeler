@@ -8,11 +8,12 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.
 /*
  * @since   Sep. 23, 2025
  *  version Sep. 25, 2025
- * @version Feb. 26, 2026
+ *  version Feb. 26, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class EntityCaseClassScalaModelTransformer() extends CaseClassScalaModelTransformer {
-  protected def is_Accept_Object(p: MObject): Boolean = p.isInstanceOf[MEntity]
+  protected def is_accept_object(p: MObject): Boolean = p.isInstanceOf[MEntity]
 
   def apply(p: (MObject, Purpose)): Consequence[Vector[SClassBase]] =
     p match {
@@ -36,7 +37,7 @@ abstract class EntityCaseClassScalaModelTransformer() extends CaseClassScalaMode
   }
 
   private def _to_scala(p: MEntity, purpose: Purpose): SCaseClass = {
-    val core = to_entity_value_core(p, sub_Package_Name)
+    val core = to_entity_value_core(p, sub_package_name)
     SCaseClass(core.withEntityValue.withPurpose(purpose))
   }
 }

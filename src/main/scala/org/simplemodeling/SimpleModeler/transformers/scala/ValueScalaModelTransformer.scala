@@ -9,12 +9,12 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Mar. 25, 2026
- * @version Mar. 25, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class ValueScalaModelTransformer() extends CaseClassScalaModelTransformer() {
-  protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Plain)
-  protected def is_Accept_Object(p: MObject): Boolean = p.isInstanceOf[MDomainValue]
+  protected def accept_purposes: Vector[Purpose] = Vector(Purpose.Plain)
+  protected def is_accept_object(p: MObject): Boolean = p.isInstanceOf[MDomainValue]
 
   def apply(p: (MObject, Purpose)): Consequence[Vector[SClassBase]] =
     p match {

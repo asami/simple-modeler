@@ -10,12 +10,12 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Feb. 18, 2026
  *  version Feb. 19, 2026
  *  version Mar. 24, 2026
- * @version May.  8, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueQueryScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
-  protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Query)
-  override protected def sub_Package_Name: Option[String] = Some("query")
+  protected def accept_purposes: Vector[Purpose] = Vector(Purpose.Query)
+  override protected def sub_package_name: Option[String] = Some("query")
 
   override protected def to_scala_core_parent(p: MObject): Option[TypeName] =
     super.to_scala_core_parent(p).map {

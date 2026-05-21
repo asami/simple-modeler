@@ -12,14 +12,14 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  *  version Sep. 23, 2025
  *  version Feb. 27, 2026
  *  version Mar. 24, 2026
- * @version May.  3, 2026
  *  version Sep. 23, 2025
  *  version Feb. 27, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
-  protected def accept_Purposes: Vector[Purpose] = Vector(Purpose.Create)
-  override protected def sub_Package_Name: Option[String] = Some("create")
+  protected def accept_purposes: Vector[Purpose] = Vector(Purpose.Create)
+  override protected def sub_package_name: Option[String] = Some("create")
 
   override protected def to_scala_core_parent(p: MObject): Option[TypeName] =
     super.to_scala_core_parent(p).map {

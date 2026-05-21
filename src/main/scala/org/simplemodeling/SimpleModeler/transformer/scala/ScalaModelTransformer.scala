@@ -18,25 +18,25 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
  *  version Apr. 19, 2026
- * @version May.  8, 2026
+ * @version May. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
   protected final val MaxGeneratedNameLength = 256
   private var _current_object_name: Option[String] = None
   private var _current_package_name: Option[PackageName] = None
-  protected def is_Accept_Object(p: MObject): Boolean
-  protected def accept_Purposes: Vector[Purpose]
-  protected def sub_Package_Name: Option[String] = None
+  protected def is_accept_object(p: MObject): Boolean
+  protected def accept_purposes: Vector[Purpose]
+  protected def sub_package_name: Option[String] = None
 
   protected final def is_accept_purpose(p: Purpose): Boolean = 
-    accept_Purposes.contains(p)
+    accept_purposes.contains(p)
 
   def isDefinedAt(p: (MObject, Purpose)): Boolean =
-    is_Accept_Object(p._1) && is_accept_purpose(p._2)
+    is_accept_object(p._1) && is_accept_purpose(p._2)
 
   protected final def to_scala_core_with_subpackage(p: MObject): ClassCore =
-    to_scala_core(p, sub_Package_Name)
+    to_scala_core(p, sub_package_name)
 
   protected final def to_scala_core(p: MObject, subpkg: Option[String]): ClassCore =
     subpkg.fold(to_scala_core(p))(to_scala_core_subpackage(p, _))
@@ -465,12 +465,12 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
 
   protected def src_main_scala = s"$src_main/scala"
 
-  protected def package_To_Pathname(p: MObject): String = {
+  protected def package_to_pathname(p: MObject): String = {
     s"${src_main_scala}/${p.packageName.replace('.', '/')}"
   }
 
-  protected def object_To_Pathname(p: MObject): String = {
-    s"${package_To_Pathname(p)}/${p.name}.scala"
+  protected def object_to_pathname(p: MObject): String = {
+    s"${package_to_pathname(p)}/${p.name}.scala"
   }
 }
 
