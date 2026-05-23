@@ -18,7 +18,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
  *  version Apr. 19, 2026
- * @version May. 22, 2026
+ * @version May. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -410,14 +410,27 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
           filterNot(_.isEmpty).
           filterNot(_.equalsIgnoreCase("string")).
           flatMap(x => ScalaModelTransformer.resolveDeclaredType(x, _current_package_name.map(_.name).getOrElse(""))).
-          map(m => TypeName.create(m.packageName, m.name))
+          map(_to_declared_typename)
       case _ =>
         None
     }
 
+  private def _to_declared_typename(p: MObject): TypeName =
+    p match {
+      case _: MEntity =>
+        val pkg =
+          if (p.packageName.isEmpty)
+            "entity"
+          else
+            s"${p.packageName}.entity"
+        TypeName.create(pkg, p.name)
+      case _ =>
+        TypeName.create(p.packageName, p.name)
+    }
+
   final protected def to_typename(o: MObject): TypeName = o match {
     case m: MTypedObject => to_typename(m)
-    case _ => TypeName.create(o.packageName, o.name)
+    case _ => _to_declared_typename(o)
   }
 
   final protected def to_typename(o: MTypedObject): TypeName = {
@@ -432,12 +445,9 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   }
 
   final protected def to_typename(o: MObjectRef): TypeName =
-    if (o.packageName == null || o.packageName.isEmpty)
-      ScalaModelTransformer.resolveDeclaredType(o.objectName, _current_package_name.map(_.name).getOrElse("")).
-        map(m => TypeName.create(m.packageName, m.name)).
-        getOrElse(TypeName.create(o.packageName, o.objectName))
-    else
-      TypeName.create(o.packageName, o.objectName)
+    ScalaModelTransformer.resolveDeclaredType(o, _current_package_name.map(_.name).getOrElse("")).
+      map(_to_declared_typename).
+      getOrElse(TypeName.create(o.packageName, o.objectName))
 
   final protected def to_descriptor(p: MOperation.Descriptor): SMethod.Descriptor = {
     SMethod.Descriptor(
@@ -499,18 +509,23 @@ object ScalaModelTransformer {
     }
   }
 
-  def resolveDeclaredType(name: String, scopePackage: String): Option[MObject] = {
+  def resolveDeclaredType(name: String, scopepackage: String): Option[MObject] = {
     val ref = MObjectRef.create(name)
+    resolveDeclaredType(ref, scopepackage)
+  }
+
+  def resolveDeclaredType(ref: MObjectRef, scopepackage: String): Option[MObject] = {
     val qnamecandidates = Vector(
-      _qualified_name(scopePackage, ref.objectName),
+      _qualified_name(scopepackage, ref.objectName),
       _qualified_name(ref.packageName, ref.objectName),
       ref.objectName
     ).distinct
     qnamecandidates.toStream.flatMap(_object_registry.get).headOption.orElse {
-      _resolve_by_name(ref.objectName, ref.packageName, scopePackage)
+      _resolve_by_name(ref.objectName, ref.packageName, scopepackage)
     }.orElse {
       _resolve_default_model_declared_type(ref)
     }.filter {
+      case _: MEntity => true
       case _: MValue => true
       case _: MDataType => true
       case _ => false
@@ -556,13 +571,13 @@ object ScalaModelTransformer {
   private def _resolve_by_name(
     name: String,
     targetPackage: String,
-    scopePackage: String
+    scopepackage: String
   ): Option[MObject] =
     _object_registry_by_name.get(name).flatMap {
       case Vector(single) =>
         Some(single)
       case xs =>
-        xs.find(_.packageName == scopePackage).
+        xs.find(_.packageName == scopepackage).
           orElse(xs.find(_.packageName == targetPackage)).
           orElse(xs.headOption)
     }

@@ -9,10 +9,11 @@ import org.simplemodeling.model._
 import org.simplemodeling.model.domain.{MDomainResource, MDomainValue}
 import org.simplemodeling.SimpleModeler.generator.scala.model.{PackageName, TypeName}
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
+import org.simplemodeling.SimpleModeler.generators.scala.Scala3EntityFamilyGenerator
 
 /*
  * @since   Apr.  9, 2026
- * @version Apr.  9, 2026
+ * @version May. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityCustomTypeResolutionSpec extends AnyFunSuite with Matchers {
@@ -93,5 +94,84 @@ class EntityCustomTypeResolutionSpec extends AnyFunSuite with Matchers {
     val tenantCodeParam = generated.parameterSequence.parameters.find(_.name.name == "tenantCode").getOrElse(fail("tenantCode parameter missing"))
 
     tenantCodeParam.typeName shouldBe TypeName.Plain(PackageName("org.example.shared.value"), "TenantCode")
+  }
+
+  test("generate external collection record readers through ValueReader") {
+    val externalref = MDomainValue(
+      description = Description.name("ExternalRef"),
+      affiliation = MPackageRef("org.example.external"),
+      stereotypes = Nil,
+      base = None,
+      traits = Nil,
+      powertypes = Nil,
+      attributes = List(
+        MAttribute(Designation("value"), MDataType.string, MOne, Nil, None)
+      ),
+      operations = Nil
+    )
+    val account = MDomainResource(
+      description = Description.name("Account"),
+      affiliation = MPackageRef("org.example.account"),
+      stereotypes = Nil,
+      base = None,
+      traits = Nil,
+      powertypes = Nil,
+      attributes = List(
+        MAttribute(
+          Designation("externalRefs"),
+          MDataType(Designation("ExternalRef"), XString, MPackageRef("org.example.external")),
+          MZeroMore,
+          Nil,
+          None
+        )
+      ),
+      associations = Nil,
+      operations = Nil,
+      stateMachines = Nil
+    )
+
+    ScalaModelTransformer.clearObjectRegistry()
+    ScalaModelTransformer.registerObject(externalref)
+    ScalaModelTransformer.registerObject(account)
+
+    val family = new Scala3EntityFamilyGenerator()
+    val artifacts = family.generate(account).take
+    val source = artifacts.slots.map(_.content).mkString("\n")
+
+    source should include("_record_get_vector_as_c[org.example.external.ExternalRef]")
+    source should not include "org.example.external.ExternalRef.createC"
+  }
+
+  test("generate simplemodeling datatype collection record readers through ValueReader") {
+    val account = MDomainResource(
+      description = Description.name("Account"),
+      affiliation = MPackageRef("org.example.account"),
+      stereotypes = Nil,
+      base = None,
+      traits = Nil,
+      powertypes = Nil,
+      attributes = List(
+        MAttribute(
+          Designation("entityIds"),
+          MDataType(Designation("EntityId"), XString, MPackageRef("org.simplemodeling.model.datatype")),
+          MZeroMore,
+          Nil,
+          None
+        )
+      ),
+      associations = Nil,
+      operations = Nil,
+      stateMachines = Nil
+    )
+
+    ScalaModelTransformer.clearObjectRegistry()
+    ScalaModelTransformer.registerObject(account)
+
+    val family = new Scala3EntityFamilyGenerator()
+    val artifacts = family.generate(account).take
+    val source = artifacts.slots.map(_.content).mkString("\n")
+
+    source should include("_record_get_vector_as_c[org.simplemodeling.model.value.EntityId]")
+    source should not include "_record_get_as_c[Vector[EntityId]]"
   }
 }

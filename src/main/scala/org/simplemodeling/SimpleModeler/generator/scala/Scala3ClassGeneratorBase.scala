@@ -19,7 +19,7 @@ import Generator.{State => GState, _}
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  *  version Apr. 26, 2026
- * @version May. 22, 2026
+ * @version May. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -271,7 +271,54 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _is_codec_derives_supported: Boolean =
-    !clazz.parameterSequence.parameters.exists(p => _is_simple_object_attribute_type(p.typeName))
+    !clazz.parameterSequence.parameters.exists(p =>
+        _is_simple_object_attribute_type(p.typeName) ||
+        _contains_record_type(p.typeName) ||
+        _contains_generated_model_type(p.typeName) ||
+        _contains_model_entity_type(p.typeName) ||
+        _contains_external_runtime_type(p.typeName)
+    )
+
+  private def _contains_record_type(p: TypeName): Boolean =
+    if (_is_record_type(p))
+      true
+    else
+      p match {
+        case m: TypeName.Container =>
+          _contains_record_type(m.containee)
+        case _ =>
+          false
+      }
+
+  private def _contains_external_runtime_type(p: TypeName): Boolean =
+    p match {
+      case m: TypeName.Container =>
+        _contains_external_runtime_type(m.containee)
+      case m: TypeName.Plain =>
+        _is_record_decodable_object_type(m) && !_is_generated_model_package(m)
+      case _ =>
+        false
+    }
+
+  private def _contains_model_entity_type(p: TypeName): Boolean =
+    p match {
+      case m: TypeName.Container =>
+        _contains_model_entity_type(m.containee)
+      case m: TypeName.Plain =>
+        _is_generated_entity_package(m)
+      case _ =>
+        false
+    }
+
+  private def _contains_generated_model_type(p: TypeName): Boolean =
+    p match {
+      case m: TypeName.Container =>
+        _contains_generated_model_type(m.containee)
+      case m: TypeName.Plain =>
+        _is_generated_model_package(m)
+      case _ =>
+        false
+    }
 
   private def _has_validate_method: Boolean =
     clazz.parameterSequence.parameters.exists(_.constraints.nonEmpty)
@@ -1375,6 +1422,73 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- outdent
       _ <- println("}")
       _ <- println()
+      _ <- println("private def _record_get_record(")
+      _ <- indent
+      _ <- println("record: Record,")
+      _ <- println("keys: List[String]")
+      _ <- outdent
+      _ <- println("): Consequence[Option[Record]] = {")
+      _ <- indent
+      _ <- println("keys.foldLeft(Consequence.success(Option.empty[Record])) { (z, key) =>")
+      _ <- indent
+      _ <- println("z.flatMap {")
+      _ <- indent
+      _ <- println("case s @ Some(_) => Consequence.success(s)")
+      _ <- println("case None =>")
+      _ <- indent
+      _ <- println("record.getAny(key) match {")
+      _ <- indent
+      _ <- println("case Some(m: Record) => Consequence.success(Some(m))")
+      _ <- println("case Some(other) => Consequence.failValueInvalid(other, org.goldenport.schema.XString)")
+      _ <- println("case None => Consequence.success(None)")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("}")
+      _ <- println()
+      _ <- println("private def _record_get_vector_as_c[A](")
+      _ <- indent
+      _ <- println("record: Record,")
+      _ <- println("keys: List[String]")
+      _ <- outdent
+      _ <- println(")(using vr: org.goldenport.convert.ValueReader[A]): Consequence[Option[Vector[A]]] = {")
+      _ <- indent
+      _ <- println("def decode_all(xs: Seq[?]): Consequence[Vector[A]] =")
+      _ <- indent
+      _ <- println("xs.foldLeft(Consequence.success(Vector.empty[A])) { (z, x) =>")
+      _ <- indent
+      _ <- println("z.flatMap(zs => vr.readC(x).map(a => zs :+ a))")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("keys.foldLeft(Consequence.success(Option.empty[Vector[A]])) { (z, key) =>")
+      _ <- indent
+      _ <- println("z.flatMap {")
+      _ <- indent
+      _ <- println("case s @ Some(_) => Consequence.success(s)")
+      _ <- println("case None =>")
+      _ <- indent
+      _ <- println("record.getAny(key) match {")
+      _ <- indent
+      _ <- println("case Some(xs: Seq[?]) => decode_all(xs).map(Some(_))")
+      _ <- println("case Some(xs: Array[?]) => decode_all(xs.toVector).map(Some(_))")
+      _ <- println("case Some(other) => vr.readC(other).map(x => Some(Vector(x)))")
+      _ <- println("case None => Consequence.success(None)")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("}")
+      _ <- println()
       _ <- println("private def _record_get_vector_of_record_c[A](")
       _ <- indent
       _ <- println("record: Record,")
@@ -1895,6 +2009,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     if (
       p.typeName.isString ||
       p.typeName.name == "String" ||
+      _is_record_type(p.typeName) ||
       _is_option_string_type(p.typeName) ||
       _is_collection_type(p.typeName) ||
       _is_simple_object_attribute_type(p.typeName) ||
@@ -1918,6 +2033,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     case _ =>
       false
   }
+
+  private def _is_record_type(p: TypeName): Boolean =
+    p.toRawType.fullName == "org.goldenport.record.Record"
 
   private val _simple_object_attribute_type_names: Set[String] = Set(
     "NameAttributes",
@@ -2416,6 +2534,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _build_param_or_var_content_attributes(p)
     else if (_is_simple_object_attribute_parameter(p))
       _build_param_or_var_simple_object_attribute(p)
+    else if (_is_record_type(p.toRawType.typeName))
+      _build_param_or_var_record(p)
     else
       for {
         _ <- print("_record_get_as_c[", p.toRawType.typeName.name, "](record, ", input_keys_name(p.name.name), ").flatMap {")
@@ -2426,6 +2546,30 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- outdent
         _ <- print("}")
       } yield ()
+
+  private def _build_param_or_var_record(p: Parameter): GenM[Unit] =
+    _builder_default_expression_raw(p.name.name) match {
+      case Some(expr) =>
+        for {
+          _ <- print("_record_get_record(record, ", input_keys_name(p.name.name), ").flatMap {")
+          _ <- println()
+          _ <- indent
+          _ <- println("case Some(s) => Consequence.success(s)")
+          _ <- println("case None => Consequence.success(", p.name.name, ".getOrElse(", expr, "))")
+          _ <- outdent
+          _ <- print("}")
+        } yield ()
+      case None =>
+        for {
+          _ <- print("_record_get_record(record, ", input_keys_name(p.name.name), ").flatMap {")
+          _ <- println()
+          _ <- indent
+          _ <- println("case Some(s) => Consequence.success(s)")
+          _ <- println("case None => Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", ", p.name.name, ")")
+          _ <- outdent
+          _ <- print("}")
+        } yield ()
+    }
 
   private def _build_param_or_var_raw_default(p: Parameter): GenM[Unit] =
     _builder_default_expression_raw(p.name.name) match {
@@ -2701,8 +2845,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _build_param_or_var_condition(p, container)
     else if (is_update_type(container))
       _build_param_or_var_update(p, container)
-    else if (_is_record_decodable_object_container(container))
+    else if (_is_model_record_decodable_object_container(container))
       _build_param_or_var_object_collection(p, container)
+    else if (_is_value_readable_object_container(container))
+      _build_param_or_var_value_collection(p, container)
     else if (container.isList)
       print("Consequence.success(", p.name.name, ")")
     else if (container.isVector)
@@ -2715,6 +2861,58 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _is_record_decodable_object_container(p: TypeName.Container): Boolean =
     (p.isList || p.isVector || p.isSet) && _is_record_decodable_object_type(p.containee)
 
+  private def _is_model_record_decodable_object_container(p: TypeName.Container): Boolean =
+    (p.isList || p.isVector || p.isSet) && _is_model_record_decodable_object_type(p.containee)
+
+  private def _is_value_readable_object_container(p: TypeName.Container): Boolean =
+    (p.isList || p.isVector || p.isSet) &&
+      _is_value_readable_object_type(p.containee) &&
+      !_is_model_record_decodable_object_type(p.containee)
+
+  private def _is_value_readable_object_type(p: TypeName): Boolean =
+    _is_record_decodable_object_type(p) || (p match {
+      case TypeName.Plain(pkg, _, _) =>
+        pkg.name == "org.simplemodeling.model.datatype" ||
+        pkg.name == "org.simplemodeling.model.value"
+      case _ =>
+        false
+    })
+
+  private def _is_model_record_decodable_object_type(p: TypeName): Boolean =
+    _is_record_decodable_object_type(p) && _is_generated_entity_package(p)
+
+  private def _is_generated_entity_package(p: TypeName): Boolean =
+    p match {
+      case TypeName.Plain(pkg, _, _) =>
+        val base = _generated_model_package_base
+        pkg.name == s"$base.entity" || pkg.name.startsWith(s"$base.entity.")
+      case _ => false
+    }
+
+  private def _is_generated_model_package(p: TypeName): Boolean =
+    p match {
+      case TypeName.Plain(pkg, _, _) =>
+        val base = _generated_model_package_base
+        pkg.name == base || pkg.name.startsWith(s"$base.")
+      case _ => false
+    }
+
+  private def _generated_model_package_base: String = {
+    val name = clazz.packageName.name
+    Vector(".entity", ".value", ".domain", ".service", ".component", ".subsystem")
+      .flatMap(suffix => _substring_before(name, suffix))
+      .headOption
+      .getOrElse(name)
+  }
+
+  private def _substring_before(
+    value: String,
+    token: String
+  ): Option[String] = {
+    val i = value.indexOf(token)
+    if (i >= 0) Some(value.substring(0, i)) else None
+  }
+
   private def _is_record_decodable_object_type(p: TypeName): Boolean =
     p match {
       case TypeName.Plain(pkg, _, _) =>
@@ -2726,6 +2924,27 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         pkg.name != "org.simplemodeling.model.value"
       case _ => false
     }
+
+  private def _build_param_or_var_value_collection(
+    p: Parameter,
+    container: TypeName.Container
+  ): GenM[Unit] = {
+    val lifted = if (container.isList) ".map(_.toList)" else if (container.isSet) ".map(_.toSet)" else ""
+    _builder_default_expression_raw(p.name.name) match {
+      case Some(expr) =>
+        print("_record_get_vector_as_c[", container.containee.fullName, "](record, ", input_keys_name(p.name.name), ")", lifted, ".map(_.getOrElse(", p.name.name, ".getOrElse(", expr, ")))")
+      case None =>
+        for {
+          _ <- print("_record_get_vector_as_c[", container.containee.fullName, "](record, ", input_keys_name(p.name.name), ")", lifted, ".flatMap {")
+          _ <- println()
+          _ <- indent
+          _ <- println("case Some(s) => Consequence.success(s)")
+          _ <- println("case None => Consequence.success(", p.name.name, ")")
+          _ <- outdent
+          _ <- print("}")
+        } yield ()
+    }
+  }
 
   private def _build_param_or_var_object_collection(
     p: Parameter,
@@ -2756,10 +2975,30 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val propname = property_name(p.name.name)
     val keyname = input_keys_name(p.name.name)
     container.containee match {
-      case inner: TypeName.Container if _is_record_decodable_object_container(inner) =>
+      case m if _is_record_type(m) =>
+        for {
+          _ <- print("_record_get_record(record, ", keyname, ").flatMap {")
+          _ <- println()
+          _ <- indent
+          _ <- println("case Some(s) => Consequence.success(Condition.is(s))")
+          _ <- println("case None => Consequence.success(", p.name.name, ".getOrElse(Condition.any[Record]))")
+          _ <- outdent
+          _ <- print("}")
+        } yield ()
+      case inner: TypeName.Container if _is_model_record_decodable_object_container(inner) =>
         val decode = s"(r: Record) => ${inner.containee.fullName}.createC(r)"
         for {
           _ <- print("_record_get_vector_of_record_c(record, ", keyname, ")(", decode, ").flatMap {")
+          _ <- println()
+          _ <- indent
+          _ <- println("case Some(s) => Consequence.success(Condition.is(s))")
+          _ <- println("case None => Consequence.success(", p.name.name, ".getOrElse(Condition.any[", inner.name, "]))")
+          _ <- outdent
+          _ <- print("}")
+        } yield ()
+      case inner: TypeName.Container if _is_value_readable_object_container(inner) =>
+        for {
+          _ <- print("_record_get_vector_as_c[", inner.containee.fullName, "](record, ", keyname, ").flatMap {")
           _ <- println()
           _ <- indent
           _ <- println("case Some(s) => Consequence.success(Condition.is(s))")
@@ -2786,10 +3025,30 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   ): GenM[Unit] = {
     val keyname = input_keys_name(p.name.name)
     container.containee match {
-      case inner: TypeName.Container if _is_record_decodable_object_container(inner) =>
+      case m if _is_record_type(m) =>
+        for {
+          _ <- print("_record_get_record(record, ", keyname, ").flatMap {")
+          _ <- println()
+          _ <- indent
+          _ <- println("case Some(s) => Consequence.success(Update.set(s))")
+          _ <- println("case None => Consequence.success(", p.name.name, ".getOrElse(Update.noop[Record]))")
+          _ <- outdent
+          _ <- print("}")
+        } yield ()
+      case inner: TypeName.Container if _is_model_record_decodable_object_container(inner) =>
         val decode = s"(r: Record) => ${inner.containee.fullName}.createC(r)"
         for {
           _ <- print("_record_get_vector_of_record_c(record, ", keyname, ")(", decode, ").flatMap {")
+          _ <- println()
+          _ <- indent
+          _ <- println("case Some(s) => Consequence.success(Update.set(s))")
+          _ <- println("case None => Consequence.success(", p.name.name, ".getOrElse(Update.noop[", inner.fullName, "]))")
+          _ <- outdent
+          _ <- print("}")
+        } yield ()
+      case inner: TypeName.Container if _is_value_readable_object_container(inner) =>
+        for {
+          _ <- print("_record_get_vector_as_c[", inner.containee.fullName, "](record, ", keyname, ").flatMap {")
           _ <- println()
           _ <- indent
           _ <- println("case Some(s) => Consequence.success(Update.set(s))")

@@ -3,16 +3,17 @@ package org.simplemodeling.SimpleModeler.transformers.scala
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.goldenport.values.Designation
+import org.goldenport.record.v2.XString
 import org.smartdox.Description
 import org.simplemodeling.model._
-import org.simplemodeling.model.domain.MDomainValue
+import org.simplemodeling.model.domain.{MDomainResource, MDomainValue}
 import org.simplemodeling.SimpleModeler.generator.scala.model._
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
 import org.simplemodeling.SimpleModeler.generators.scala.Scala3ValueFamilyGenerator
 
 /*
  * @since   Mar. 25, 2026
- * @version Mar. 25, 2026
+ * @version May. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class ValueScalaModelTransformerSpec extends AnyFunSuite with Matchers {
@@ -63,5 +64,49 @@ class ValueScalaModelTransformerSpec extends AnyFunSuite with Matchers {
     source should include("private def validate(): Unit = {")
     source should include("""require(BigDecimal(code.toString) >= BigDecimal("1"), "code must be >= 1")""")
     source should include("""require(code == null || code.toString.matches("^[A-Z]+$"), "code must match ^[A-Z]+$")""")
+  }
+
+  test("resolve short entity references to generated entity package") {
+    val account = MDomainResource(
+      description = Description.name("Account"),
+      affiliation = MPackageRef("org.example"),
+      stereotypes = Nil,
+      base = None,
+      traits = Nil,
+      powertypes = Nil,
+      attributes = List(
+        MAttribute(Designation("name"), MDataType.string, MOne, Nil, None)
+      ),
+      associations = Nil,
+      operations = Nil,
+      stateMachines = Nil
+    )
+    val snapshot = MDomainValue(
+      description = Description.name("Snapshot"),
+      affiliation = MPackageRef("org.example.value"),
+      stereotypes = Nil,
+      base = None,
+      traits = Nil,
+      powertypes = Nil,
+      attributes = List(
+        MAttribute(
+          Designation("accounts"),
+          MDataType(Designation("Account"), XString, MPackageRef.default),
+          MZeroMore,
+          Nil,
+          None
+        )
+      ),
+      operations = Nil
+    )
+
+    ScalaModelTransformer.clearObjectRegistry()
+    ScalaModelTransformer.registerObject(account)
+    ScalaModelTransformer.registerObject(snapshot)
+
+    val tx = new ValueScalaModelTransformer()
+    val generated = tx((snapshot, ScalaModelTransformer.Purpose.Plain)).take.head
+
+    generated.parameterSequence.parameters.head.typeName.fullName shouldBe "scala.collection.immutable.Vector[org.example.entity.Account]"
   }
 }
