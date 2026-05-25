@@ -19,7 +19,8 @@ import Generator.{State => GState, _}
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  *  version Apr. 26, 2026
- * @version May. 23, 2026
+ *  version May. 23, 2026
+ * @version May. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -597,16 +598,16 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("""case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_external_value(m.headline), "summary" -> _to_external_value(m.summary), "description" -> _to_external_value(m.description))""")
         _ <- println("""case m: org.goldenport.value.ContentReferenceOccurrence => m.toRecord()""")
         _ <- println("""case m: org.goldenport.value.ContentAttributes => m.toRecord()""")
-        _ <- println("""case m: org.simplemodeling.model.value.LifecycleAttributes => Record.dataAuto("created_at" -> _to_external_value(m.createdAt), "updated_at" -> _to_external_value(m.updatedAt), "created_by" -> _to_external_value(m.createdBy), "updated_by" -> _to_external_value(m.updatedBy), "post_status" -> _to_external_value(m.postStatus), "aliveness" -> _to_external_value(m.aliveness))""")
-        _ <- println("""case m: org.simplemodeling.model.value.PublicationAttributes => Record.dataAuto("publish_at" -> _to_external_value(m.publishAt), "public_at" -> _to_external_value(m.publicAt), "close_at" -> _to_external_value(m.closeAt), "start_at" -> _to_external_value(m.startAt), "end_at" -> _to_external_value(m.endAt))""")
-        _ <- println("""case m: org.simplemodeling.model.value.SecurityAttributes => Record.dataAuto("owner_id" -> _to_external_value(m.ownerId), "group_id" -> _to_external_value(m.groupId), "rights" -> _to_external_value(m.rights), "privilege_id" -> _to_external_value(m.privilegeId))""")
+        _ <- println("""case m: org.simplemodeling.model.value.LifecycleAttributes => Record.dataAuto("createdAt" -> _to_external_value(m.createdAt), "updatedAt" -> _to_external_value(m.updatedAt), "createdBy" -> _to_external_value(m.createdBy), "updatedBy" -> _to_external_value(m.updatedBy), "postStatus" -> _to_external_value(m.postStatus), "aliveness" -> _to_external_value(m.aliveness))""")
+        _ <- println("""case m: org.simplemodeling.model.value.PublicationAttributes => Record.dataAuto("publishAt" -> _to_external_value(m.publishAt), "publicAt" -> _to_external_value(m.publicAt), "closeAt" -> _to_external_value(m.closeAt), "startAt" -> _to_external_value(m.startAt), "endAt" -> _to_external_value(m.endAt))""")
+        _ <- println("""case m: org.simplemodeling.model.value.SecurityAttributes => Record.dataAuto("ownerId" -> _to_external_value(m.ownerId), "groupId" -> _to_external_value(m.groupId), "rights" -> _to_external_value(m.rights), "privilegeId" -> _to_external_value(m.privilegeId))""")
         _ <- println("""case m: org.simplemodeling.model.value.SecurityAttributes.Rights => Record.dataAuto("owner" -> _to_external_value(m.owner), "group" -> _to_external_value(m.group), "other" -> _to_external_value(m.other))""")
         _ <- println("""case m: org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions => Record.dataAuto("read" -> _to_external_value(m.read), "write" -> _to_external_value(m.write), "execute" -> _to_external_value(m.execute))""")
-        _ <- println("""case m: org.simplemodeling.model.value.ResourceAttributes => Record.dataAuto("activated_at" -> _to_external_value(m.activatedAt), "deactivated_at" -> _to_external_value(m.deactivatedAt), "expires_at" -> _to_external_value(m.expiresAt), "activation_status" -> _to_external_value(m.activationStatus))""")
+        _ <- println("""case m: org.simplemodeling.model.value.ResourceAttributes => Record.dataAuto("activatedAt" -> _to_external_value(m.activatedAt), "deactivatedAt" -> _to_external_value(m.deactivatedAt), "expiresAt" -> _to_external_value(m.expiresAt), "activationStatus" -> _to_external_value(m.activationStatus))""")
         _ <- println("""case m: org.simplemodeling.model.value.AuditAttributes => Record.empty""")
         _ <- println("""case m: org.simplemodeling.model.value.MediaAttributes => Record.dataAuto("url" -> _to_external_value(m.url), "images" -> _to_external_value(m.images), "audios" -> _to_external_value(m.audios), "videos" -> _to_external_value(m.videos), "attachments" -> _to_external_value(m.atathments))""")
         _ <- println("""case m: org.simplemodeling.model.value.ContextualAttributes => Record.empty""")
-        _ <- println("""case m: org.simplemodeling.model.value.SimpleObjectContent => Record.dataAuto("name_attributes" -> _to_external_value(m.nameAttributes), "descriptive_attributes" -> _to_external_value(m.descriptiveAttributes), "content_attributes" -> _to_external_value(m.contentAttributes), "lifecycle_attributes" -> _to_external_value(m.lifecycleAttributes), "publication_attributes" -> _to_external_value(m.publicationAttributes), "security_attributes" -> _to_external_value(m.securityAttributes), "resource_attributes" -> _to_external_value(m.resourceAttributes), "audit_attributes" -> _to_external_value(m.auditAttributes), "media_attributes" -> _to_external_value(m.mediaAttributes), "contextual_attribute" -> _to_external_value(m.contextualAttribute))""")
+        _ <- println("""case m: org.simplemodeling.model.value.SimpleObjectContent => Record.dataAuto("nameAttributes" -> _to_external_value(m.nameAttributes), "descriptiveAttributes" -> _to_external_value(m.descriptiveAttributes), "contentAttributes" -> _to_external_value(m.contentAttributes), "lifecycleAttributes" -> _to_external_value(m.lifecycleAttributes), "publicationAttributes" -> _to_external_value(m.publicationAttributes), "securityAttributes" -> _to_external_value(m.securityAttributes), "resourceAttributes" -> _to_external_value(m.resourceAttributes), "auditAttributes" -> _to_external_value(m.auditAttributes), "mediaAttributes" -> _to_external_value(m.mediaAttributes), "contextualAttribute" -> _to_external_value(m.contextualAttribute))""")
         _ <- println("""case m: org.simplemodeling.model.value.Image => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
         _ <- println("""case m: org.simplemodeling.model.value.Audio => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
         _ <- println("""case m: org.simplemodeling.model.value.Video => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
@@ -761,37 +762,37 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
     _select_attribute_name(names, "contentAttributes", "content_Attributes").foreach { attr =>
       b += "content" -> s"$attr.content"
-      b += "content_mime_type" -> s"$attr.mimeType"
-      b += "content_charset" -> s"$attr.charset"
-      b += "content_markup" -> s"$attr.markup"
-      b += "content_references" -> s"$attr.references"
+      b += "contentMimeType" -> s"$attr.mimeType"
+      b += "contentCharset" -> s"$attr.charset"
+      b += "contentMarkup" -> s"$attr.markup"
+      b += "contentReferences" -> s"$attr.references"
     }
     _select_attribute_name(names, "lifecycleAttributes", "lifecycle_Attributes").foreach { attr =>
-      b += "created_at" -> s"$attr.createdAt"
-      b += "updated_at" -> s"$attr.updatedAt"
-      b += "created_by" -> s"$attr.createdBy"
-      b += "updated_by" -> s"$attr.updatedBy"
-      b += "post_status" -> s"$attr.postStatus"
+      b += "createdAt" -> s"$attr.createdAt"
+      b += "updatedAt" -> s"$attr.updatedAt"
+      b += "createdBy" -> s"$attr.createdBy"
+      b += "updatedBy" -> s"$attr.updatedBy"
+      b += "postStatus" -> s"$attr.postStatus"
       b += "aliveness" -> s"$attr.aliveness"
     }
     _select_attribute_name(names, "publicationAttributes", "publication_Attributes").foreach { attr =>
-      b += "publish_at" -> s"$attr.publishAt"
-      b += "public_at" -> s"$attr.publicAt"
-      b += "close_at" -> s"$attr.closeAt"
-      b += "start_at" -> s"$attr.startAt"
-      b += "end_at" -> s"$attr.endAt"
+      b += "publishAt" -> s"$attr.publishAt"
+      b += "publicAt" -> s"$attr.publicAt"
+      b += "closeAt" -> s"$attr.closeAt"
+      b += "startAt" -> s"$attr.startAt"
+      b += "endAt" -> s"$attr.endAt"
     }
     _select_attribute_name(names, "securityAttributes", "security_Attributes").foreach { attr =>
-      b += "owner_id" -> s"$attr.ownerId"
-      b += "group_id" -> s"$attr.groupId"
+      b += "ownerId" -> s"$attr.ownerId"
+      b += "groupId" -> s"$attr.groupId"
       b += "rights" -> s"$attr.rights"
-      b += "privilege_id" -> s"$attr.privilegeId"
+      b += "privilegeId" -> s"$attr.privilegeId"
     }
     _select_attribute_name(names, "resourceAttributes", "resource_Attributes").foreach { attr =>
-      b += "activated_at" -> s"$attr.activatedAt"
-      b += "deactivated_at" -> s"$attr.deactivatedAt"
-      b += "expires_at" -> s"$attr.expiresAt"
-      b += "activation_status" -> s"$attr.activationStatus"
+      b += "activatedAt" -> s"$attr.activatedAt"
+      b += "deactivatedAt" -> s"$attr.deactivatedAt"
+      b += "expiresAt" -> s"$attr.expiresAt"
+      b += "activationStatus" -> s"$attr.activationStatus"
     }
     _select_attribute_name(names, "mediaAttributes", "media_Attributes").foreach { attr =>
       b += "url" -> s"$attr.url"
@@ -840,7 +841,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   private def _to_data_store_attribute(p: Attribute): (String, String, String) = {
-    val key = p.dbColumnName.getOrElse(StringUtils.camelToUnderscore(p.name.name))
+    val key = p.dbColumnName.getOrElse(p.name.name)
     (key, p.name.name, "_to_data_store_value")
   }
 
@@ -853,7 +854,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _to_data_store_direct_attributes: Vector[(String, String, String)] =
     attributes_vector.collect {
       case p if !_simple_object_attribute_names.contains(p.name.name) =>
-        val key = p.dbColumnName.getOrElse(StringUtils.camelToUnderscore(p.name.name))
+        val key = p.dbColumnName.getOrElse(p.name.name)
         (key, p.name.name, "_to_data_store_value")
     }
 
@@ -878,38 +879,38 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
     _select_attribute_name(names, "contentAttributes", "content_Attributes").foreach { attr =>
       b += (("content", s"$attr.content", valuefn))
-      b += (("content_mime_type", s"$attr.mimeType", valuefn))
-      b += (("content_charset", s"$attr.charset", valuefn))
-      b += (("content_markup", s"$attr.markup", valuefn))
-      b += (("content_references", s"$attr.references", valuefn))
+      b += (("contentMimeType", s"$attr.mimeType", valuefn))
+      b += (("contentCharset", s"$attr.charset", valuefn))
+      b += (("contentMarkup", s"$attr.markup", valuefn))
+      b += (("contentReferences", s"$attr.references", valuefn))
     }
     _select_attribute_name(names, "lifecycleAttributes", "lifecycle_Attributes").foreach { attr =>
-      b += (("created_at", s"$attr.createdAt", valuefn))
-      b += (("updated_at", s"$attr.updatedAt", valuefn))
-      b += (("created_by", s"$attr.createdBy", valuefn))
-      b += (("updated_by", s"$attr.updatedBy", valuefn))
-      b += (("post_status", s"$attr.postStatus", valuefn))
+      b += (("createdAt", s"$attr.createdAt", valuefn))
+      b += (("updatedAt", s"$attr.updatedAt", valuefn))
+      b += (("createdBy", s"$attr.createdBy", valuefn))
+      b += (("updatedBy", s"$attr.updatedBy", valuefn))
+      b += (("postStatus", s"$attr.postStatus", valuefn))
       b += (("aliveness", s"$attr.aliveness", valuefn))
     }
     _select_attribute_name(names, "publicationAttributes", "publication_Attributes").foreach { attr =>
-      b += (("publish_at", s"$attr.publishAt", valuefn))
-      b += (("public_at", s"$attr.publicAt", valuefn))
-      b += (("close_at", s"$attr.closeAt", valuefn))
-      b += (("start_at", s"$attr.startAt", valuefn))
-      b += (("end_at", s"$attr.endAt", valuefn))
+      b += (("publishAt", s"$attr.publishAt", valuefn))
+      b += (("publicAt", s"$attr.publicAt", valuefn))
+      b += (("closeAt", s"$attr.closeAt", valuefn))
+      b += (("startAt", s"$attr.startAt", valuefn))
+      b += (("endAt", s"$attr.endAt", valuefn))
     }
     _select_attribute_name(names, "securityAttributes", "security_Attributes").foreach { attr =>
-      b += (("owner_id", s"$attr.ownerId", valuefn))
-      b += (("group_id", s"$attr.groupId", valuefn))
-      b += (("privilege_id", s"$attr.privilegeId", valuefn))
+      b += (("ownerId", s"$attr.ownerId", valuefn))
+      b += (("groupId", s"$attr.groupId", valuefn))
+      b += (("privilegeId", s"$attr.privilegeId", valuefn))
       if (!_is_simple_entity_update_parent)
         b += (("permission", s"_permission_json($attr.rights)", ""))
     }
     _select_attribute_name(names, "resourceAttributes", "resource_Attributes").foreach { attr =>
-      b += (("activated_at", s"$attr.activatedAt", valuefn))
-      b += (("deactivated_at", s"$attr.deactivatedAt", valuefn))
-      b += (("expires_at", s"$attr.expiresAt", valuefn))
-      b += (("activation_status", s"$attr.activationStatus", valuefn))
+      b += (("activatedAt", s"$attr.activatedAt", valuefn))
+      b += (("deactivatedAt", s"$attr.deactivatedAt", valuefn))
+      b += (("expiresAt", s"$attr.expiresAt", valuefn))
+      b += (("activationStatus", s"$attr.activationStatus", valuefn))
     }
     _select_attribute_name(names, "mediaAttributes", "media_Attributes").foreach { attr =>
       b += (("url", s"$attr.url", valuefn))
@@ -1129,14 +1130,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   private def _record_input_keys(p: Attribute): Vector[String] = {
-    val external = p.externalName.toVector
-    val camel = Vector(p.name.name)
-    val snake = Vector(StringUtils.camelToUnderscore(p.name.name))
-    (external ++ camel ++ snake).filterNot(_.isEmpty).distinct
+    (p.externalName.toVector ++ Vector(p.name.name)).filterNot(_.isEmpty).distinct
   }
 
   private def _record_external_key(p: Attribute): String =
-    p.externalName.getOrElse(StringUtils.camelToUnderscore(p.name.name))
+    p.name.name
 
   protected def schema: GenM[Unit] =
     if (is_entity_value)
