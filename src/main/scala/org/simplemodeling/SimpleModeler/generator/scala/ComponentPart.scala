@@ -9,7 +9,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  * @since   Feb. 12, 2026
  *  version Feb. 27, 2026
  *  version Apr. 30, 2026
- * @version May. 15, 2026
+ *  version May. 15, 2026
+ * @version Jun.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -564,79 +565,112 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
   ): GenM[Unit] =
     if (defs.isEmpty) {
       println("override def operationDefinitions: Vector[org.goldenport.cncf.operation.CmlOperationDefinition] = Vector.empty")
-    } else {
+    } else if (defs.lengthCompare(24) <= 0) {
       for {
         _ <- println("override def operationDefinitions: Vector[org.goldenport.cncf.operation.CmlOperationDefinition] = Vector(")
         _ <- indent
-        _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
-          z.flatMap { _ =>
-            val summary = d.summary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val execution = d.execution.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val commandKind = d.commandKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val commandExecutionProperties = _string_map_record_expr(d.commandExecutionProperties)
-            val commandExecutionPolicy = d.commandExecutionPolicy
-              .map(_string_literal)
-              .map(x => s"org.goldenport.cncf.action.CommandExecutionPolicy.parse($x)")
-              .getOrElse("None")
-            val implementation = d.implementation.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val inputSummary = d.inputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val inputDescription = d.inputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val outputSummary = d.outputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val outputDescription = d.outputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val visibility = d.visibility.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val access = d.access.map { a =>
-              val resource = a.resource.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-              val target = a.target.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-              val mode = a.mode.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-              val relation = a.relation.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-              val operationModel = a.operationModel.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-              val entityUsage = a.entityUsage.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-              val entityOperationKind = a.entityOperationKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-              val entityApplicationDomain = a.entityApplicationDomain.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-              val condition = a.condition.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-              s"""Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = ${_string_literal(a.policy)}, resource = ${resource}, target = ${target}, mode = ${mode}, relation = ${relation}, operationModel = ${operationModel}, entityUsage = ${entityUsage}, entityOperationKind = ${entityOperationKind}, entityApplicationDomain = ${entityApplicationDomain}, condition = ${condition}))"""
-            }.getOrElse("None")
-            val entityName = d.entityName.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val entityNames = d.entityNames.map(_string_literal).mkString("Vector(", ", ", ")")
-            val operationAuthorization = _operation_authorization_expr(d.operationAuthorization)
-            val childEntityBindings = _operation_child_entity_bindings_expr(d.childEntityBindings)
-            val associationBinding = _operation_association_binding_expr(d.associationBinding)
-            for {
-              _ <- println("org.goldenport.cncf.operation.CmlOperationDefinition(")
-              _ <- indent
-              _ <- println(s"name = ${_string_literal(d.name)},")
-              _ <- println(s"kind = ${_string_literal(d.kind)},")
-              _ <- println(s"summary = ${summary},")
-              _ <- println(s"execution = ${execution},")
-              _ <- println(s"commandKind = ${commandKind},")
-              _ <- println(s"commandExecutionProperties = ${commandExecutionProperties},")
-              _ <- println(s"commandExecutionPolicy = ${commandExecutionPolicy},")
-              _ <- println(s"implementation = ${implementation},")
-              _ <- println(s"entityName = ${entityName},")
-              _ <- println(s"entityNames = ${entityNames},")
-              _ <- println(s"inputType = ${_string_literal(d.inputType)},")
-              _ <- println(s"inputSummary = ${inputSummary},")
-              _ <- println(s"inputDescription = ${inputDescription},")
-              _ <- println(s"outputType = ${_string_literal(d.outputType)},")
-              _ <- println(s"outputSummary = ${outputSummary},")
-              _ <- println(s"outputDescription = ${outputDescription},")
-              _ <- println(s"inputValueKind = ${_string_literal(d.inputValueKind)},")
-              _ <- println(s"visibility = ${visibility},")
-              _ <- println(s"access = ${access},")
-              _ <- println(s"parameters = ${_operation_fields_expr(d.parameters)},")
-              _ <- println(s"operationAuthorization = ${operationAuthorization},")
-              _ <- println(s"childEntityBindings = ${childEntityBindings},")
-              _ <- println(s"associationBinding = ${associationBinding}")
-              _ <- outdent
-              _ <- println(")")
-              _ <- if (i < defs.length - 1) println(",") else unit
-            } yield ()
-          }
-        }
+        _ <- _operation_definition_exprs(defs)
         _ <- outdent
         _ <- println(")")
       } yield ()
+    } else {
+      val chunks = defs.grouped(24).toVector
+      val names = chunks.indices.map(i => s"_operation_definitions_part_${i}").toVector
+      for {
+        _ <- println("override def operationDefinitions: Vector[org.goldenport.cncf.operation.CmlOperationDefinition] =")
+        _ <- indent
+        _ <- println(names.mkString(" ++ "))
+        _ <- outdent
+        _ <- chunks.zipWithIndex.foldLeft(unit) { case (z, (chunk, index)) =>
+          z.flatMap { _ =>
+            for {
+              _ <- println(s"private def ${names(index)}: Vector[org.goldenport.cncf.operation.CmlOperationDefinition] = Vector(")
+              _ <- indent
+              _ <- _operation_definition_exprs(chunk)
+              _ <- outdent
+              _ <- println(")")
+            } yield ()
+          }
+        }
+      } yield ()
     }
+
+  private def _operation_definition_exprs(
+    defs: Vector[SComponent.OperationDefinition]
+  ): GenM[Unit] =
+    defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
+      z.flatMap { _ =>
+        for {
+          _ <- _operation_definition_expr(d)
+          _ <- if (i < defs.length - 1) println(",") else unit
+        } yield ()
+      }
+    }
+
+  private def _operation_definition_expr(
+    d: SComponent.OperationDefinition
+  ): GenM[Unit] = {
+    val summary = d.summary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val execution = d.execution.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val commandKind = d.commandKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val commandExecutionProperties = _string_map_record_expr(d.commandExecutionProperties)
+    val commandExecutionPolicy = d.commandExecutionPolicy
+      .map(_string_literal)
+      .map(x => s"org.goldenport.cncf.action.CommandExecutionPolicy.parse($x)")
+      .getOrElse("None")
+    val implementation = d.implementation.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val inputSummary = d.inputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val inputDescription = d.inputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val outputSummary = d.outputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val outputDescription = d.outputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val visibility = d.visibility.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val access = d.access.map { a =>
+      val resource = a.resource.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val target = a.target.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val mode = a.mode.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val relation = a.relation.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val operationModel = a.operationModel.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val entityUsage = a.entityUsage.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val entityOperationKind = a.entityOperationKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val entityApplicationDomain = a.entityApplicationDomain.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val condition = a.condition.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      s"""Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = ${_string_literal(a.policy)}, resource = ${resource}, target = ${target}, mode = ${mode}, relation = ${relation}, operationModel = ${operationModel}, entityUsage = ${entityUsage}, entityOperationKind = ${entityOperationKind}, entityApplicationDomain = ${entityApplicationDomain}, condition = ${condition}))"""
+    }.getOrElse("None")
+    val entityName = d.entityName.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val entityNames = d.entityNames.map(_string_literal).mkString("Vector(", ", ", ")")
+    val operationAuthorization = _operation_authorization_expr(d.operationAuthorization)
+    val childEntityBindings = _operation_child_entity_bindings_expr(d.childEntityBindings)
+    val associationBinding = _operation_association_binding_expr(d.associationBinding)
+    for {
+      _ <- println("org.goldenport.cncf.operation.CmlOperationDefinition(")
+      _ <- indent
+      _ <- println(s"name = ${_string_literal(d.name)},")
+      _ <- println(s"kind = ${_string_literal(d.kind)},")
+      _ <- println(s"summary = ${summary},")
+      _ <- println(s"execution = ${execution},")
+      _ <- println(s"commandKind = ${commandKind},")
+      _ <- println(s"commandExecutionProperties = ${commandExecutionProperties},")
+      _ <- println(s"commandExecutionPolicy = ${commandExecutionPolicy},")
+      _ <- println(s"implementation = ${implementation},")
+      _ <- println(s"entityName = ${entityName},")
+      _ <- println(s"entityNames = ${entityNames},")
+      _ <- println(s"inputType = ${_string_literal(d.inputType)},")
+      _ <- println(s"inputSummary = ${inputSummary},")
+      _ <- println(s"inputDescription = ${inputDescription},")
+      _ <- println(s"outputType = ${_string_literal(d.outputType)},")
+      _ <- println(s"outputSummary = ${outputSummary},")
+      _ <- println(s"outputDescription = ${outputDescription},")
+      _ <- println(s"inputValueKind = ${_string_literal(d.inputValueKind)},")
+      _ <- println(s"visibility = ${visibility},")
+      _ <- println(s"access = ${access},")
+      _ <- println(s"parameters = ${_operation_fields_expr(d.parameters)},")
+      _ <- println(s"operationAuthorization = ${operationAuthorization},")
+      _ <- println(s"childEntityBindings = ${childEntityBindings},")
+      _ <- println(s"associationBinding = ${associationBinding}")
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
+  }
 
   private def _relationship_definitions_method(
     defs: Vector[SComponent.RelationshipDefinition]
