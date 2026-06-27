@@ -10,7 +10,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Feb. 27, 2026
  *  version Apr. 30, 2026
  *  version May. 15, 2026
- * @version Jun.  3, 2026
+ * @version Jun. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -1734,6 +1734,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         "Consequence.success(org.goldenport.cncf.directive.Query.fromRecord(request.toRecord))"
       case m if m.isPlatform =>
         s"""Consequence.successOrRecordNotFound[${paramtype.name}]("${paramname}", request.toRecord)"""
+      case m if _is_single_value_request_type(m) =>
+        s"""Consequence.successOrRecordNotFound[${paramtype.name}]("${paramname}", request.toRecord)"""
       case TypeName.Container(container, containee) if container.name == "Option" && containee.isString =>
         s"""Consequence.success(request.toRecord.getString("${paramname}"))"""
       case TypeName.Container(container, containee) => containee match {
@@ -1741,12 +1743,17 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           s"Consequence.success(${container.name}(request.toRecord))"
         case mm if mm.isPlatform =>
           s"""Consequence.successOrRecordNotFound[${containee.name}]("${paramname}", request.toRecord).map(x => ${container.name}(x))"""
+        case mm if _is_single_value_request_type(mm) =>
+          s"""Consequence.successOrRecordNotFound[${containee.name}]("${paramname}", request.toRecord).map(x => ${container.name}(x))"""
         case _ =>
           s"${containee.fullName}.createC(request.toRecord).map(${container.name}(_))"
       }
       case _ =>
         s"${paramtype.fullName}.createC(request.toRecord)"
     }
+
+    private def _is_single_value_request_type(tpe: TypeName): Boolean =
+      tpe.fullName == "org.simplemodeling.model.datatype.EntityId"
 
     private def _action_call(op: SMethod): GenM[ActionCallDescriptor] = {
       val paramtypename = _param_type_fullname(op)

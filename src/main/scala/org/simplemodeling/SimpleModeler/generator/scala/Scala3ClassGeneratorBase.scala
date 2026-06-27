@@ -20,7 +20,8 @@ import Generator.{State => GState, _}
  *  version Mar. 31, 2026
  *  version Apr. 26, 2026
  *  version May. 23, 2026
- * @version May. 26, 2026
+ *  version May. 26, 2026
+ * @version Jun. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1069,18 +1070,68 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _aggregate_attach_member_case(p: Attribute): GenM[Unit] = {
     val n = p.name.name
     val setter = s"with${n.head.toUpper}${n.drop(1)}"
+    val casenames = _aggregate_member_case_names(n).map(x => "\"" + x + "\"").mkString(" | ")
     p.typeName match {
       case c: TypeName.Container if c.isOption =>
         val t = c.containee.name
-        println(s"""case "${n}" => Consequence.success(aggregate.${setter}(members.collectFirst { case m: ${t} => m }))""")
+        val body = _aggregate_member_option_body(t, c.containee)
+        println(s"""case ${casenames} => ${body}.map(x => aggregate.${setter}(x))""")
       case c: TypeName.Container =>
         val t = c.containee.name
-        println(s"""case "${n}" => Consequence.success(aggregate.${setter}(members.collect { case m: ${t} => m }))""")
+        val body = _aggregate_member_vector_body(t, c.containee)
+        println(s"""case ${casenames} => ${body}.map(xs => aggregate.${setter}(xs))""")
       case _ =>
         val t = p.typeName.toRawType.name
-        println(s"""case "${n}" => members.collectFirst { case m: ${t} => m }.map(x => Consequence.success(aggregate.${setter}(x))).getOrElse(Consequence.failure(s"Missing aggregate member: ${n}"))""")
+        val body = _aggregate_member_option_body(t, p.typeName.toRawType)
+        println(s"""case ${casenames} => ${body}.flatMap(_.map(x => Consequence.success(aggregate.${setter}(x))).getOrElse(Consequence.failure(s"Missing aggregate member: ${n}")))""")
     }
   }
+
+  private def _aggregate_member_case_names(name: String): Vector[String] =
+    Vector(name, _aggregate_name_token(name)).distinct
+
+  private def _aggregate_member_option_body(
+    t: String,
+    membertype: TypeName
+  ): String =
+    _aggregate_member_runtime_type(membertype) match {
+      case Some(aggregateType) =>
+        s"members.collectFirst { case m: ${t} => Consequence.success(Some(m)); case m: ${aggregateType} => ${t}.createC(m.toRecord()).map(x => Some(x)) }.getOrElse(Consequence.success(None))"
+      case None =>
+        s"Consequence.success(members.collectFirst { case m: ${t} => m })"
+    }
+
+  private def _aggregate_member_vector_body(
+    t: String,
+    membertype: TypeName
+  ): String =
+    _aggregate_member_runtime_type(membertype) match {
+      case Some(aggregateType) =>
+        s"members.foldLeft(Consequence.success(Vector.empty[${t}])) { (z, member) => z.flatMap { acc => member match { case m: ${t} => Consequence.success(acc :+ m); case m: ${aggregateType} => ${t}.createC(m.toRecord()).map(x => acc :+ x); case _ => Consequence.success(acc) } } }"
+      case None =>
+        s"Consequence.success(members.collect { case m: ${t} => m })"
+    }
+
+  private def _aggregate_member_runtime_type(membertype: TypeName): Option[String] =
+    membertype.toRawType match {
+      case TypeName.Plain(pkg, name, _) =>
+        _aggregate_member_runtime_package(pkg.name).map(x => s"${x}.${name}").filterNot(_ == membertype.fullName)
+      case _ => None
+    }
+
+  private def _aggregate_member_runtime_package(pkg: String): Option[String] =
+    if (pkg == "entity")
+      Some("entity.aggregate")
+    else if (pkg.endsWith(".entity"))
+      Some(s"${pkg}.aggregate")
+    else if (pkg.startsWith("entity.aggregate"))
+      Some(pkg.replace("entity.aggregate", "entity"))
+    else if (pkg.contains(".entity.aggregate"))
+      Some(pkg.replace(".entity.aggregate", ".entity"))
+    else if (pkg.contains(".entity."))
+      Some(pkg.replace(".entity.", ".entity.aggregate."))
+    else
+      None
 
   private def _is_aggregate_member_attribute(p: Attribute): Boolean = {
     val raw = p.typeName.toRawType
@@ -1090,9 +1141,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _is_object_parameter_type(p: TypeName): Boolean =
     p.contentType match {
       case TypeName.Plain(pkg, _, _) =>
-        pkg.name.contains(".entity.aggregate")
+        _is_entity_package(pkg.name)
       case _ => false
     }
+
+  private def _is_entity_package(pkg: String): Boolean =
+    pkg == "entity" ||
+      pkg.startsWith("entity.") ||
+      pkg.contains(".entity")
 
   protected def property_name_definitions: GenM[Unit] = {
     val attrs = clazz.attributeSequence.attributes
