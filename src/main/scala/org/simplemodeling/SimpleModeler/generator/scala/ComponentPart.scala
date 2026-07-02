@@ -10,7 +10,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Feb. 27, 2026
  *  version Apr. 30, 2026
  *  version May. 15, 2026
- * @version Jun. 27, 2026
+ *  version Jun. 27, 2026
+ * @version Jul.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -34,7 +35,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           _ <- indent
           _ <- println("def resolve(name: String): Consequence[Guard[Any, TransitionEvent]] =")
           _ <- indent
-          _ <- println("Consequence.failure(s\"Missing state machine guard binding: $name\")")
+          _ <- println("Consequence.configurationInvalid(s\"Missing state machine guard binding: $name\")")
           _ <- outdent
           _ <- outdent
           _ <- println("}")

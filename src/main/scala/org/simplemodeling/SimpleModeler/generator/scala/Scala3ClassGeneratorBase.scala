@@ -21,7 +21,8 @@ import Generator.{State => GState, _}
  *  version Apr. 26, 2026
  *  version May. 23, 2026
  *  version May. 26, 2026
- * @version Jun. 27, 2026
+ *  version Jun. 27, 2026
+ * @version Jul.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -974,11 +975,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println(s"override def attach_member(aggregate: ${clazz.className.name}, member_name: String, members: Vector[Any]): Consequence[${clazz.className.name}] = member_name match {")
       _ <- indent
       _ <- if (members.isEmpty)
-        println("""case _ => Consequence.failure(s"Unknown aggregate member: ${member_name}")""")
+        println("""case _ => Consequence.valueInvalid(s"Unknown aggregate member: ${member_name}")""")
       else
         members.foldLeft(unit) { (z, p) =>
           z.flatMap(_ => _aggregate_attach_member_case(p))
-        }.flatMap(_ => println("""case _ => Consequence.failure(s"Unknown aggregate member: ${member_name}")"""))
+        }.flatMap(_ => println("""case _ => Consequence.valueInvalid(s"Unknown aggregate member: ${member_name}")"""))
       _ <- outdent
       _ <- println("}")
     } yield ()
@@ -1083,7 +1084,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case _ =>
         val t = p.typeName.toRawType.name
         val body = _aggregate_member_option_body(t, p.typeName.toRawType)
-        println(s"""case ${casenames} => ${body}.flatMap(_.map(x => Consequence.success(aggregate.${setter}(x))).getOrElse(Consequence.failure(s"Missing aggregate member: ${n}")))""")
+        println(s"""case ${casenames} => ${body}.flatMap(_.map(x => Consequence.success(aggregate.${setter}(x))).getOrElse(Consequence.valueInvalid(s"Missing aggregate member: ${n}")))""")
     }
   }
 
@@ -1493,7 +1494,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("record.getAny(key) match {")
       _ <- indent
       _ <- println("case Some(m: Record) => Consequence.success(Some(m))")
-      _ <- println("case Some(other) => Consequence.failValueInvalid(other, org.goldenport.schema.XString)")
+      _ <- println("case Some(other) => Consequence.valueInvalid(other, org.goldenport.schema.XString)")
       _ <- println("case None => Consequence.success(None)")
       _ <- outdent
       _ <- println("}")
@@ -1559,7 +1560,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("x match {")
       _ <- indent
       _ <- println("case m: Record => decode(m).map(a => zs :+ a)")
-      _ <- println("case other => Consequence.failValueInvalid(other, org.goldenport.schema.XString)")
+      _ <- println("case other => Consequence.valueInvalid(other, org.goldenport.schema.XString)")
       _ <- outdent
       _ <- println("}")
       _ <- outdent
@@ -1578,7 +1579,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- indent
       _ <- println("case Some(xs: Seq[?]) => decode_all(xs).map(Some(_))")
       _ <- println("case Some(xs: Array[?]) => decode_all(xs.toVector).map(Some(_))")
-      _ <- println("case Some(other) => Consequence.failValueInvalid(other, org.goldenport.schema.XString)")
+      _ <- println("case Some(other) => Consequence.valueInvalid(other, org.goldenport.schema.XString)")
       _ <- println("case None => Consequence.success(None)")
       _ <- outdent
       _ <- println("}")
@@ -3359,10 +3360,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- if (is_powertype)
           for {
             _ <- println("""record.getAny("value") match {""")
-            _ <- println("  case Some(n: Int) => fromDbValue(n).map(Consequence.success).getOrElse(Consequence.failValueInvalid(n, org.goldenport.schema.XInt))")
-            _ <- println("  case Some(n: Long) if n.isValidInt => fromDbValue(n.toInt).map(Consequence.success).getOrElse(Consequence.failValueInvalid(n, org.goldenport.schema.XInt))")
-            _ <- println("""  case Some(s: String) => from(s).orElse(s.trim.toIntOption.flatMap(fromDbValue)).map(Consequence.success).getOrElse(Consequence.failValueInvalid(s, org.goldenport.schema.XString))""")
-            _ <- println("""  case Some(other) => from(other.toString).map(Consequence.success).getOrElse(Consequence.failValueInvalid(other, org.goldenport.schema.XString))""")
+            _ <- println("  case Some(n: Int) => fromDbValue(n).map(Consequence.success).getOrElse(Consequence.valueInvalid(n, org.goldenport.schema.XInt))")
+            _ <- println("  case Some(n: Long) if n.isValidInt => fromDbValue(n.toInt).map(Consequence.success).getOrElse(Consequence.valueInvalid(n, org.goldenport.schema.XInt))")
+            _ <- println("""  case Some(s: String) => from(s).orElse(s.trim.toIntOption.flatMap(fromDbValue)).map(Consequence.success).getOrElse(Consequence.valueInvalid(s, org.goldenport.schema.XString))""")
+            _ <- println("""  case Some(other) => from(other.toString).map(Consequence.success).getOrElse(Consequence.valueInvalid(other, org.goldenport.schema.XString))""")
             _ <- println("""  case None => Consequence.failRecordNotFound("value", record)""")
             _ <- println("}")
           } yield ()
@@ -3453,16 +3454,16 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- if (is_powertype)
           for {
             _ <- println(s"    case m: $name => Consequence.success(m)")
-            _ <- println(s"    case n: Int => fromDbValue(n).map(Consequence.success).getOrElse(Consequence.failValueInvalid(v, org.goldenport.schema.XInt))")
+            _ <- println(s"    case n: Int => fromDbValue(n).map(Consequence.success).getOrElse(Consequence.valueInvalid(v, org.goldenport.schema.XInt))")
             _ <- println(s"    case n: Long if n.isValidInt => readC(n.toInt)")
-            _ <- println(s"    case s: String => from(s).orElse(s.trim.toIntOption.flatMap(fromDbValue)).map(Consequence.success).getOrElse(Consequence.failValueInvalid(v, org.goldenport.schema.XString))")
+            _ <- println(s"    case s: String => from(s).orElse(s.trim.toIntOption.flatMap(fromDbValue)).map(Consequence.success).getOrElse(Consequence.valueInvalid(v, org.goldenport.schema.XString))")
             _ <- println(s"    case m: Record => createC(m)")
-            _ <- println(s"    case _ => Consequence.failValueInvalid(v, org.goldenport.schema.XString)")
+            _ <- println(s"    case _ => Consequence.valueInvalid(v, org.goldenport.schema.XString)")
           } yield ()
         else
           for {
             _ <- println(s"    case m: Record => createC(m)")
-            _ <- println(s"    case _ => Consequence.failValueInvalid(v, org.goldenport.schema.XString)")
+            _ <- println(s"    case _ => Consequence.valueInvalid(v, org.goldenport.schema.XString)")
           } yield ()
       } yield ()
     } else {
