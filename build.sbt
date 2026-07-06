@@ -4,7 +4,7 @@ name := "simplemodeler"
 
 organization := "org.simplemodeling"
 
-version := "1.1.22"
+version := "1.1.23-SNAPSHOT"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -72,6 +72,61 @@ publishMavenStyle := true
 Compile / packageDoc / publishArtifact := false
 
 Compile / doc / sources := Seq.empty
+
+def isSnapshotVersion(version: String): Boolean =
+  version.endsWith("-SNAPSHOT")
+
+def ensurePublishAllowed(version: String): Unit = {
+  if (isSnapshotVersion(version))
+    sys.error(s"Refusing to publish SNAPSHOT simple-modeler version $version. Use publishLocal for development versions.")
+}
+
+def ensurePublishLocalAllowed(version: String): Unit = {
+  if (!isSnapshotVersion(version))
+    sys.error(s"Refusing to publishLocal release simple-modeler version $version. Use publish for public release versions.")
+}
+
+def releaseDirtyFiles(base: File): Seq[String] = {
+  import scala.sys.process._
+
+  val output = new StringBuilder
+  val logger = ProcessLogger(output append _ append "\n", output append _ append "\n")
+  val exitCode = Process(Seq("git", "status", "--porcelain", "--", "build.sbt", "project", "src"), base).!(logger)
+  if (exitCode != 0)
+    sys.error(s"Unable to check git dirty state for release simple-modeler build:\n${output.toString.trim}")
+  output.toString.split("\\r?\\n").iterator.map(_.trim).filter(_.nonEmpty).toSeq
+}
+
+def ensureReleaseTreeClean(version: String, base: File): Unit = {
+  if (!isSnapshotVersion(version)) {
+    val dirtyFiles = releaseDirtyFiles(base)
+    if (dirtyFiles.nonEmpty) {
+      val details = dirtyFiles.mkString("\n  ")
+      sys.error(s"Refusing to compile/test release simple-modeler version $version with dirty source/build files:\n  $details\nUse a *-SNAPSHOT version for development changes.")
+    }
+  }
+}
+
+publish / skip := {
+  ensurePublishAllowed(version.value)
+  ensureReleaseTreeClean(version.value, baseDirectory.value)
+  false
+}
+
+publishLocal / skip := {
+  ensurePublishLocalAllowed(version.value)
+  false
+}
+
+Compile / sources := {
+  ensureReleaseTreeClean(version.value, baseDirectory.value)
+  (Compile / sources).value
+}
+
+Test / definedTests := {
+  ensureReleaseTreeClean(version.value, baseDirectory.value)
+  (Test / definedTests).value
+}
 
 // Docker
 maintainer in Docker := "Duke"
