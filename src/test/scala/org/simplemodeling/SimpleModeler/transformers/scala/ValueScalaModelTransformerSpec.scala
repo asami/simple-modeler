@@ -13,7 +13,8 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3ValueFamilyGenera
 
 /*
  * @since   Mar. 25, 2026
- * @version May. 23, 2026
+ *  version May. 23, 2026
+ * @version Jul.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class ValueScalaModelTransformerSpec extends AnyFunSuite with Matchers {
@@ -109,4 +110,86 @@ class ValueScalaModelTransformerSpec extends AnyFunSuite with Matchers {
 
     generated.parameterSequence.parameters.head.typeName.fullName shouldBe "scala.collection.immutable.Vector[org.example.entity.Account]"
   }
+
+  test("generate scalar datastore representation for a single-field datatype-backed value") {
+    val value = MDomainValue(
+      description = Description.name("ExhibitionDate"),
+      affiliation = MPackageRef("domain.value"),
+      stereotypes = Nil,
+      base = None,
+      traits = Nil,
+      powertypes = Nil,
+      attributes = List(
+        MAttribute(Designation("value"), MDataType.string, MOne, Nil, None)
+      ),
+      operations = Nil
+    )
+
+    val family = new Scala3ValueFamilyGenerator()
+    val source = family.generate(value).take.slots.head.content
+
+    source should include("def toRecord(): Record")
+    source should include("\"value\" -> _to_external_value(value)")
+    source should include("def toDataStore(): String")
+    source should include("value")
+    source should not include("def toDataStore(): Record")
+  }
+
+  test("keep structured datastore representation for multi-field values") {
+    val value = MDomainValue(
+      description = Description.name("DisplayPeriod"),
+      affiliation = MPackageRef("domain.value"),
+      stereotypes = Nil,
+      base = None,
+      traits = Nil,
+      powertypes = Nil,
+      attributes = List(
+        MAttribute(Designation("start"), MDataType.string, MOne, Nil, None),
+        MAttribute(Designation("end"), MDataType.string, MOne, Nil, None)
+      ),
+      operations = Nil
+    )
+
+    val family = new Scala3ValueFamilyGenerator()
+    val source = family.generate(value).take.slots.head.content
+
+    source should include("def toDataStore(): Record")
+    source should include("Record.dataAuto(")
+    source should include("\"start\" -> _to_data_store_value(start)")
+    source should include("\"end\" -> _to_data_store_value(end)")
+  }
+
+
+  test("generate structured datatype classes in the datatype package") {
+    val datatype = MStructuredDataType(
+      description = Description.name("DisplayPeriod"),
+      affiliation = MPackageRef("domain.datatype"),
+      stereotypes = Nil,
+      base = None,
+      traits = Nil,
+      powertypes = Nil,
+      attributes = List(
+        MAttribute(Designation("start"), MDataType.string, MOne, Nil, None),
+        MAttribute(Designation("end"), MDataType.string, MOne, Nil, None)
+      ),
+      operations = Nil
+    )
+
+    val family = new Scala3ValueFamilyGenerator()
+    val artifacts = family.generate(datatype).take
+    val source = artifacts.slots.head.content
+
+    artifacts.slots.head.path should include("domain/datatype/DisplayPeriod.scala")
+    source should include("package domain.datatype")
+    source should include("case class DisplayPeriod(")
+    source should include("start: String")
+    source should include("end: String")
+    source should include("def toRecord(): Record")
+    source should include("\"start\" -> _to_external_value(start)")
+    source should include("\"end\" -> _to_external_value(end)")
+    source should include("def toDataStore(): Record")
+    source should include("\"start\" -> _to_data_store_value(start)")
+    source should include("\"end\" -> _to_data_store_value(end)")
+  }
+
 }

@@ -18,7 +18,8 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Nov. 11, 2025
  *  version Feb. 27, 2026
  *  version Apr. 19, 2026
- * @version May. 23, 2026
+ *  version May. 23, 2026
+ * @version Jul.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -409,7 +410,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
           map(_.trim).
           filterNot(_.isEmpty).
           filterNot(_.equalsIgnoreCase("string")).
-          flatMap(x => ScalaModelTransformer.resolveDeclaredType(x, _current_package_name.map(_.name).getOrElse(""))).
+          flatMap(x => if (p.resolveDeclaredType) ScalaModelTransformer.resolveDeclaredType(x, _current_package_name.map(_.name).getOrElse("")) else None).
           map(_to_declared_typename)
       case _ =>
         None
@@ -524,12 +525,14 @@ object ScalaModelTransformer {
       _resolve_by_name(ref.objectName, ref.packageName, scopepackage)
     }.orElse {
       _resolve_default_model_declared_type(ref)
-    }.filter {
-      case _: MEntity => true
-      case _: MValue => true
-      case _: MDataType => true
-      case _ => false
-    }
+    }.filter(_is_declared_type)
+  }
+
+  private def _is_declared_type(p: MObject): Boolean = p match {
+    case _: MEntity => true
+    case _: MValue => true
+    case _: MDataType => true
+    case _ => false
   }
 
   private def _resolve_default_model_declared_type(ref: MObjectRef): Option[MObject] =

@@ -19,14 +19,16 @@ import org.goldenport.record.v2._
  *  version Jun. 17, 2020
  *  version Aug.  1, 2020
  *  version Jun. 20, 2021
- * @version Feb. 10, 2026
+ *  version Feb. 10, 2026
+ * @version Jul.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MDataType(
   override val designation: Designation,
   datatype: DataType,
   affiliation: MPackageRef,
-  description: Description = Description.empty
+  description: Description = Description.empty,
+  resolveDeclaredType: Boolean = true
 ) extends MAttributeType {
   override def getAffiliation = Some(affiliation)
 }

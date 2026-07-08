@@ -20,7 +20,8 @@ import org.simplemodeling.SimpleModeler.transformer.maker._
  *  version Sep. 21, 2025
  *  version Feb. 16, 2026
  *  version Mar. 25, 2026
- * @version May. 20, 2026
+ *  version May. 20, 2026
+ * @version Jul.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ProgramRealmTransformerBase {
@@ -90,6 +91,7 @@ trait ProgramRealmTransformerBase {
       case m: MAssociation => _build_association(b, m)
       case m: MReference => b
 
+      case m: MStructuredDataType => _build_value(b, m)
       case m: MDataType => b
       case m: MAttributeType => b
 

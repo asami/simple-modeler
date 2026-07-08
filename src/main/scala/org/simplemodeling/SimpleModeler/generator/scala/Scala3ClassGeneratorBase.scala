@@ -22,7 +22,7 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul.  2, 2026
+ * @version Jul.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -567,8 +567,48 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         } yield ()
       }
       define_method(m)
+    } else if (is_value) {
+      val m = SMethod.query("toDataStore", _value_data_store_type) {
+        _value_data_store_body
+      }
+      define_method(m)
     } else {
       unit
+    }
+
+  private def _value_data_store_type: TypeName =
+    _single_scalar_value_parameter.map(_.typeName).getOrElse(TypeName.create("org.goldenport.record", "Record"))
+
+  private def _value_data_store_body: GenM[Unit] =
+    _single_scalar_value_parameter match {
+      case Some(p) => println(p.name.name)
+      case None =>
+        for {
+          _ <- println("Record.dataAuto(")
+          _ <- indent
+          _ <- _to_data_store
+          _ <- outdent
+          _ <- println(")")
+        } yield ()
+    }
+
+  private def _single_scalar_value_parameter: Option[Parameter] =
+    parameters_vector match {
+      case Vector(p) if _is_scalar_data_store_type(p.typeName) => Some(p)
+      case _ => None
+    }
+
+  private def _is_scalar_data_store_type(p: TypeName): Boolean =
+    p match {
+      case _: TypeName.Primitive => true
+      case TypeName.Plain(pkg, _, _) =>
+        pkg.name == "java.lang" ||
+          pkg.name == "java.time" ||
+          pkg.name == "java.net" ||
+          pkg.name == "java.nio.charset" ||
+          pkg.name == "org.goldenport.datatype" ||
+          pkg.name == "org.simplemodeling.model.datatype"
+      case _ => false
     }
 
   protected def value_convert_methods: GenM[Unit] =
@@ -626,6 +666,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("}")
         _ <- println()
         _ <- println("private def _to_data_store_value(v: Any): Any = v match {")
+        _ <- _generated_value_data_store_cases
         _ <- println("  case m: org.simplemodeling.model.directive.Update[?] => m")
         _ <- println("  case m: org.goldenport.datatype.I18nLabel => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
         _ <- println("  case m: org.goldenport.datatype.I18nTitle => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
@@ -650,6 +691,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("  case m: org.simplemodeling.model.value.MediaAttributes => _to_external_value(m)")
         _ <- println("  case m: org.simplemodeling.model.value.ContextualAttributes => _to_external_value(m)")
         _ <- println("  case m: org.simplemodeling.model.value.SimpleObjectContent => _to_external_value(m)")
+        _ <- println("  case m: Option[?] => m.map(_to_data_store_value)")
+        _ <- println("  case m: Seq[?] => m.map(_to_data_store_value)")
+        _ <- println("  case m: Set[?] => m.toVector.map(_to_data_store_value)")
+        _ <- println("  case m: Array[?] => m.toVector.map(_to_data_store_value)")
+        _ <- println("""  case m: Map[?, ?] => m.iterator.map { case (k, value) => k.toString -> _to_data_store_value(value) }.toMap""")
         _ <- println("  case other => _to_external_value(other)")
         _ <- println("}")
         _ <- println()
@@ -662,6 +708,25 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } else {
       unit
     }
+
+  private def _generated_value_data_store_cases: GenM[Unit] = {
+    val types = attributes_vector.flatMap(p => _data_store_value_type(p.typeName)).distinct.sortBy(_.fullName)
+    types.traverse_(t => println(s"  case m: ${t.fullName} => m.toDataStore()"))
+  }
+
+  private def _data_store_value_type(p: TypeName): Option[TypeName.Plain] =
+    p.toRawType match {
+      case m: TypeName.Plain if _is_generated_data_store_package(m) => Some(m)
+      case _ => None
+    }
+
+  private def _is_generated_data_store_package(p: TypeName.Plain): Boolean = {
+    val base = _generated_model_package_base
+    p.packageName.name == s"$base.value" ||
+      p.packageName.name.startsWith(s"$base.value.") ||
+      p.packageName.name == s"$base.datatype" ||
+      p.packageName.name.startsWith(s"$base.datatype.")
+  }
 
   private def _to_record: GenM[Unit] =
     FoldTraverseUtil.intercalateTraverseWithEnd_(

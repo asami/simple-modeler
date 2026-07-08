@@ -19,14 +19,14 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
  * Derived from SimpleModel2ScalaRealmTransformerBase (Nov. 19, 2012)
  * 
  * @since   Dec.  8, 2019
- *  version Dec.  8, 2019
  *  version May. 16, 2020
  *  version May. 18, 2025
  *  version Sep. 21, 2025
  *  version Feb. 28, 2026
  *  version Mar. 25, 2026
  *  version Apr.  5, 2026
- * @version May. 20, 2026
+ *  version May. 20, 2026
+ * @version Jul.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
@@ -64,6 +64,12 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
   override protected def build_value(b: Realm.Builder, p: MValue): Realm.Builder = {
     p match {
       case m: MDomainValue =>
+        val g = new Scala3ValueFamilyGenerator()
+        g.generate(m) match {
+          case Consequence.Success(r, _) => r.build(b)
+          case Consequence.Error(c) => c.RAISE
+        }
+      case m: MStructuredDataType =>
         val g = new Scala3ValueFamilyGenerator()
         g.generate(m) match {
           case Consequence.Success(r, _) => r.build(b)
