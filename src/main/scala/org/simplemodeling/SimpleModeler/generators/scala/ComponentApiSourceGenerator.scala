@@ -48,7 +48,9 @@ object ComponentApiSourceGenerator {
        |object $apiname {
        |  val contract: SpiContract[$apiname] = SpiContract("$contractname", classOf[$apiname])
        |
-       |  final case class Proxy(binding: ResolvedSpiBinding) extends $apiname {
+       |  final case class Proxy(binding: ResolvedSpiBinding) extends $apiname with SpiSelectionAware[$apiname] {
+       |    def withSpiSelection(selector: ComponentSelector, basis: SpiSelectionBasis): $apiname =
+       |      copy(binding = binding.withSelection(selector, basis))
        |$proxies
        |  }
        |

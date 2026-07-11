@@ -364,9 +364,25 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               required = x.required,
               confidentiality = x.confidentiality
             )
-          }
+          },
+          resultFields = p.resultFields.map(_to_operation_field)
         )
       }
+
+    private def _to_operation_field(
+      p: MComponent.OperationField
+    ): SComponent.OperationField =
+      SComponent.OperationField(
+        name = p.name,
+        datatype = p.datatype,
+        multiplicity = p.multiplicity,
+        label = p.label,
+        controlType = p.controlType,
+        placeholder = p.placeholder,
+        help = p.help,
+        required = p.required,
+        confidentiality = p.confidentiality
+      )
 
     private def _to_relationship_definitions(
       ps: Vector[MComponent.RelationshipDefinition]

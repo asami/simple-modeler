@@ -1256,6 +1256,7 @@ object SComponent {
     visibility: Option[String] = None,
     access: Option[OperationAccess] = None,
     parameters: Vector[OperationField] = Vector.empty,
+    resultFields: Vector[OperationField] = Vector.empty,
     operationAuthorization: Option[OperationAuthorization] = None,
     childEntityBindings: Vector[OperationChildEntityBinding] = Vector.empty,
     associationBinding: Option[OperationAssociationBinding] = None

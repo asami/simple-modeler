@@ -666,6 +666,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"visibility = ${visibility},")
       _ <- println(s"access = ${access},")
       _ <- println(s"parameters = ${_operation_fields_expr(d.parameters)},")
+      _ <- println(s"resultFields = ${_operation_fields_expr(d.resultFields)},")
       _ <- println(s"operationAuthorization = ${operationAuthorization},")
       _ <- println(s"childEntityBindings = ${childEntityBindings},")
       _ <- println(s"associationBinding = ${associationBinding}")
