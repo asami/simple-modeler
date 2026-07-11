@@ -11,7 +11,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Apr. 30, 2026
  *  version May. 15, 2026
  *  version Jun. 27, 2026
- * @version Jul.  2, 2026
+ * @version Jul. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -51,6 +51,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           _ <- _operation_definitions_method(s.operationDefinitions)
           _ <- _component_definitions_method(s.componentDefinitions)
           _ <- _subsystem_definitions_method(s.subsystemDefinitions)
+          _ <- _component_api_class_part(s)
         } yield ()
       case None =>
         unit
@@ -838,6 +839,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     val domainconstraints = _constraint_vector_expr(p.domainConstraints)
     val domainusecases = _use_case_vector_expr(p.domainUseCases)
     val usecases = _use_case_vector_expr(p.useCases)
+    val services = _component_service_vector_expr(p.services)
     val extensionbindings =
       if (p.extensionBindings.isEmpty)
         "Record.empty"
@@ -858,11 +860,31 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"${_string_literal("domain_qualities")} -> ${domainqualities},")
       _ <- println(s"${_string_literal("domain_constraints")} -> ${domainconstraints},")
       _ <- println(s"${_string_literal("domain_use_cases")} -> ${domainusecases},")
-      _ <- println(s"${_string_literal("use_cases")} -> ${usecases}")
+      _ <- println(s"${_string_literal("use_cases")} -> ${usecases},")
+      _ <- println(s"${_string_literal("services")} -> ${services}")
       _ <- outdent
       _ <- println(")")
     } yield ()
   }
+
+  private def _component_service_vector_expr(
+    services: Vector[SComponent.ComponentServiceDefinition]
+  ): String =
+    services.map { service =>
+      val standardspi = service.spiStandard.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val multiplicity = service.spiMultiplicity.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val apiname = service.spiApiName.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val componentapi = service.spiComponentApi.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      s"Record.data(" +
+        s"${_string_literal("name")} -> ${_string_literal(service.name)}, " +
+        s"${_string_literal("spi_standard")} -> $standardspi, " +
+        s"${_string_literal("spi_direction")} -> ${_string_literal(service.spiDirection)}, " +
+        s"${_string_literal("spi_socket")} -> ${service.spiSocket}, " +
+        s"${_string_literal("spi_multiplicity")} -> $multiplicity, " +
+        s"${_string_literal("spi_required")} -> ${service.spiRequired}, " +
+        s"${_string_literal("spi_api_name")} -> $apiname, " +
+        s"${_string_literal("spi_component_api")} -> $componentapi)"
+    }.mkString("Vector(", ", ", ")")
 
   private def _subsystem_definition_record_expr(
     p: SComponent.SubsystemDefinition
@@ -1258,6 +1280,103 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
   private def _comment(p: Option[String]): GenM[Unit] =
     _comment_lines(p).traverse_(x => println(s"// $x"))
+
+  private def _component_api_class_part(
+    component: SComponent
+  ): GenM[Unit] = {
+    val providers = _component_api_providers(component)
+    val consumers = _component_api_consumers(component)
+    if (providers.isEmpty && consumers.isEmpty)
+      unit
+    else
+      for {
+        _ <- separator
+        _ <- if (providers.nonEmpty) {
+          val values = providers.map(p => s"${_component_api_full_name(component, p)}.Provider").mkString("Vector(", ", ", ")")
+          println(s"override def componentApiProviders: Vector[org.goldenport.cncf.spi.SpiProvider[?]] = super.componentApiProviders ++ $values")
+        } else unit
+        _ <- consumers.traverse_(_component_api_consumer_class_part)
+      } yield ()
+  }
+
+  private def _component_api_consumer_class_part(
+    definition: SComponent.ComponentServiceDefinition
+  ): GenM[Unit] = {
+    val api = definition.spiComponentApi.get
+    val basename = _scala_member_name(definition.name)
+    val fieldname = s"_${basename}_component_api_socket"
+    val socketname = _string_literal(definition.name)
+    definition.spiMultiplicity.getOrElse("1") match {
+      case "*" =>
+        for {
+          _ <- separator
+          _ <- println(s"private val $fieldname = new $api.SocketSet($socketname, ${definition.spiRequired})")
+          _ <- println(s"withPort(Component.Port.input($fieldname).orElse(port))")
+          _ <- println(s"protected final def $basename(")
+          _ <- indent
+          _ <- println("selector: org.goldenport.cncf.spi.ComponentSelector = org.goldenport.cncf.spi.ComponentSelector()")
+          _ <- outdent
+          _ <- println(s")(using org.goldenport.cncf.context.ExecutionContext): Consequence[$api] = $fieldname.resolve(selector)")
+        } yield ()
+      case "?" =>
+        for {
+          _ <- separator
+          _ <- println(s"private val $fieldname = new $api.Socket($socketname, false)")
+          _ <- println(s"withPort(Component.Port.input($fieldname).orElse(port))")
+          _ <- println(s"protected final def $basename: Option[$api] = $fieldname.serviceOption")
+        } yield ()
+      case _ =>
+        for {
+          _ <- separator
+          _ <- println(s"private val $fieldname = new $api.Socket($socketname, true)")
+          _ <- println(s"withPort(Component.Port.input($fieldname).orElse(port))")
+          _ <- println(s"protected final def $basename: $api = $fieldname.service")
+        } yield ()
+    }
+  }
+
+  private def _component_api_providers(
+    component: SComponent
+  ): Vector[SComponent.ComponentServiceDefinition] =
+    component.componentDefinitions.flatMap(_.services).filter { definition =>
+      definition.spiDirection.equalsIgnoreCase("provides") && definition.spiSocket
+    }
+
+  private def _component_api_consumers(
+    component: SComponent
+  ): Vector[SComponent.ComponentServiceDefinition] =
+    component.componentDefinitions.flatMap(_.services).filter { definition =>
+      definition.spiDirection.equalsIgnoreCase("requires") && definition.spiComponentApi.nonEmpty
+    }
+
+  private def _component_api_name(
+    definition: SComponent.ComponentServiceDefinition
+  ): String = {
+    val stem = definition.spiApiName.map(_.trim).filter(_.nonEmpty).getOrElse(_title_name(definition.name))
+    if (stem.endsWith("Api")) stem else s"${stem}Api"
+  }
+
+  private def _component_api_full_name(
+    component: SComponent,
+    definition: SComponent.ComponentServiceDefinition
+  ): String =
+    s"${component.packageName.name}.api.${_component_api_name(definition)}"
+
+  private def _scala_member_name(name: String): String =
+    Option(name).getOrElse("")
+      .replaceAll("([a-z0-9])([A-Z])", "$1_$2")
+      .replaceAll("[^A-Za-z0-9]+", "_")
+      .stripPrefix("_")
+      .stripSuffix("_")
+      .toLowerCase(java.util.Locale.ROOT) match {
+        case "" => "component_api"
+        case value => value
+      }
+
+  private def _title_name(name: String): String =
+    Option(name).getOrElse("").split("[^A-Za-z0-9]+").toVector.filter(_.nonEmpty).map { token =>
+      token.head.toUpper + token.tail
+    }.mkString
 
   protected final def component_object_part(
   ): GenM[Unit] =

@@ -25,7 +25,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Feb. 28, 2026
  *  version Mar. 31, 2026
  *  version Apr. 30, 2026
- * @version May.  8, 2026
+ *  version May.  8, 2026
+ * @version Jul. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -1121,7 +1122,19 @@ object SComponent {
     domainQualities: Vector[QualityDefinition] = Vector.empty,
     domainConstraints: Vector[ConstraintDefinition] = Vector.empty,
     domainUseCases: Vector[UseCaseDefinition] = Vector.empty,
-    useCases: Vector[UseCaseDefinition] = Vector.empty
+    useCases: Vector[UseCaseDefinition] = Vector.empty,
+    services: Vector[ComponentServiceDefinition] = Vector.empty
+  )
+
+  final case class ComponentServiceDefinition(
+    name: String,
+    spiStandard: Option[String] = None,
+    spiDirection: String = "provides",
+    spiSocket: Boolean = false,
+    spiMultiplicity: Option[String] = None,
+    spiRequired: Boolean = false,
+    spiApiName: Option[String] = None,
+    spiComponentApi: Option[String] = None
   )
 
   final case class VisionDefinition(

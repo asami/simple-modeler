@@ -9,7 +9,8 @@ import org.simplemodeling.model._
  *  version Aug.  7, 2009
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
- * @version May.  8, 2026
+ *  version May.  8, 2026
+ * @version Jul. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -215,7 +216,19 @@ object MComponent {
     domainQualities: Vector[QualityDefinition] = Vector.empty,
     domainConstraints: Vector[ConstraintDefinition] = Vector.empty,
     domainUseCases: Vector[UseCaseDefinition] = Vector.empty,
-    useCases: Vector[UseCaseDefinition] = Vector.empty
+    useCases: Vector[UseCaseDefinition] = Vector.empty,
+    services: Vector[ComponentServiceDefinition] = Vector.empty
+  )
+
+  final case class ComponentServiceDefinition(
+    name: String,
+    spiStandard: Option[String] = None,
+    spiDirection: String = "provides",
+    spiSocket: Boolean = false,
+    spiMultiplicity: Option[String] = None,
+    spiRequired: Boolean = false,
+    spiApiName: Option[String] = None,
+    spiComponentApi: Option[String] = None
   )
 
   final case class VisionDefinition(

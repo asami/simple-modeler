@@ -10,7 +10,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
- * @version May. 22, 2026
+ *  version May. 22, 2026
+ * @version Jul. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -499,6 +500,18 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
                   exceptions = s.exceptions
                 )
               }
+            )
+          },
+          services = p.services.map { service =>
+            SComponent.ComponentServiceDefinition(
+              name = service.name,
+              spiStandard = service.spiStandard,
+              spiDirection = service.spiDirection,
+              spiSocket = service.spiSocket,
+              spiMultiplicity = service.spiMultiplicity,
+              spiRequired = service.spiRequired,
+              spiApiName = service.spiApiName,
+              spiComponentApi = service.spiComponentApi
             )
           }
         )
