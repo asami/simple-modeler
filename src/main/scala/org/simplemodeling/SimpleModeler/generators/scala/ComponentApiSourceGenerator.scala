@@ -99,7 +99,7 @@ object ComponentApiSourceGenerator {
   ): String = {
     val input = _input_type(component, operation)
     val output = _output_type(component, operation)
-    s"  def ${operation.name.name}(request: $input)(using ExecutionContext): Consequence[$output]"
+    s"  def ${_method_name(operation)}(request: $input)(using ExecutionContext): Consequence[$output]"
   }
 
   private def _proxy(
@@ -111,7 +111,7 @@ object ComponentApiSourceGenerator {
     val output = _output_type(component, operation)
     val request = if (_is_record(input)) "request" else "request.toRecord()"
     val response = if (_is_record(output)) "Consequence.success(record)" else s"$output.createC(record)"
-    s"""    def ${operation.name.name}(request: $input)(using ExecutionContext): Consequence[$output] =
+    s"""    def ${_method_name(operation)}(request: $input)(using ExecutionContext): Consequence[$output] =
        |      binding.invoke(SpiOperationSelector("${operation.name.name}", Some("$servicename")), $request).flatMap { record =>
        |        $response
        |      }""".stripMargin
@@ -158,4 +158,9 @@ object ComponentApiSourceGenerator {
 
   private def _normalize(name: String): String =
     Option(name).getOrElse("").toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]", "")
+
+  private def _method_name(operation: SMethod): String = {
+    val name = operation.name.name
+    if (name.isEmpty) name else name.head.toLower + name.tail
+  }
 }
