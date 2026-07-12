@@ -62,6 +62,13 @@ class ValueScalaModelTransformerSpec
             MZeroMore,
             Nil,
             None
+          ),
+          MAttribute(
+            Designation("tags"),
+            MDataType.string,
+            MZeroMore,
+            Nil,
+            None
           )
         ),
         operations = Nil
@@ -88,10 +95,21 @@ class ValueScalaModelTransformerSpec
       generatedtypes(
         "records"
       ) shouldBe "scala.collection.immutable.Vector[org.goldenport.record.Record]"
+      generatedtypes("tags") shouldBe "scala.collection.immutable.Vector[String]"
       source should include("payload: Record")
       source should include("optionalPayload: Option[Record]")
       source should include("requiredRecords: NonEmptyVector[Record]")
       source should include("records: Vector[Record]")
+      source should include("tags: Vector[String]")
+      source should include(
+        "_record_get_record(record, INPUT_KEYS_OPTIONAL_PAYLOAD).map(_ orElse optionalPayload)"
+      )
+      source should include(
+        "_record_get_vector_of_record_c(record, INPUT_KEYS_RECORDS)((r: Record) => Consequence.success(r))"
+      )
+      source should include(
+        "_record_get_vector_as_c[String](record, INPUT_KEYS_TAGS)"
+      )
       source should include(
         "case m: cats.data.NonEmptyVector[?] => m.toVector.map(_to_external_value)"
       )
@@ -100,6 +118,9 @@ class ValueScalaModelTransformerSpec
       )
       source should include(
         "case Some(xs) => Consequence.successOrPropertyNotFound("
+      )
+      source should include(
+        "_record_get_vector_of_record_c(record, INPUT_KEYS_REQUIRED_RECORDS)((r: Record) => Consequence.success(r))"
       )
       source should include("NonEmptyVector.fromVector(xs))")
       source should include(

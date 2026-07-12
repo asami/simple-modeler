@@ -2653,6 +2653,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     p.typeName match {
       case m: TypeName.Container if m.isOption && _is_simple_object_attribute_type(m.containee) =>
         _build_param_or_var_simple_object_attribute(p)
+      case m: TypeName.Container if m.isOption && _is_record_type(m.containee) =>
+        _build_param_or_var_optional_record(p)
       case m: TypeName.Container if m.isOption && _is_record_decodable_object_type(m.containee) =>
         _build_param_or_var_optional_object(p, m)
       case m: TypeName.Container => _build_param_or_var_container(p, m)(param)
@@ -2844,6 +2846,12 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         } yield ()
     }
 
+  private def _build_param_or_var_optional_record(p: Parameter): GenM[Unit] =
+    for {
+      _ <- print("_record_get_record(record, ", input_keys_name(p.name.name), ")")
+      _ <- print(".map(_ orElse ", p.name.name, ")")
+    } yield ()
+
   private def _build_param_or_var_name_attributes(p: Parameter): GenM[Unit] =
     for {
       _ <- println("(")
@@ -2983,25 +2991,28 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _build_param_or_var_update(p, container)
     else if (container.isNonEmptyVector)
       _build_param_or_var_non_empty_vector(p, container)
+    else if (_is_record_type(container.containee))
+      _build_param_or_var_record_collection(p, container)
     else if (_is_model_record_decodable_object_container(container))
       _build_param_or_var_object_collection(p, container)
     else if (_is_value_readable_object_container(container))
       _build_param_or_var_value_collection(p, container)
-    else if (container.isList)
-      print("Consequence.success(", p.name.name, ")")
-    else if (container.isVector)
-      print("Consequence.success(", p.name.name, ")")
-    else if (container.isSet)
-      print("Consequence.success(", p.name.name, ")")
+    else if (container.isList || container.isVector || container.isSet)
+      _build_param_or_var_value_collection(p, container)
     else
       RAISE.noReachDefect
 
   private def _build_param_or_var_non_empty_vector(
     p: Parameter,
     container: TypeName.Container
-  ): GenM[Unit] =
+  ): GenM[Unit] = {
+    val readexpr =
+      if (_is_record_type(container.containee))
+        s"_record_get_vector_of_record_c(record, ${input_keys_name(p.name.name)})((r: Record) => Consequence.success(r))"
+      else
+        s"_record_get_vector_as_c[${container.containee.fullName}](record, ${input_keys_name(p.name.name)})"
     for {
-      _ <- print("_record_get_vector_as_c[", container.containee.fullName, "](record, ", input_keys_name(p.name.name), ").flatMap {")
+      _ <- print(readexpr, ".flatMap {")
       _ <- println()
       _ <- indent
       _ <- println("case Some(xs) => Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", NonEmptyVector.fromVector(xs))")
@@ -3009,6 +3020,23 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- outdent
       _ <- print("}")
     } yield ()
+  }
+
+  private def _build_param_or_var_record_collection(
+    p: Parameter,
+    container: TypeName.Container
+  ): GenM[Unit] = {
+    val lifted = if (container.isList) ".map(_.toList)" else if (container.isSet) ".map(_.toSet)" else ""
+    for {
+      _ <- print("_record_get_vector_of_record_c(record, ", input_keys_name(p.name.name), ")((r: Record) => Consequence.success(r))", lifted, ".flatMap {")
+      _ <- println()
+      _ <- indent
+      _ <- println("case Some(s) => Consequence.success(s)")
+      _ <- println("case None => Consequence.success(", p.name.name, ")")
+      _ <- outdent
+      _ <- print("}")
+    } yield ()
+  }
 
   private def _is_record_decodable_object_container(p: TypeName.Container): Boolean =
     (p.isList || p.isVector || p.isSet) && _is_record_decodable_object_type(p.containee)
