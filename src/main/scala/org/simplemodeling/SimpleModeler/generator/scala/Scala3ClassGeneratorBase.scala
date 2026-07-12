@@ -22,7 +22,7 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul.  9, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -656,6 +656,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("""case m: org.simplemodeling.model.value.Attachment => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
         _ <- println("case m: org.goldenport.record.RecordPresentable => m.toRecord()")
         _ <- println("case m: Option[?] => m.map(_to_external_value)")
+        _ <- println("case m: cats.data.NonEmptyVector[?] => m.toVector.map(_to_external_value)")
         _ <- println("case m: Seq[?] => m.map(_to_external_value)")
         _ <- println("case m: Set[?] => m.toVector.map(_to_external_value)")
         _ <- println("case m: Array[?] => m.toVector.map(_to_external_value)")
@@ -692,6 +693,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("  case m: org.simplemodeling.model.value.ContextualAttributes => _to_external_value(m)")
         _ <- println("  case m: org.simplemodeling.model.value.SimpleObjectContent => _to_external_value(m)")
         _ <- println("  case m: Option[?] => m.map(_to_data_store_value)")
+        _ <- println("  case m: cats.data.NonEmptyVector[?] => m.toVector.map(_to_data_store_value)")
         _ <- println("  case m: Seq[?] => m.map(_to_data_store_value)")
         _ <- println("  case m: Set[?] => m.toVector.map(_to_data_store_value)")
         _ <- println("  case m: Array[?] => m.toVector.map(_to_data_store_value)")
@@ -1080,13 +1082,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val methods = clazz.methodCompartment.methods.filterNot(_is_aggregate_create_method)
     intercalateTraverse_(methods, separator) { op =>
       val name = op.name.name
-      val isDefaultUpdate = _is_aggregate_default_update_method(op)
+      val isdefaultupdate = _is_aggregate_default_update_method(op)
       for {
         _ <- println(s"def ${name}(input: Record)(using ctx: org.goldenport.cncf.context.ExecutionContext): Consequence[${clazz.className.name}] =")
         _ <- indent
         _ <- block("for") {
           for {
-            _ <- if (isDefaultUpdate)
+            _ <- if (isdefaultupdate)
               for {
                 _ <- println("r <- createC(input)")
                 _ <- println(s"""_ <- if (r.id == id) Consequence.success(()) else Consequence.argumentInvalid(s"Aggregate id mismatch in ${name}: expected $${id}, actual $${r.id}")""")
@@ -1348,16 +1350,16 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }.getOrElse("org.goldenport.schema.DataConfidentiality.Public")
 
   private def _schema_web_validation_hints_expr(p: Attribute): Option[String] = {
-    val stringLike = p.typeName.contentType.isString
+    val stringlike = p.typeName.contentType.isString
     val args = p.constraints.flatMap { c =>
       c.name match {
         case "min_length" | "minLength" | "min-length" =>
           Some(s"minLength = Some(${c.literal})")
         case "max_length" | "maxLength" | "max-length" =>
           Some(s"maxLength = Some(${c.literal})")
-        case "min" if stringLike =>
+        case "min" if stringlike =>
           Some(s"minLength = Some(${c.literal})")
-        case "max" if stringLike =>
+        case "max" if stringlike =>
           Some(s"maxLength = Some(${c.literal})")
         case "min" =>
           Some(s"min = Some(${_schema_web_decimal_expr(c.literal)})")
@@ -1722,6 +1724,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case m: TypeName.Plain => TypeName.option(m)
       case m: TypeName.Container if is_condition_type(m) => TypeName.option(m)
       case m: TypeName.Container if is_update_type(m) => TypeName.option(m)
+      case m: TypeName.Container if m.isNonEmptyVector => TypeName.option(m)
       case m: TypeName.Container => m
       case m: TypeName.Function => RAISE.notImplementedYetDefect("Function")
       case m: TypeName.Unit => RAISE.notImplementedYetDefect("Unit")
@@ -2102,6 +2105,15 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       } yield ()
     } else {
       p.typeName match {
+        case m: TypeName.Container if m.isNonEmptyVector =>
+          for {
+            _ <- define_method(methodname, builder_type, raw_parameter(p)) {
+              println("copy(", propname, " = Some(NonEmptyVector.one(", propname, ")), _failures = _failures)")
+            }
+            _ <- define_method(methodname, builder_type, p) {
+              println("copy(", propname, " = Some(", propname, "), _failures = _failures)")
+            }
+          } yield ()
         case m: TypeName.Container if m.isList || m.isVector || m.isSet =>
           for {
             _ <- define_method(methodname, builder_type, raw_parameter(p)) {
@@ -2196,7 +2208,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _is_collection_type(p: TypeName): Boolean = p match {
-    case m: TypeName.Container => m.isList || m.isVector || m.isSet
+    case m: TypeName.Container => m.isCollection
     case _ => false
   }
 
@@ -2207,6 +2219,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       s"Vector($name)"
     else if (p.isSet)
       s"Set($name)"
+    else if (p.isNonEmptyVector)
+      s"NonEmptyVector.one($name)"
     else
       name
 
@@ -2541,6 +2555,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       s"Consequence.success(${p.name.name})"
     else if (container.isSet)
       s"Consequence.success(${p.name.name})"
+    else if (container.isNonEmptyVector)
+      s"Consequence.successOrPropertyNotFound(${property_name(p.name.name)}, ${p.name.name})"
     else
       RAISE.noReachDefect
 
@@ -2965,6 +2981,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _build_param_or_var_condition(p, container)
     else if (is_update_type(container))
       _build_param_or_var_update(p, container)
+    else if (container.isNonEmptyVector)
+      _build_param_or_var_non_empty_vector(p, container)
     else if (_is_model_record_decodable_object_container(container))
       _build_param_or_var_object_collection(p, container)
     else if (_is_value_readable_object_container(container))
@@ -2977,6 +2995,20 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       print("Consequence.success(", p.name.name, ")")
     else
       RAISE.noReachDefect
+
+  private def _build_param_or_var_non_empty_vector(
+    p: Parameter,
+    container: TypeName.Container
+  ): GenM[Unit] =
+    for {
+      _ <- print("_record_get_vector_as_c[", container.containee.fullName, "](record, ", input_keys_name(p.name.name), ").flatMap {")
+      _ <- println()
+      _ <- indent
+      _ <- println("case Some(xs) => Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", NonEmptyVector.fromVector(xs))")
+      _ <- println("case None => Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", ", p.name.name, ")")
+      _ <- outdent
+      _ <- print("}")
+    } yield ()
 
   private def _is_record_decodable_object_container(p: TypeName.Container): Boolean =
     (p.isList || p.isVector || p.isSet) && _is_record_decodable_object_type(p.containee)

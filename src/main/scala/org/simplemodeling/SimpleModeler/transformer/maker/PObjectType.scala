@@ -27,7 +27,8 @@ import org.simplemodeling.model._
  *  version May. 24, 2020
  *  version Jun.  1, 2020
  *  version Feb. 10, 2026
- * @version Apr. 12, 2026
+ *  version Apr. 12, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 trait PObjectType {
@@ -126,6 +127,19 @@ trait PDataType extends PObjectType {
   // }
 
   protected def base_long_min_option: Option[Long] = None
+}
+
+case class PRecordType(
+  aModelAttrType: MAttributeType,
+  pConstraints: List[PConstraint] = Nil
+) extends PDataType {
+  val model = Some(aModelAttrType)
+
+  override def objectTypeName = "Record"
+  override def sqlDatatypeName: String = "TEXT"
+  override def dslDataTypeName = Some("XRecordInstance")
+
+  def addConstraints(ps: Seq[PConstraint]) = copy(pConstraints = pConstraints ++ ps)
 }
 
 case class PStringType(
@@ -1247,7 +1261,7 @@ object PObjectType {
         case m: XStateMachineReference => RAISE.notImplementedYetDefect
         case m: XExternalDataType => ???
         case m: XValue => ???
-        case XRecordInstance => ???
+        case XRecordInstance => new PRecordType(m)
         case XYearEffective => ???
         case XYearPast => ???
         case XEntityId => ???

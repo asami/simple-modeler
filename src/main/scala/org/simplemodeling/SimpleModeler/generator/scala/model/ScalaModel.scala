@@ -26,7 +26,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Mar. 31, 2026
  *  version Apr. 30, 2026
  *  version May.  8, 2026
- * @version Jul. 11, 2026
+ * @version Jul. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -246,6 +246,8 @@ object TypeName {
     def isList: Boolean = container.name == "List"
     def isVector: Boolean = container.name == "Vector"
     def isSet: Boolean = container.name == "Set"
+    def isNonEmptyVector: Boolean = container.fullName == "cats.data.NonEmptyVector"
+    def isCollection: Boolean = isList || isVector || isSet || isNonEmptyVector
 
     def withContainee(p: TypeName) = copy(containee = p)
 
@@ -316,6 +318,7 @@ object TypeName {
   def create(p: DataType): TypeName = Primitive.createOption(p).getOrElse {
     val key = Option(p.name).getOrElse("").trim.toLowerCase(java.util.Locale.ROOT)
     key match {
+      case "record" | "recordinstance" | "record-instance" => record
       case "date-time" => RAISE.syntaxErrorFault("Unsupported datatype: date-time; use instant for absolute lifecycle timestamps or datetime for zoned datetime values.")
       case "datetime" | "date_time" | "zoneddatetime" => Plain.create("java.time", "ZonedDateTime")
       case "instant" => Plain.create("java.time", "Instant")
@@ -393,10 +396,10 @@ object TypeName {
       ???
 
     // qualified?
-    val lastDot = token.lastIndexOf('.')
-    if (lastDot >= 0) {
-      val pkg  = token.substring(0, lastDot)
-      val name = token.substring(lastDot + 1)
+    val lastdot = token.lastIndexOf('.')
+    if (lastdot >= 0) {
+      val pkg  = token.substring(0, lastdot)
+      val name = token.substring(lastdot + 1)
       // scala.String は Primitive とみなす
       if ((pkg == "scala" || pkg.isEmpty) && _primitive_names(name))
         Primitive.create(name)
@@ -1401,19 +1404,19 @@ object SComponent {
         else
           name
       else {
-        val relativeSegments = _relative_package_segments(pkg)
-        if (relativeSegments.isEmpty)
+        val relativesegments = _relative_package_segments(pkg)
+        if (relativesegments.isEmpty)
           name
         // Keep entity-family references absolute to avoid collisions with
         // local parameter names such as `entity` and imported CNCF symbols.
         else if (
-          relativeSegments.head == "entity" ||
-          relativeSegments.head == "aggregate" ||
-          relativeSegments.head == "view"
+          relativesegments.head == "entity" ||
+          relativesegments.head == "aggregate" ||
+          relativesegments.head == "view"
         )
           s"_root_.${pkg.name}.$name"
         else
-          s"${relativeSegments.mkString(".")}.$name"
+          s"${relativesegments.mkString(".")}.$name"
       }
     }
 
