@@ -4,7 +4,7 @@ name := "simplemodeler"
 
 organization := "org.simplemodeling"
 
-version := "1.1.23-SNAPSHOT"
+version := "1.1.23"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -34,14 +34,14 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 // resolvers += "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"
 
 // override goldenport-record
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.29"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.30"
 
 libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 
 // libraryDependencies += "org.goldenport" %% "goldenport-sexpr" % "2.0.35"
 libraryDependencies += "org.apache.commons" % "commons-lang3" % "3.13.0"
 
-libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.13"
+libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.16"
 
 libraryDependencies += "com.typesafe.play" %% "play-json" % "2.6.10" % "provided" exclude("org.scala-stm", "scala-stm_2.10.0")
 
