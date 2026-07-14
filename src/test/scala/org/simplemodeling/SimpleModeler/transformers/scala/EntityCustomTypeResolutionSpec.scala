@@ -15,7 +15,7 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3EntityFamilyGener
 /*
  * @since   Apr.  9, 2026
  *  version May. 23, 2026
- * @version Jul. 12, 2026
+ * @version Jul. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -148,11 +148,72 @@ final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers wit
     val family = new Scala3EntityFamilyGenerator()
     val artifacts = family.generate(account).take
     val source = artifacts.slots.map(_.content).mkString("\n")
+    val readerstart = source.indexOf("private def _record_get_vector_as_c")
+    val readerend = source.indexOf("private def _record_get_vector_of_record_c", readerstart)
+    val requestreader = source.substring(readerstart, readerend)
 
     Then("the generated decoder delegates each supplied value to ValueReader without inventing comma syntax")
     source should include("_record_get_vector_as_c[org.example.external.ExternalRef]")
-    source should not include "s.split(\",\""
+    requestreader should not include "s.split(\",\""
     source should not include "org.example.external.ExternalRef.createC"
+
+    And("external collection values do not gain an implicit datastore migration syntax")
+    source should not include "private def _normalize_store_record_collections"
+  }
+
+    "scalarize nested generated values inside update directives" in {
+    Given("an entity with a repeated generated value attribute")
+    val tag = MDomainValue(
+      description = Description.name("Tag"),
+      affiliation = MPackageRef("org.example.account.value"),
+      stereotypes = Nil,
+      base = None,
+      traits = Nil,
+      powertypes = Nil,
+      attributes = List(
+        MAttribute(Designation("value"), MDataType.string, MOne, Nil, None)
+      ),
+      operations = Nil
+    )
+    val account = MDomainResource(
+      description = Description.name("Account"),
+      affiliation = MPackageRef("org.example.account"),
+      stereotypes = Nil,
+      base = None,
+      traits = Nil,
+      powertypes = Nil,
+      attributes = List(
+        MAttribute(
+          Designation("tags"),
+          MDataType(Designation("Tag"), XString, MPackageRef("org.example.account.value")),
+          MZeroMore,
+          Nil,
+          None
+        )
+      ),
+      associations = Nil,
+      operations = Nil,
+      stateMachines = Nil
+    )
+
+    ScalaModelTransformer.clearObjectRegistry()
+    ScalaModelTransformer.registerObject(tag)
+    ScalaModelTransformer.registerObject(account)
+
+    When("the Scala entity family is generated")
+    val family = new Scala3EntityFamilyGenerator()
+    val artifacts = family.generate(account).take
+    val source = artifacts.slots.map(_.content).mkString("\n")
+
+    Then("the update datastore projection recursively scalarizes the repeated values")
+    source should include("case _: org.simplemodeling.model.directive.Update.Noop.type => org.simplemodeling.model.directive.Update.Noop")
+    source should include("case _: org.simplemodeling.model.directive.Update.SetNull.type => org.simplemodeling.model.directive.Update.SetNull")
+    source should include("case org.simplemodeling.model.directive.Update.SetValue(value) => org.simplemodeling.model.directive.Update.SetValue(_to_data_store_value(value))")
+    source should include("case m: org.example.account.value.Tag => m.toDataStore()")
+    source should include("private def _normalize_store_record_collections")
+    source should include("s.split(\",\")")
+    source should include("z.upsertSingle(key, values)")
+    source should include("createC(r).orElse(createC(_normalize_store_record_collections(r)))")
   }
 
     "generate simplemodeling datatype collection record readers through ValueReader" in {

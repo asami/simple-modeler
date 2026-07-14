@@ -22,7 +22,7 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -668,7 +668,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println()
         _ <- println("private def _to_data_store_value(v: Any): Any = v match {")
         _ <- _generated_value_data_store_cases
-        _ <- println("  case m: org.simplemodeling.model.directive.Update[?] => m")
+        _ <- println("  case _: org.simplemodeling.model.directive.Update.Noop.type => org.simplemodeling.model.directive.Update.Noop")
+        _ <- println("  case _: org.simplemodeling.model.directive.Update.SetNull.type => org.simplemodeling.model.directive.Update.SetNull")
+        _ <- println("  case org.simplemodeling.model.directive.Update.SetValue(value) => org.simplemodeling.model.directive.Update.SetValue(_to_data_store_value(value))")
         _ <- println("  case m: org.goldenport.datatype.I18nLabel => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
         _ <- println("  case m: org.goldenport.datatype.I18nTitle => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
         _ <- println("  case m: org.goldenport.datatype.I18nBrief => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
@@ -712,14 +714,15 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _generated_value_data_store_cases: GenM[Unit] = {
-    val types = attributes_vector.flatMap(p => _data_store_value_type(p.typeName)).distinct.sortBy(_.fullName)
+    val types = attributes_vector.flatMap(p => _data_store_value_types(p.typeName)).distinct.sortBy(_.fullName)
     types.traverse_(t => println(s"  case m: ${t.fullName} => m.toDataStore()"))
   }
 
-  private def _data_store_value_type(p: TypeName): Option[TypeName.Plain] =
-    p.toRawType match {
-      case m: TypeName.Plain if _is_generated_data_store_package(m) => Some(m)
-      case _ => None
+  private def _data_store_value_types(p: TypeName): Vector[TypeName.Plain] =
+    p match {
+      case m: TypeName.Plain if _is_generated_data_store_package(m) => Vector(m)
+      case m: TypeName.Container => _data_store_value_types(m.containee)
+      case _ => Vector.empty
     }
 
   private def _is_generated_data_store_package(p: TypeName.Plain): Boolean = {
@@ -3648,17 +3651,67 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       } yield ()
     } else if (is_entity_value) {
       for {
+        _ <- _store_record_collection_compatibility
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
         _ <- println(s"given EntityPersistent[$name] with")
         _ <- println(s"  def id(e: $name): EntityId = e.id")
         _ <- println(s"  def toRecord(e: $name): Record = e.toRecord()")
         _ <- println(s"  def fromRecord(r: Record): Consequence[$name] = createC(r)")
         _ <- println(s"  override def toStoreRecord(e: $name): Record = e.toDataStore()")
-        _ <- println(s"  override def fromStoreRecord(r: Record): Consequence[$name] = createC(r)")
+        _ <- println(s"  override def fromStoreRecord(r: Record): Consequence[$name] = ${_from_store_record_expression("r")}")
       } yield ()
     } else {
       unit
     }
+
+  private def _store_record_collection_compatibility: GenM[Unit] = {
+    val names = _legacy_store_collection_attribute_names
+    val nameliterals = names.map(x => "\"" + x + "\"").mkString(", ")
+    if (names.isEmpty) {
+      unit
+    } else {
+      for {
+        _ <- println("private def _normalize_store_record_collections(record: Record): Record =")
+        _ <- indent
+        _ <- println(s"Vector($nameliterals).foldLeft(record) { (z, key) =>")
+        _ <- indent
+        _ <- println("z.getAny(key) match {")
+        _ <- indent
+        _ <- println("case Some(s: String) if s.contains(\",\") =>")
+        _ <- indent
+        _ <- println("val values = s.split(\",\").iterator.map(_.trim).filter(_.nonEmpty).toVector")
+        _ <- println("z.upsertSingle(key, values)")
+        _ <- outdent
+        _ <- println("case _ => z")
+        _ <- outdent
+        _ <- println("}")
+        _ <- outdent
+        _ <- println("}")
+        _ <- outdent
+        _ <- println()
+      } yield ()
+    }
+  }
+
+  private def _legacy_store_collection_attribute_names: Vector[String] =
+    attributes_vector.collect {
+      case p if _is_legacy_store_collection_type(p.typeName) => p.name.name
+    }
+
+  private def _is_legacy_store_collection_type(p: TypeName): Boolean = p match {
+    case m: TypeName.Container if m.isCollection =>
+      m.containee.toRawType match {
+        case x: TypeName.Plain => _is_generated_data_store_package(x)
+        case _ => false
+      }
+    case _ => false
+  }
+
+  private def _from_store_record_expression(name: String): String =
+    if (_legacy_store_collection_attribute_names.isEmpty)
+      s"createC($name)"
+    else
+      s"createC($name).orElse(createC(_normalize_store_record_collections($name)))"
 
   //
   protected def parameter_list(p: ParameterSequence): GenM[Unit] =
