@@ -15,7 +15,7 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3ValueFamilyGenera
 /*
  * @since   Mar. 25, 2026
  *  version May. 23, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ValueScalaModelTransformerSpec
@@ -205,6 +205,9 @@ final class ValueScalaModelTransformerSpec
       )
       source should include(
         "case x: org.goldenport.value.ContentBody => Vector(x.value)"
+      )
+      source should include(
+        "case x: org.goldenport.datatype.Name => Vector(x.value)"
       )
       source should include(
         """require(_text_constraint_values(code).forall(_.matches("^[A-Z]+$")), "code must match ^[A-Z]+$")"""

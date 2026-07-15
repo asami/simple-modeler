@@ -22,7 +22,7 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -474,6 +474,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("case xs: cats.data.NonEmptyVector[?] => xs.toVector.flatMap(_text_constraint_values)")
       _ <- println("case xs: Iterable[?] => xs.iterator.flatMap(_text_constraint_values).toVector")
       _ <- println("case x: String => Vector(x)")
+      _ <- println("case x: org.goldenport.datatype.Name => Vector(x.value)")
       _ <- println("case x: org.goldenport.datatype.StringDataType => Vector(x.value)")
       _ <- println("case x: java.net.URL => Vector(x.toExternalForm)")
       _ <- println("case x: java.net.URI => Vector(x.toString)")
@@ -828,12 +829,12 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("case m: java.lang.Number => m")
         _ <- println("case m: java.lang.Boolean => m")
         _ <- println("case m: java.lang.Character => m.toString")
-        _ <- println("case m: org.goldenport.datatype.I18nLabel => m.toI18nString.displayMessage")
-        _ <- println("case m: org.goldenport.datatype.I18nTitle => m.value.displayMessage")
-        _ <- println("case m: org.goldenport.datatype.I18nBrief => m.toI18nString.displayMessage")
-        _ <- println("case m: org.goldenport.datatype.I18nSummary => m.toI18nString.displayMessage")
-        _ <- println("case m: org.goldenport.datatype.I18nDescription => m.toI18nString.displayMessage")
-        _ <- println("case m: org.goldenport.datatype.I18nText => m.toI18nString.displayMessage")
+        _ <- println("case m: org.goldenport.datatype.I18nLabel => m.toI18nString.toRecord")
+        _ <- println("case m: org.goldenport.datatype.I18nTitle => m.toI18nString.toRecord")
+        _ <- println("case m: org.goldenport.datatype.I18nBrief => m.toI18nString.toRecord")
+        _ <- println("case m: org.goldenport.datatype.I18nSummary => m.toI18nString.toRecord")
+        _ <- println("case m: org.goldenport.datatype.I18nDescription => m.toI18nString.toRecord")
+        _ <- println("case m: org.goldenport.datatype.I18nText => m.toI18nString.toRecord")
         _ <- println("case m: org.goldenport.datatype.MimeType => m.print")
         _ <- println("case m: java.nio.charset.Charset => m.name()")
         _ <- println("case m: java.util.Locale => m.toLanguageTag")
@@ -1143,11 +1144,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _to_data_store_simple_entity_properties: Vector[(String, String, String)] = {
-    val valuefn =
-      if (_is_simple_entity_update_parent)
-        "_to_data_store_value"
-      else
-        "_to_external_value"
+    val valuefn = "_to_data_store_value"
     val names = attributes_vector.map(_.name.name).toSet
     val b = Vector.newBuilder[(String, String, String)]
     _select_attribute_name(names, "nameAttributes", "name_Attributes").foreach { attr =>
@@ -3493,7 +3490,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val key = p.name.name.toLowerCase(java.util.Locale.ROOT)
     key match {
       case "name" =>
-        Some("Some(Name(ctx.security.principal.id.value))")
+        p.toRawType.typeName.fullName match {
+          case "String" | "scala.String" | "java.lang.String" =>
+            Some("Some(ctx.security.principal.id.value)")
+          case "Name" | "org.goldenport.datatype.Name" =>
+            Some("Some(Name(ctx.security.principal.id.value))")
+          case _ =>
+            None
+        }
       case "createdat" =>
         Some("Some(java.time.Instant.now(ctx.clock))")
       case "updatedat" =>

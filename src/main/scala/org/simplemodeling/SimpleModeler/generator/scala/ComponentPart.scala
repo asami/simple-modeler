@@ -11,7 +11,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Apr. 30, 2026
  *  version May. 15, 2026
  *  version Jun. 27, 2026
- * @version Jul. 11, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -933,6 +933,40 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     } yield ()
   }
 
+  private def _operation_field_web_validation_hints_expr(
+    p: SComponent.OperationField
+  ): Option[String] = {
+    val constraints = _effective_operation_field_constraints(p)
+    val args = constraints.flatMap { c =>
+      _normalize_operation_constraint(c.name) match {
+        case "min-length" => Some(s"minLength = Some(${c.literal})")
+        case "max-length" => Some(s"maxLength = Some(${c.literal})")
+        case "min" => Some(s"min = Some(BigDecimal(${_string_literal(c.literal)}))")
+        case "max" => Some(s"max = Some(BigDecimal(${_string_literal(c.literal)}))")
+        case "step" => Some(s"step = Some(BigDecimal(${_string_literal(c.literal)}))")
+        case "pattern" => Some(s"pattern = Some(${_string_literal(c.value.toString)})")
+        case _ => None
+      }
+    }
+    if (args.isEmpty) None
+    else Some(s"org.goldenport.schema.WebValidationHints(${args.mkString(", ")})")
+  }
+
+  private def _effective_operation_field_constraints(
+    p: SComponent.OperationField
+  ): Vector[org.simplemodeling.SimpleModeler.transformer.maker.PConstraint] = {
+    val declared = p.constraints.map(x => _normalize_operation_constraint(x.name)).toSet
+    p.constraints ++ p.typeConstraints.filterNot(x => declared.contains(_normalize_operation_constraint(x.name)))
+  }
+
+  private def _normalize_operation_constraint(p: String): String =
+    Option(p).getOrElse("").trim.toLowerCase(java.util.Locale.ROOT).replace("_", "-") match {
+      case "minlength" => "min-length"
+      case "maxlength" => "max-length"
+      case "regex" => "pattern"
+      case x => x
+    }
+
   private def _operation_fields_expr(
     p: Vector[SComponent.OperationField]
   ): String =
@@ -949,7 +983,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           x.placeholder.map(v => s"placeholder = Some(${_string_literal(v)})"),
           x.help.map(v => s"help = Some(${_string_literal(v)})"),
           x.required.map(v => s"required = Some(${v})"),
-          x.confidentiality.map(v => s"confidentiality = Some(${_string_literal(v)})")
+          x.confidentiality.map(v => s"confidentiality = Some(${_string_literal(v)})"),
+          _operation_field_web_validation_hints_expr(x).map(v => s"validation = $v")
         ).flatten
         s"""org.goldenport.cncf.operation.CmlOperationField(${args.mkString(", ")})"""
       }.mkString("Vector(", ", ", ")")
@@ -1657,8 +1692,43 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       val name = _string_literal(p.name)
       val multiplicity = _schema_multiplicity_expr(p.multiplicity)
       val datatype = _schema_datatype_expr(p.datatype)
-      s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = $datatype, multiplicity = $multiplicity), web = org.goldenport.schema.WebColumn(confidentiality = ${_operation_field_confidentiality_expr(p)}), confidentiality = ${_operation_field_confidentiality_expr(p)})"
+      val web = _operation_field_web_column_expr(p)
+      s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = $datatype, multiplicity = $multiplicity), web = $web, confidentiality = ${_operation_field_confidentiality_expr(p)})"
     }
+
+    private def _operation_field_web_column_expr(
+      p: SComponent.OperationField
+    ): String = {
+      val validation = _operation_field_web_validation_hints_expr(p)
+      val args = Vector(
+        p.controlType.orElse(_operation_field_default_control_type(p)).map(x => s"controlType = Some(${_string_literal(x)})"),
+        Some(s"required = Some(${p.required.getOrElse(_operation_field_default_required(p))})"),
+        p.placeholder.map(x => s"placeholder = Some(${_string_literal(x)})"),
+        p.help.map(x => s"help = Some(${_string_literal(x)})"),
+        validation.map(x => s"validation = $x"),
+        Some(s"confidentiality = ${_operation_field_confidentiality_expr(p)}")
+      ).flatten
+      s"org.goldenport.schema.WebColumn(${args.mkString(", ")})"
+    }
+
+    private def _operation_field_default_control_type(
+      p: SComponent.OperationField
+    ): Option[String] =
+      _normalize_operation_datatype(p.datatype) match {
+        case "text" | "i18ntext" => Some("textarea")
+        case _ => None
+      }
+
+    private def _operation_field_default_required(
+      p: SComponent.OperationField
+    ): Boolean =
+      _schema_multiplicity_expr(p.multiplicity) match {
+        case "org.goldenport.schema.Multiplicity.ZeroOne" | "org.goldenport.schema.Multiplicity.ZeroMore" => false
+        case _ => true
+      }
+
+    private def _normalize_operation_datatype(p: String): String =
+      Option(p).getOrElse("").trim.toLowerCase(java.util.Locale.ROOT).replace("_", "").replace("-", "")
 
     private def _operation_field_confidentiality_expr(p: SComponent.OperationField): String =
       p.confidentiality
@@ -1676,7 +1746,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
     private def _schema_datatype_expr(p: String): String =
       Option(p).map(_.trim.toLowerCase(java.util.Locale.ROOT)).getOrElse("string") match {
-        case "string" | "text" | "name" => "org.goldenport.schema.XString"
+        case "string" => "org.goldenport.schema.XString"
+        case "text" => """org.goldenport.schema.DataType.Named("text")"""
+        case "name" => """org.goldenport.schema.DataType.Named("name")"""
         case "boolean" | "bool" => "org.goldenport.schema.XBoolean"
         case "int" => "org.goldenport.schema.XInt"
         case "integer" => "org.goldenport.schema.XInteger"

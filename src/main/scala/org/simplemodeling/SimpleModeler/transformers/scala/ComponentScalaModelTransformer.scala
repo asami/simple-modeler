@@ -11,7 +11,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
  *  version May. 22, 2026
- * @version Jul. 11, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -362,7 +362,9 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               placeholder = x.placeholder,
               help = x.help,
               required = x.required,
-              confidentiality = x.confidentiality
+              confidentiality = x.confidentiality,
+              constraints = to_constraints(x.constraints),
+              typeConstraints = to_constraints(x.typeConstraints)
             )
           },
           resultFields = p.resultFields.map(_to_operation_field)
@@ -381,7 +383,9 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         placeholder = p.placeholder,
         help = p.help,
         required = p.required,
-        confidentiality = p.confidentiality
+        confidentiality = p.confidentiality,
+        constraints = to_constraints(p.constraints),
+        typeConstraints = to_constraints(p.typeConstraints)
       )
 
     private def _to_relationship_definitions(

@@ -26,7 +26,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Mar. 31, 2026
  *  version Apr. 30, 2026
  *  version May.  8, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -1301,7 +1301,9 @@ object SComponent {
     placeholder: Option[String] = None,
     help: Option[String] = None,
     required: Option[Boolean] = None,
-    confidentiality: Option[String] = None
+    confidentiality: Option[String] = None,
+    constraints: Vector[PConstraint] = Vector.empty,
+    typeConstraints: Vector[PConstraint] = Vector.empty
   )
 
   final case class EntityRuntimeDescriptor(

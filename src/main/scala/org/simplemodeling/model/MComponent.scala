@@ -10,7 +10,7 @@ import org.simplemodeling.model._
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
  *  version May.  8, 2026
- * @version Jul. 11, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -384,7 +384,9 @@ object MComponent {
     placeholder: Option[String] = None,
     help: Option[String] = None,
     required: Option[Boolean] = None,
-    confidentiality: Option[String] = None
+    confidentiality: Option[String] = None,
+    constraints: List[MConstraint] = Nil,
+    typeConstraints: List[MConstraint] = Nil
   )
 
   final case class EntityRuntimeDescriptor(
