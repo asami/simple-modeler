@@ -471,6 +471,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- indent
       _ <- println("case x: Option[?] => x.fold(Vector.empty[String])(_text_constraint_values)")
       _ <- println("case x: org.simplemodeling.model.directive.Update[?] => x.fold(Vector.empty, _text_constraint_values, Vector.empty)")
+      _ <- println("case _: org.simplemodeling.model.directive.Condition.Any.type => Vector.empty")
+      _ <- println("case org.simplemodeling.model.directive.Condition.Is(expected) => _text_constraint_values(expected)")
+      _ <- println("case org.simplemodeling.model.directive.Condition.In(candidates) => candidates.toVector.flatMap(_text_constraint_values)")
       _ <- println("case xs: cats.data.NonEmptyVector[?] => xs.toVector.flatMap(_text_constraint_values)")
       _ <- println("case xs: Iterable[?] => xs.iterator.flatMap(_text_constraint_values).toVector")
       _ <- println("case x: String => Vector(x)")
@@ -489,7 +492,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("case x: org.goldenport.datatype.I18nDescription => x.toI18nString.entries.toVector.map(_._2)")
       _ <- println("case x: org.goldenport.datatype.I18nText => x.toI18nString.entries.toVector.map(_._2)")
       _ <- println("case x: org.goldenport.datatype.I18nMessage => x.entries.toVector.map(_._2)")
-      _ <- println("case x => throw new IllegalArgumentException(s\"Unsupported text length constraint value: $${x.getClass.getName}\")")
+      _ <- println("case x => throw new IllegalArgumentException(s\"Unsupported text length constraint value: ${x.getClass.getName}\")")
       _ <- outdent
       _ <- println("}")
       _ <- outdent

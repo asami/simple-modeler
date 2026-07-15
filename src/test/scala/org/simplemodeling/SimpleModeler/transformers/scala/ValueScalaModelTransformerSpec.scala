@@ -210,6 +210,12 @@ final class ValueScalaModelTransformerSpec
         "case x: org.goldenport.datatype.Name => Vector(x.value)"
       )
       source should include(
+        "case org.simplemodeling.model.directive.Condition.Is(expected) => _text_constraint_values(expected)"
+      )
+      source should include(
+        "case x => throw new IllegalArgumentException(s\"Unsupported text length constraint value: ${x.getClass.getName}\")"
+      )
+      source should include(
         """require(_text_constraint_values(code).forall(_.matches("^[A-Z]+$")), "code must match ^[A-Z]+$")"""
       )
     }

@@ -15,11 +15,60 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3EntityFamilyGener
 /*
  * @since   Apr.  9, 2026
  *  version May. 23, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Entity custom type resolution" should {
+    "use the declared type for a name attribute context default" in {
+      Given("entities whose name attributes use string and a dedicated value type")
+      val facilityname = MDomainValue(
+        description = Description.name("FacilityName"),
+        affiliation = MPackageRef("org.example.facility.datatype"),
+        stereotypes = Nil,
+        base = None,
+        traits = Nil,
+        powertypes = Nil,
+        attributes = List(
+          MAttribute(Designation("value"), MDataType.string, MOne, Nil, None)
+        ),
+        operations = Nil
+      )
+      def _entity_(name: String, datatype: MDataType) =
+        MDomainResource(
+          description = Description.name(name),
+          affiliation = MPackageRef("org.example.facility"),
+          stereotypes = Nil,
+          base = None,
+          traits = Nil,
+          powertypes = Nil,
+          attributes = List(MAttribute(Designation("name"), datatype, MOne, Nil, None)),
+          associations = Nil,
+          operations = Nil,
+          stateMachines = Nil
+        )
+      val stringfacility = _entity_("StringFacility", MDataType.string)
+      val typedfacility = _entity_(
+        "TypedFacility",
+        MDataType(Designation("FacilityName"), XString, MPackageRef("org.example.facility.datatype"))
+      )
+
+      ScalaModelTransformer.clearObjectRegistry()
+      ScalaModelTransformer.registerObject(facilityname)
+      ScalaModelTransformer.registerObject(stringfacility)
+      ScalaModelTransformer.registerObject(typedfacility)
+
+      When("the Scala entity create families are generated")
+      val generator = new Scala3EntityFamilyGenerator()
+      val stringsource = generator.generate(stringfacility).take.slots.map(_.content).mkString("\n")
+      val typedsource = generator.generate(typedfacility).take.slots.map(_.content).mkString("\n")
+
+      Then("only the string name receives a string principal default")
+      stringsource should include("Some(ctx.security.principal.id.value)")
+      stringsource should not include "Some(Name(ctx.security.principal.id.value))"
+      typedsource should not include "ctx.security.principal.id.value"
+    }
+
     "avoid deriving a query codec through a shared model value without a codec contract" in {
       Given("an entity query containing a shared SimpleModeling value")
       val identitypresentation = MDomainValue(
