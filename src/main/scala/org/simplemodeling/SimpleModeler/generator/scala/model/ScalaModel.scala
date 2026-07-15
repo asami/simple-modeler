@@ -26,7 +26,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Mar. 31, 2026
  *  version Apr. 30, 2026
  *  version May.  8, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -36,8 +36,8 @@ case class ScalaModel(
 }
 
 object ScalaModel {
-  final val MaxGeneratedNameLength = 256
-  final val MaxGeneratedFqnLength = 1024
+  final val MAX_GENERATED_NAME_LENGTH = 256
+  final val MAX_GENERATED_FQN_LENGTH = 1024
 
   abstract class Context() {
     def optionType(p: TypeName): TypeName = TypeName.Container.option(p)
@@ -444,7 +444,8 @@ case class Parameter(
   externalName: Option[String] = None,
   derived: Option[String] = None,
   web: WebAttribute = WebAttribute.empty,
-  confidentiality: Option[String] = None
+  confidentiality: Option[String] = None,
+  typeConstraints: Vector[PConstraint] = Vector.empty
 ) {
   def isRequired: Boolean = typeName.isRequired
   def titleName = name.toTitle
@@ -484,7 +485,8 @@ case class ParameterSequence(
           m.derived,
           m.web,
           m.constraints,
-          m.web.confidentiality
+          m.web.confidentiality,
+          m.typeConstraints
         )
       )
       case _ => None
@@ -507,7 +509,8 @@ case class Attribute(
   derived: Option[String] = None,
   web: WebAttribute = WebAttribute.empty,
   constraints: Vector[PConstraint] = Vector.empty,
-  confidentiality: Option[String] = None
+  confidentiality: Option[String] = None,
+  typeConstraints: Vector[PConstraint] = Vector.empty
 ) {
   def isDerived: Boolean = derived.nonEmpty
 }
@@ -678,13 +681,15 @@ case class Directive(
   canonicalSchemaOwner: Option[TypeName.Plain] = None,
   schemaAttributes: Vector[Attribute] = Vector.empty,
   derivedAttributes: Vector[Attribute] = Vector.empty,
-  enumerationValues: Vector[Directive.EnumerationValue] = Vector.empty
+  enumerationValues: Vector[Directive.EnumerationValue] = Vector.empty,
+  nominalScalar: Boolean = false
 ) {
   def isPlain: Boolean = purpose.fold(true)(_ == Purpose.Plain)
   def isCreate: Boolean = purpose.fold(false)(_ == Purpose.Create)
   def isQuery: Boolean = purpose.fold(false)(_ == Purpose.Query)
   def isUpdate: Boolean = purpose.fold(false)(_ == Purpose.Update)
   def isAggregate: Boolean = purpose.fold(false)(_ == Purpose.Aggregate)
+  def isNominalScalar: Boolean = nominalScalar
 
   def withEntityValue = copy(classKind = Some(ClassKind.EntityValue))
   def withPurpose(purpose: Purpose) = copy(purpose = Some(purpose))
@@ -692,6 +697,7 @@ case class Directive(
   def withSchemaAttributes(attributes: Vector[Attribute]) = copy(schemaAttributes = attributes)
   def withDerivedAttributes(attributes: Vector[Attribute]) = copy(derivedAttributes = attributes)
   def withEnumerationValues(values: Vector[Directive.EnumerationValue]) = copy(enumerationValues = values)
+  def withNominalScalar = copy(nominalScalar = true)
 }
 object Directive {
   final case class EnumerationValue(
@@ -721,10 +727,10 @@ sealed trait SClassBase {
 
   def fullName: String = {
     val r = s"${packageName.name}.${className.name}"
-    if (r.length <= ScalaModel.MaxGeneratedFqnLength)
+    if (r.length <= ScalaModel.MAX_GENERATED_FQN_LENGTH)
       r
     else
-      RAISE.syntaxErrorFault(s"Generated Scala FQN exceeds ${ScalaModel.MaxGeneratedFqnLength} characters: ${r.length}")
+      RAISE.syntaxErrorFault(s"Generated Scala FQN exceeds ${ScalaModel.MAX_GENERATED_FQN_LENGTH} characters: ${r.length}")
   }
 
   def directive: Directive
@@ -752,6 +758,8 @@ case class ClassCore(
   def withEntityValue: ClassCore = copy(directive = directive.withEntityValue)
 
   def withPurpose(purpose: Purpose): ClassCore = copy(directive = directive.withPurpose(purpose))
+
+  def withNominalScalar: ClassCore = copy(directive = directive.withNominalScalar)
 
   def importNames: Vector[TypeName.Plain] = {
     case class Z(
@@ -1447,10 +1455,10 @@ object SComponent {
 
     final protected def make_title(s: String) = {
       val raw = StringUtils.makeTitle(s)
-      if (raw.length <= ScalaModel.MaxGeneratedNameLength)
+      if (raw.length <= ScalaModel.MAX_GENERATED_NAME_LENGTH)
         raw
       else
-        RAISE.syntaxErrorFault(s"Generated Scala name exceeds ${ScalaModel.MaxGeneratedNameLength} characters: ${raw.length}")
+        RAISE.syntaxErrorFault(s"Generated Scala name exceeds ${ScalaModel.MAX_GENERATED_NAME_LENGTH} characters: ${raw.length}")
     }
   }
 }

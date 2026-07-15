@@ -94,6 +94,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case _ => false
     }
   protected final def is_query = clazz.directive.isQuery
+  protected final def is_nominal_scalar = clazz.directive.isNominalScalar
   protected final def is_update = clazz.directive.isUpdate
   protected final def is_aggregate = clazz.directive.isAggregate
   protected final def is_view_projection: Boolean =
@@ -224,7 +225,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } yield ()
 
   private def _augument_traits: List[String] = {
-    if (is_query)
+    if (is_nominal_scalar)
+      List("org.simplemodeling.model.value.NominalScalar", "org.goldenport.record.RecordPresentable")
+    else if (is_query)
       List("EntityPersistableQuery")
     else if (is_update)
       List("EntityPersistableUpdate")
@@ -263,7 +266,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   protected def declare_derives: GenM[Unit] =
-    classKind match { // TODO Eq
+    if (is_nominal_scalar)
+      unit
+    else classKind match { // TODO Eq
       case ClassKind.EntityValue if _is_codec_derives_supported =>
         print(" derives Codec.AsObject ") // Case class
       case ClassKind.Value if _is_codec_derives_supported =>
@@ -279,8 +284,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _contains_record_type(p.typeName) ||
         _contains_generated_model_type(p.typeName) ||
         _contains_model_entity_type(p.typeName) ||
+        _contains_shared_model_value_type(p.typeName) ||
         _contains_external_runtime_type(p.typeName)
     )
+
+  private def _contains_shared_model_value_type(p: TypeName): Boolean =
+    p match {
+      case m: TypeName.Container =>
+        _contains_shared_model_value_type(m.containee)
+      case m: TypeName.Plain =>
+        m.packageName.name == "org.simplemodeling.model.value"
+      case _ =>
+        false
+    }
 
   private def _contains_record_type(p: TypeName): Boolean =
     if (_is_record_type(p))
@@ -459,6 +475,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("case xs: Iterable[?] => xs.iterator.flatMap(_text_constraint_values).toVector")
       _ <- println("case x: String => Vector(x)")
       _ <- println("case x: org.goldenport.datatype.StringDataType => Vector(x.value)")
+      _ <- println("case x: java.net.URL => Vector(x.toExternalForm)")
+      _ <- println("case x: java.net.URI => Vector(x.toString)")
+      _ <- println("case x: java.util.Locale => Vector(x.toLanguageTag)")
+      _ <- println("case x: java.util.TimeZone => Vector(x.getID)")
       _ <- println("case x: org.goldenport.value.ContentBody => Vector(x.value)")
       _ <- println("case x: org.goldenport.datatype.I18nString => x.entries.toVector.map(_._2)")
       _ <- println("case x: org.goldenport.datatype.I18nLabel => x.toI18nString.entries.toVector.map(_._2)")
@@ -520,11 +540,12 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
     def _escape_scala_string(s: String): String =
       s.replace("\\", "\\\\").replace("\"", "\\\"")
+    val textsubject = _text_constraint_subject(label, ref, typeName)
     name match {
       case "min_length" | "minLength" | "min-length" if _is_text_constraint_type(typeName) =>
-        s"""require(_text_constraint_values($ref).forall(_.length >= $value), "$label entries must have length >= $value")"""
+        s"""require(_text_constraint_values($ref).forall(_.length >= $value), "$textsubject must have length >= $value")"""
       case "max_length" | "maxLength" | "max-length" if _is_text_constraint_type(typeName) =>
-        s"""require(_text_constraint_values($ref).forall(_.length <= $value), "$label entries must have length <= $value")"""
+        s"""require(_text_constraint_values($ref).forall(_.length <= $value), "$textsubject must have length <= $value")"""
       case "min" if _is_numeric_constraint_type(typeName) =>
         s"""require(BigDecimal($ref.toString) >= BigDecimal("$value"), "$label must be >= $value")"""
       case "max" if _is_numeric_constraint_type(typeName) =>
@@ -532,13 +553,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "pattern" if _is_text_constraint_type(typeName) =>
         val escaped = _escape_scala_string(value)
         val normalized = if (escaped == "^A-Z{2}$") "^[A-Z]{2}$" else escaped
-        s"""require(_text_constraint_values($ref).forall(_.matches("$normalized")), "$label entries must match $normalized")"""
+        s"""require(_text_constraint_values($ref).forall(_.matches("$normalized")), "$textsubject must match $normalized")"""
       case "format" if _is_text_constraint_type(typeName) =>
         value.toLowerCase(java.util.Locale.ROOT) match {
           case "email" =>
-            s"""require(_text_constraint_values($ref).forall(_.matches("^[^@\\s]+@[^@\\s]+\\\\.[^@\\s]+$$")), "$label entries must be valid email values")"""
+            val regex = _escape_scala_string("""^[^@\s]+@[^@\s]+\.[^@\s]+$""")
+            s"""require(_text_constraint_values($ref).forall(_.matches("$regex")), "$textsubject must be valid email values")"""
           case "uri" =>
-            s"""require(_text_constraint_values($ref).forall(x => scala.util.Try(java.net.URI.create(x)).isSuccess), "$label entries must be valid URI values")"""
+            s"""require(_text_constraint_values($ref).forall(x => scala.util.Try(java.net.URI.create(x)).isSuccess), "$textsubject must be valid URI values")"""
+          case "url" =>
+            s"""require(_text_constraint_values($ref).forall(x => scala.util.Try(java.net.URI.create(x)).toOption.exists(uri => Option(uri.getScheme).exists(_.nonEmpty))), "$textsubject must be valid URL values")"""
+          case "phone" | "tel" | "e164" =>
+            val regex = _escape_scala_string("""^\+?[1-9]\d{6,14}$""")
+            s"""require(_text_constraint_values($ref).forall(_.matches("$regex")), "$textsubject must be valid phone values")"""
           case _ =>
             s"// unsupported format constraint: ${c.name}=${c.literal}"
         }
@@ -586,8 +613,44 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       "i18nsummary",
       "i18ndescription",
       "i18ntext",
-      "i18nmessage"
+      "i18nmessage",
+      "emailaddress",
+      "phonenumber",
+      "ipaddress",
+      "locale",
+      "timezone"
     ).contains(name)
+  }
+
+  private def _text_constraint_subject(
+    label: String,
+    ref: String,
+    p: TypeName
+  ): String = {
+    val basename = _schema_base_type(p).name.toLowerCase(java.util.Locale.ROOT)
+    val i18ntype = Set(
+      "i18nstring",
+      "i18nlabel",
+      "i18ntitle",
+      "i18nbrief",
+      "i18nsummary",
+      "i18ndescription",
+      "i18ntext",
+      "i18nmessage"
+    ).contains(basename)
+    val i18ndelegated = Set(
+      "nameAttributes.label",
+      "nameAttributes.title",
+      "descriptiveAttributes.headline",
+      "descriptiveAttributes.summary",
+      "descriptiveAttributes.description"
+    ).contains(ref)
+    def _is_collection_(x: TypeName): Boolean = x match {
+      case m: TypeName.Container if m.isCollection => true
+      case m: TypeName.Container => _is_collection_(m.containee)
+      case _ => false
+    }
+    if (i18ntype || i18ndelegated || _is_collection_(p)) s"$label entries" else label
   }
 
   protected def iri_method: GenM[Unit] =
@@ -751,6 +814,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("case m: org.goldenport.datatype.I18nText => m.toI18nString.displayMessage")
         _ <- println("case m: org.goldenport.datatype.MimeType => m.print")
         _ <- println("case m: java.nio.charset.Charset => m.name()")
+        _ <- println("case m: java.util.Locale => m.toLanguageTag")
+        _ <- println("case m: java.util.TimeZone => m.getID")
         _ <- println("case m: org.goldenport.value.ContentBody => m.value")
         _ <- println("case m: org.goldenport.value.ContentMarkup => m.value")
         _ <- println("case m: org.goldenport.datatype.ObjectId => _to_external_value(m.id)")
@@ -776,6 +841,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("""case m: org.simplemodeling.model.value.Audio => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
         _ <- println("""case m: org.simplemodeling.model.value.Video => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
         _ <- println("""case m: org.simplemodeling.model.value.Attachment => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
+        _ <- println("case m: org.simplemodeling.model.value.NominalScalar => _to_external_value(m.value)")
         _ <- println("case m: org.goldenport.record.RecordPresentable => m.toRecord()")
         _ <- println("case m: Option[?] => m.map(_to_external_value)")
         _ <- println("case m: cats.data.NonEmptyVector[?] => m.toVector.map(_to_external_value)")
@@ -801,6 +867,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("  case m: org.goldenport.datatype.I18nText => org.goldenport.convert.StringEncoder.encodeForStorage(m)")
         _ <- println("  case m: org.goldenport.datatype.MimeType => m.print")
         _ <- println("  case m: java.nio.charset.Charset => m.name()")
+        _ <- println("  case m: java.util.Locale => m.toLanguageTag")
+        _ <- println("  case m: java.util.TimeZone => m.getID")
         _ <- println("  case m: org.goldenport.value.ContentBody => m.value")
         _ <- println("  case m: org.goldenport.value.ContentMarkup => m.value")
         _ <- println("  case m: org.simplemodeling.model.statemachine.StateMachine => m.dbValue")
@@ -1476,7 +1544,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }.getOrElse("org.goldenport.schema.DataConfidentiality.Public")
 
   private def _schema_web_validation_hints_expr(p: Attribute): Option[String] = {
-    val args = p.constraints.flatMap { c =>
+    val declared = p.constraints.flatMap { c =>
       c.name match {
         case "min_length" | "minLength" | "min-length" if _is_text_constraint_type(p.typeName) =>
           Some(s"minLength = Some(${c.literal})")
@@ -1494,11 +1562,39 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
           None
       }
     }
+    val declaredkeys = p.constraints.map(x => _schema_constraint_key(x.name)).toSet
+    val inherited = p.typeConstraints.filterNot(x => declaredkeys.contains(_schema_constraint_key(x.name))).flatMap { c =>
+      c.name match {
+        case "min_length" | "minLength" | "min-length" =>
+          Some(s"minLength = Some(${c.literal})")
+        case "max_length" | "maxLength" | "max-length" =>
+          Some(s"maxLength = Some(${c.literal})")
+        case "min" =>
+          Some(s"min = Some(${_schema_web_decimal_expr(c.literal)})")
+        case "max" =>
+          Some(s"max = Some(${_schema_web_decimal_expr(c.literal)})")
+        case "step" =>
+          Some(s"step = Some(${_schema_web_decimal_expr(c.literal)})")
+        case "pattern" | "regex" =>
+          Some(s"pattern = Some(${_scala_string_literal(c.value.toString)})")
+        case _ =>
+          None
+      }
+    }
+    val args = declared ++ inherited
     if (args.isEmpty)
       None
     else
       Some(s"org.goldenport.schema.WebValidationHints(${args.mkString(", ")})")
   }
+
+  private def _schema_constraint_key(p: String): String =
+    p.trim.toLowerCase(java.util.Locale.ROOT).replace("_", "-") match {
+      case "minlength" => "min-length"
+      case "maxlength" => "max-length"
+      case "regex" => "pattern"
+      case x => x
+    }
 
   private def _schema_web_decimal_expr(p: String): String =
     s"BigDecimal(${_scala_string_literal(p)})"
@@ -3662,6 +3758,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- _can_equal(name)
       _ <- _eq(name)
       _ <- _value_reader(name)
+      _ <- _nominal_scalar_codec(name)
       _ <- _entity(name)
     } yield ()
   }
@@ -3695,7 +3792,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       for {
         _ <- println(s"given org.goldenport.convert.ValueReader[$name] with")
         _ <- println(s"  def readC(v: Any): Consequence[$name] = v match")
-        _ <- if (is_powertype)
+        _ <- if (is_nominal_scalar)
+          _nominal_scalar_value_reader(name)
+        else if (is_powertype)
           for {
             _ <- println(s"    case m: $name => Consequence.success(m)")
             _ <- println(s"    case n: Int => fromDbValue(n).map(Consequence.success).getOrElse(Consequence.valueInvalid(v, org.goldenport.schema.XInt))")
@@ -3713,6 +3812,37 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } else {
       unit
     }
+
+  private def _nominal_scalar_value_reader(name: String): GenM[Unit] =
+    _single_scalar_value_parameter match {
+      case Some(parameter) =>
+        for {
+          _ <- println(s"    case m: $name => Consequence.success(m)")
+          _ <- println(s"    case m: Record => createC(m)")
+          _ <- println(s"    case other => summon[org.goldenport.convert.ValueReader[${parameter.typeName.fullName}]].readC(other).flatMap(value => Consequence($name(value)))")
+        } yield ()
+      case None =>
+        RAISE.syntaxErrorFault(s"Nominal scalar ${clazz.className.name} requires exactly one scalar value parameter.")
+    }
+
+  private def _nominal_scalar_codec(name: String): GenM[Unit] =
+    if (is_nominal_scalar)
+      _single_scalar_value_parameter match {
+        case Some(parameter) =>
+          val underlying = parameter.typeName.fullName
+          for {
+            _ <- println(s"given Codec[$name] = Codec.from(")
+            _ <- indent
+            _ <- println(s"summon[io.circe.Decoder[$underlying]].emap(value => scala.util.Try($name(value)).toEither.left.map(error => Option(error.getMessage).getOrElse(error.getClass.getSimpleName))),")
+            _ <- println(s"summon[io.circe.Encoder[$underlying]].contramap(_.value)")
+            _ <- outdent
+            _ <- println(")")
+          } yield ()
+        case None =>
+          RAISE.syntaxErrorFault(s"Nominal scalar ${clazz.className.name} requires exactly one scalar value parameter.")
+      }
+    else
+      unit
 
   protected def powertype_object_part: GenM[Unit] = {
     val xs = clazz.directive.enumerationValues

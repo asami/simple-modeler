@@ -195,10 +195,10 @@ final class ValueScalaModelTransformerSpec
       )
       source should include("private def validate(): Unit = {")
       source should include(
-        """require(_text_constraint_values(code).forall(_.length >= 2), "code entries must have length >= 2")"""
+        """require(_text_constraint_values(code).forall(_.length >= 2), "code must have length >= 2")"""
       )
       source should include(
-        """require(_text_constraint_values(code).forall(_.length <= 12), "code entries must have length <= 12")"""
+        """require(_text_constraint_values(code).forall(_.length <= 12), "code must have length <= 12")"""
       )
       source should include(
         "case x: org.goldenport.datatype.I18nTitle => x.toI18nString.entries.toVector.map(_._2)"
@@ -207,7 +207,7 @@ final class ValueScalaModelTransformerSpec
         "case x: org.goldenport.value.ContentBody => Vector(x.value)"
       )
       source should include(
-        """require(_text_constraint_values(code).forall(_.matches("^[A-Z]+$")), "code entries must match ^[A-Z]+$")"""
+        """require(_text_constraint_values(code).forall(_.matches("^[A-Z]+$")), "code must match ^[A-Z]+$")"""
       )
     }
 
@@ -225,7 +225,7 @@ final class ValueScalaModelTransformerSpec
             Designation("value"),
             MDataType(XInt),
             MOne,
-            List(constraint("min", 1), constraint("max", 10)),
+            List(_constraint("min", 1), _constraint("max", 10)),
             None
           )
         ),
@@ -245,6 +245,46 @@ final class ValueScalaModelTransformerSpec
       source should not include "_text_constraint_values(value)"
     }
 
+    "escape predefined format regular expressions as Scala string literals" in {
+      Given("email and E.164 phone attributes with canonical format constraints")
+      val value = MDomainValue(
+        description = Description.name("Contact"),
+        affiliation = MPackageRef("domain.value"),
+        stereotypes = Nil,
+        base = None,
+        traits = Nil,
+        powertypes = Nil,
+        attributes = List(
+          MAttribute(
+            Designation("email"),
+            MDataType(XString),
+            MOne,
+            List(_constraint("format", "email")),
+            None
+          ),
+          MAttribute(
+            Designation("phone"),
+            MDataType(XString),
+            MOne,
+            List(_constraint("format", "phone")),
+            None
+          )
+        ),
+        operations = Nil
+      )
+
+      When("the Scala source family is generated")
+      val source = new Scala3ValueFamilyGenerator().generate(value).take.slots.head.content
+
+      Then("regex escapes remain valid in the generated Scala source")
+      source should include(
+        """_.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")"""
+      )
+      source should include(
+        """_.matches("^\\+?[1-9]\\d{6,14}$")"""
+      )
+    }
+
     "reject numeric range constraints on text values" in {
       Given("a string value incorrectly constrained with numeric min")
       val value = MDomainValue(
@@ -259,7 +299,7 @@ final class ValueScalaModelTransformerSpec
             Designation("value"),
             MDataType.string,
             MOne,
-            List(constraint("min", 1)),
+            List(_constraint("min", 1)),
             None
           )
         ),
@@ -350,6 +390,38 @@ final class ValueScalaModelTransformerSpec
       source should not include ("def toDataStore(): Record")
     }
 
+    "generate a constrained nominal scalar for a plain datatype" in {
+      Given("a named string datatype with canonical length and pattern constraints")
+      val datatype = MNominalDataType(
+        description = Description.name("LoginName"),
+        affiliation = MPackageRef("domain.datatype"),
+        datatype = XString,
+        constraints = List(
+          _constraint("min_length", 3),
+          _constraint("max_length", 64),
+          _constraint("pattern", "^[A-Za-z0-9._-]+$")
+        )
+      )
+
+      When("the nominal scalar source is generated")
+      val artifacts = new Scala3ValueFamilyGenerator().generate(datatype).take
+      val source = artifacts.slots.head.content
+
+      Then("the generated contract keeps nominal identity over a scalar wire value")
+      artifacts.slots.head.path should include("domain/datatype/LoginName.scala")
+      source should include("case class LoginName(")
+      source should include("value: String")
+      source should include("def toDataStore(): String")
+      source should include("given org.goldenport.convert.ValueReader[LoginName]")
+      source should include("case other => summon[org.goldenport.convert.ValueReader[String]].readC(other)")
+      source should include("given Codec[LoginName] = Codec.from(")
+      source should include("summon[io.circe.Encoder[String]].contramap(_.value)")
+      source should include("value must have length >= 3")
+      source should include("value must have length <= 64")
+      source should include("value must match ^[A-Za-z0-9._-]+$")
+      source should not include("derives Codec.AsObject")
+    }
+
     "keep structured datastore representation for multi-field values" in {
       Given("a value with multiple fields")
       val value = MDomainValue(
@@ -417,7 +489,7 @@ final class ValueScalaModelTransformerSpec
     }
   }
 
-  private def constraint(constraintName: String, constraintValue: Any): MConstraint =
+  private def _constraint(constraintName: String, constraintValue: Any): MConstraint =
     new MConstraint {
       override def name: String = constraintName
       override def value: Any = constraintValue

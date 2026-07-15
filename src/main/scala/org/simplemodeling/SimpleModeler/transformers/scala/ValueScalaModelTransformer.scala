@@ -10,13 +10,15 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Mar. 25, 2026
  *  version May. 22, 2026
- * @version Jul.  9, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class ValueScalaModelTransformer() extends CaseClassScalaModelTransformer() {
   protected def accept_purposes: Vector[Purpose] = Vector(Purpose.Plain)
   protected def is_accept_object(p: MObject): Boolean =
-    p.isInstanceOf[MDomainValue] || p.isInstanceOf[MStructuredDataType]
+    p.isInstanceOf[MDomainValue] ||
+      p.isInstanceOf[MStructuredDataType] ||
+      p.isInstanceOf[MNominalDataType]
 
   def apply(p: (MObject, Purpose)): Consequence[Vector[SClassBase]] =
     p match {
@@ -24,6 +26,8 @@ class ValueScalaModelTransformer() extends CaseClassScalaModelTransformer() {
         transform_value(m, purpose)
       case (m: MStructuredDataType, purpose) if is_accept_purpose(purpose) =>
         transform_value(m, purpose)
+      case (m: MNominalDataType, purpose) if is_accept_purpose(purpose) =>
+        transform_nominal_scalar(m, purpose)
       case _ =>
         Consequence.noReachDefect("ValueScalaModelTransformer#apply")
     }
@@ -33,6 +37,14 @@ class ValueScalaModelTransformer() extends CaseClassScalaModelTransformer() {
     purpose: Purpose
   ): Consequence[Vector[SClassBase]] = Consequence {
     val core = to_scala_core(p).withPurpose(purpose)
+    Vector(SCaseClass(core))
+  }
+
+  protected def transform_nominal_scalar(
+    p: MNominalDataType,
+    purpose: Purpose
+  ): Consequence[Vector[SClassBase]] = Consequence {
+    val core = to_scala_core(p).withPurpose(purpose).withNominalScalar
     Vector(SCaseClass(core))
   }
 }

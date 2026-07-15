@@ -19,11 +19,11 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Feb. 27, 2026
  *  version Apr. 19, 2026
  *  version May. 23, 2026
- * @version Jul.  9, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
-  protected final val MaxGeneratedNameLength = 256
+  protected final val MAX_GENERATED_NAME_LENGTH = 256
   private var _current_object_name: Option[String] = None
   private var _current_package_name: Option[PackageName] = None
   protected def is_accept_object(p: MObject): Boolean
@@ -176,7 +176,8 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       dbColumnType = dbcolumntype,
       externalName = externalname,
       derived = p.derived,
-      web = to_web_attribute(p)
+      web = to_web_attribute(p),
+      typeConstraints = to_constraints(p.typeConstraints)
     )
   }
 
@@ -231,7 +232,8 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       p.derived,
       to_web_attribute(p),
       to_constraints(p.constraints),
-      p.confidentiality
+      p.confidentiality,
+      to_constraints(p.typeConstraints)
     )
   }
 
@@ -464,10 +466,10 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     ps: String*
   ): String = {
     val raw = (p +: ps).map(StringUtils.makeTitle).mkString
-    if (raw.length <= MaxGeneratedNameLength)
+    if (raw.length <= MAX_GENERATED_NAME_LENGTH)
       raw
     else
-      RAISE.syntaxErrorFault(s"Generated Scala name exceeds ${MaxGeneratedNameLength} characters: ${raw.length}")
+      RAISE.syntaxErrorFault(s"Generated Scala name exceeds ${MAX_GENERATED_NAME_LENGTH} characters: ${raw.length}")
   }
 
   protected def project_dir = "scala.d"

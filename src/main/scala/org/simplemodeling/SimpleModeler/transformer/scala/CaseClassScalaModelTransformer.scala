@@ -8,7 +8,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  *  version Sep. 30, 2025
  *  version Mar. 25, 2026
  *  version Apr. 19, 2026
- * @version May.  8, 2026
+ *  version May.  8, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class CaseClassScalaModelTransformer() extends ScalaModelTransformer() {
@@ -33,7 +34,8 @@ abstract class CaseClassScalaModelTransformer() extends ScalaModelTransformer() 
       externalName = externalname,
       derived = p.derived,
       web = to_web_attribute(p),
-      confidentiality = p.confidentiality
+      confidentiality = p.confidentiality,
+      typeConstraints = to_constraints(p.typeConstraints)
     )
   }
 

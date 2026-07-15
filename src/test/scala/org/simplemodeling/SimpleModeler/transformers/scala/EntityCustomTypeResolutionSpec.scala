@@ -15,11 +15,62 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3EntityFamilyGener
 /*
  * @since   Apr.  9, 2026
  *  version May. 23, 2026
- * @version Jul. 14, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Entity custom type resolution" should {
+    "avoid deriving a query codec through a shared model value without a codec contract" in {
+      Given("an entity query containing a shared SimpleModeling value")
+      val identitypresentation = MDomainValue(
+        description = Description.name("IdentityPresentation"),
+        affiliation = MPackageRef("org.simplemodeling.model.value"),
+        stereotypes = Nil,
+        base = None,
+        traits = Nil,
+        powertypes = Nil,
+        attributes = List(
+          MAttribute(Designation("displayName"), MDataType.string, MOne, Nil, None)
+        ),
+        operations = Nil
+      )
+      val userprofile = MDomainResource(
+        description = Description.name("UserProfile"),
+        affiliation = MPackageRef("org.example.account"),
+        stereotypes = Nil,
+        base = None,
+        traits = Nil,
+        powertypes = Nil,
+        attributes = List(
+          MAttribute(
+            Designation("identityPresentation"),
+            MDataType(Designation("IdentityPresentation"), XString, MPackageRef("org.simplemodeling.model.value")),
+            MZeroOne,
+            Nil,
+            None
+          )
+        ),
+        associations = Nil,
+        operations = Nil,
+        stateMachines = Nil
+      )
+
+      ScalaModelTransformer.clearObjectRegistry()
+      ScalaModelTransformer.registerObject(identitypresentation)
+      ScalaModelTransformer.registerObject(userprofile)
+
+      When("the Scala entity family is generated")
+      val artifacts = new Scala3EntityFamilyGenerator().generate(userprofile).take
+      val query = artifacts.slots
+        .find(_.path.contains("entity/query/UserProfile.scala"))
+        .getOrElse(fail("query source missing"))
+        .content
+
+      Then("the query uses the structured Condition type without assuming a nested Circe codec")
+      query should include("identityPresentation: Condition[IdentityPresentation]")
+      query should not include "derives Codec.AsObject"
+    }
+
     "resolve simplemodeling-model value types as generated Scala types" in {
     Given("an entity attribute referencing a registered SimpleModeling value type")
     val address = MDomainValue(

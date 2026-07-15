@@ -49,7 +49,8 @@ case class MAttribute(
   derived: Option[String] = None,
   web: MAttribute.Web = MAttribute.Web.empty,
   confidentiality: Option[String] = None,
-  description: Description = Description.empty
+  description: Description = Description.empty,
+  typeConstraints: List[MConstraint] = Nil
 ) extends MElement {
   def isRequired: Boolean = multiplicity.isRequired
   def isDerived: Boolean = derived.nonEmpty

@@ -76,6 +76,12 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
           case Consequence.Success(r, _) => r.build(b)
           case Consequence.Error(c) => c.RAISE
         }
+      case m: MNominalDataType =>
+        val g = new Scala3ValueFamilyGenerator()
+        g.generate(m) match {
+          case Consequence.Success(r, _) => r.build(b)
+          case Consequence.Error(c) => c.RAISE
+        }
       case _ =>
         b
     }

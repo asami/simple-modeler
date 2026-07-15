@@ -26,6 +26,7 @@ case class RConstraint(constraint: v2.Constraint) extends MConstraint {
     case _: v2.CMaxLength => "max_length"
     case _: v2.CMinLength => "min_length"
     case _: v2.CRegex => "pattern"
+    case _: v2.CFormat => "format"
     case m => m.label
   }
 
@@ -33,6 +34,7 @@ case class RConstraint(constraint: v2.Constraint) extends MConstraint {
     case m: v2.CMaxLength => m.length
     case m: v2.CMinLength => m.length
     case m: v2.CRegex => m.regex.regex
+    case m: v2.CFormat => m.format
     case m => m.label
   }
 }
