@@ -1159,6 +1159,12 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- indent
       _ <- println(s"collectionName = ${_string_literal(p.collectionName)},")
       _ <- println(s"eventName = ${_string_literal(p.eventName)},")
+      _ <- println(s"machineName = ${_option_string_literal(p.machineName)},")
+      _ <- println(s"stateFieldName = ${_option_string_literal(p.stateFieldName)},")
+      _ <- println(s"fromState = ${_option_string_literal(p.fromState)},")
+      _ <- println(s"fromStateValue = ${_int_option_expr(p.fromStateValue)},")
+      _ <- println(s"toState = ${_option_string_literal(p.toState)},")
+      _ <- println(s"toStateValue = ${_int_option_expr(p.toStateValue)},")
       _ <- println(s"priority = ${p.priority},")
       _ <- println(s"declarationOrder = ${p.declarationOrder},")
       _ <- println(s"guard = ${_guard_expr(p.guard)},")
@@ -1259,6 +1265,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     p.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
 
   private def _option_boolean_expr(p: Option[Boolean]): String =
+    p.map(x => s"Some(${x.toString})").getOrElse("None")
+
+  private def _int_option_expr(p: Option[Int]): String =
     p.map(x => s"Some(${x.toString})").getOrElse("None")
 
   private def _option_to_value_expr(p: Option[String]): String =
