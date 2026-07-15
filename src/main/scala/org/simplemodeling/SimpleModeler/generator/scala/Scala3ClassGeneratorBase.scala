@@ -627,6 +627,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       "identifier",
       "text",
       "token",
+      "password",
       "url",
       "uri",
       "urn",
@@ -1683,6 +1684,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "identifier" => named("identifier")
       case "text" => named("text")
       case "token" => named("token")
+      case "password" => named("password")
       case "url" => named("url")
       case "uri" => named("uri")
       case "urn" => named("urn")

@@ -831,6 +831,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
   private def _component_definition_record_expr(
     p: SComponent.ComponentDefinition
   ): GenM[Unit] = {
+    val actors = _actor_vector_expr(p.actors)
     val coordinates = _string_vector_expr(p.coordinates.map(_.asString))
     val componentlets = _string_vector_expr(p.componentlets)
     val extensionpoints = _string_vector_expr(p.extensionPoints)
@@ -852,6 +853,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println("Record.data(")
       _ <- indent
       _ <- println(s"${_string_literal("name")} -> ${_string_literal(p.name)},")
+      _ <- println(s"${_string_literal("actors")} -> ${actors},")
       _ <- println(s"${_string_literal("coordinates")} -> ${coordinates},")
       _ <- println(s"${_string_literal("componentlets")} -> ${componentlets},")
       _ <- println(s"${_string_literal("extension_points")} -> ${extensionpoints},")
@@ -1005,8 +1007,19 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         "Vector.empty"
       else
         p.scenarios.map(_use_case_scenario_record_expr).mkString("Vector(", ", ", ")")
-    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("actor")} -> ${_option_to_value_expr(p.actor)}, ${_string_literal("primary_actor")} -> ${_option_to_value_expr(p.primaryActor)}, ${_string_literal("secondary_actor")} -> ${_option_to_value_expr(p.secondaryActor)}, ${_string_literal("supporting_actor")} -> ${_option_to_value_expr(p.supportingActor)}, ${_string_literal("stakeholder")} -> ${_option_to_value_expr(p.stakeholder)}, ${_string_literal("goal")} -> ${_option_to_value_expr(p.goal)}, ${_string_literal("precondition")} -> ${_option_to_value_expr(p.precondition)}, ${_string_literal("postcondition")} -> ${_option_to_value_expr(p.postcondition)}, ${_string_literal("scenarios")} -> ${scenarios})"""
+    val actorrefs = _actor_reference_vector_expr(p.actorReferences)
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("id")} -> ${_option_to_value_expr(p.id)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("actor")} -> ${_option_to_value_expr(p.actor)}, ${_string_literal("primary_actor")} -> ${_option_to_value_expr(p.primaryActor)}, ${_string_literal("secondary_actor")} -> ${_option_to_value_expr(p.secondaryActor)}, ${_string_literal("supporting_actor")} -> ${_option_to_value_expr(p.supportingActor)}, ${_string_literal("stakeholder")} -> ${_option_to_value_expr(p.stakeholder)}, ${_string_literal("goal")} -> ${_option_to_value_expr(p.goal)}, ${_string_literal("precondition")} -> ${_option_to_value_expr(p.precondition)}, ${_string_literal("postcondition")} -> ${_option_to_value_expr(p.postcondition)}, ${_string_literal("trigger")} -> ${_option_to_value_expr(p.trigger)}, ${_string_literal("priority")} -> ${_option_to_value_expr(p.priority)}, ${_string_literal("status")} -> ${_option_to_value_expr(p.status)}, ${_string_literal("actor_references")} -> ${actorrefs}, ${_string_literal("scenarios")} -> ${scenarios})"""
   }
+
+  private def _actor_vector_expr(p: Vector[SComponent.ActorDefinition]): String =
+    p.map { actor =>
+      s"Record.data(${_string_literal("name")} -> ${_string_literal(actor.name)}, ${_string_literal("kind")} -> ${_option_to_value_expr(actor.kind)}, ${_string_literal("summary")} -> ${_option_to_value_expr(actor.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(actor.description)})"
+    }.mkString("Vector(", ", ", ")")
+
+  private def _actor_reference_vector_expr(p: Vector[SComponent.ActorReference]): String =
+    p.map { ref =>
+      s"Record.data(${_string_literal("name")} -> ${_string_literal(ref.name)}, ${_string_literal("role")} -> ${_string_literal(ref.role)}, ${_string_literal("target_kind")} -> ${_string_literal(ref.targetKind)})"
+    }.mkString("Vector(", ", ", ")")
 
   private def _capability_vector_expr(
     ps: Vector[SComponent.CapabilityDefinition]
@@ -1087,7 +1100,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     val steps = _string_vector_expr(p.steps)
     val alternates = _string_vector_expr(p.alternates)
     val exceptions = _string_vector_expr(p.exceptions)
-    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("steps")} -> ${steps}, ${_string_literal("alternates")} -> ${alternates}, ${_string_literal("exceptions")} -> ${exceptions})"""
+    s"""Record.data(${_string_literal("name")} -> ${_string_literal(p.name)}, ${_string_literal("kind")} -> ${_string_literal(p.kind)}, ${_string_literal("summary")} -> ${_option_to_value_expr(p.summary)}, ${_string_literal("description")} -> ${_option_to_value_expr(p.description)}, ${_string_literal("steps")} -> ${steps}, ${_string_literal("alternates")} -> ${alternates}, ${_string_literal("exceptions")} -> ${exceptions})"""
   }
 
   private def _string_vector_expr(

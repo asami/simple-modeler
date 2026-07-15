@@ -1130,6 +1130,7 @@ object SComponent {
 
   final case class ComponentDefinition(
     name: String,
+    actors: Vector[ActorDefinition] = Vector.empty,
     coordinates: Vector[ComponentCoordinate] = Vector.empty,
     componentlets: Vector[String] = Vector.empty,
     extensionPoints: Vector[String] = Vector.empty,
@@ -1141,6 +1142,19 @@ object SComponent {
     domainUseCases: Vector[UseCaseDefinition] = Vector.empty,
     useCases: Vector[UseCaseDefinition] = Vector.empty,
     services: Vector[ComponentServiceDefinition] = Vector.empty
+  )
+
+  final case class ActorDefinition(
+    name: String,
+    kind: Option[String] = None,
+    summary: Option[String] = None,
+    description: Option[String] = None
+  )
+
+  final case class ActorReference(
+    name: String,
+    role: String,
+    targetKind: String
   )
 
   final case class ComponentServiceDefinition(
@@ -1215,6 +1229,7 @@ object SComponent {
 
   final case class UseCaseDefinition(
     name: String,
+    id: Option[String] = None,
     summary: Option[String] = None,
     description: Option[String] = None,
     actor: Option[String] = None,
@@ -1225,11 +1240,16 @@ object SComponent {
     goal: Option[String] = None,
     precondition: Option[String] = None,
     postcondition: Option[String] = None,
+    trigger: Option[String] = None,
+    priority: Option[String] = None,
+    status: Option[String] = None,
+    actorReferences: Vector[ActorReference] = Vector.empty,
     scenarios: Vector[UseCaseScenario] = Vector.empty
   )
 
   final case class UseCaseScenario(
     name: String,
+    kind: String = "main",
     summary: Option[String] = None,
     description: Option[String] = None,
     steps: Vector[String] = Vector.empty,

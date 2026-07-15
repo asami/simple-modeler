@@ -4,7 +4,7 @@ import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.goldenport.values.Designation
-import org.goldenport.record.v2.{XInt, XRecordInstance, XString}
+import org.goldenport.record.v2.{XInt, XPassword, XRecordInstance, XString}
 import org.smartdox.Description
 import org.simplemodeling.model._
 import org.simplemodeling.model.domain.{MDomainResource, MDomainValue}
@@ -252,6 +252,47 @@ final class ValueScalaModelTransformerSpec
         """require(BigDecimal(value.toString) <= BigDecimal("10"), "value must be <= 10")"""
       )
       source should not include "_text_constraint_values(value)"
+    }
+
+    "generate password values with explicit text boundaries" in {
+      Given("a password value with request-boundary length constraints")
+      val value = MDomainValue(
+        description = Description.name("CredentialInput"),
+        affiliation = MPackageRef("domain.value"),
+        stereotypes = Nil,
+        base = None,
+        traits = Nil,
+        powertypes = Nil,
+        attributes = List(
+          MAttribute(
+            Designation("password"),
+            MDataType(XPassword),
+            MOne,
+            List(_constraint("min_length", 1), _constraint("max_length", 1024)),
+            None
+          )
+        ),
+        operations = Nil
+      )
+
+      When("the password Value and its Scala source are generated")
+      val generated = new ValueScalaModelTransformer()(
+        (value, ScalaModelTransformer.Purpose.Plain)
+      ).take.head
+      val source = new Scala3ValueFamilyGenerator().generate(value).take.slots.head.content
+
+      Then("the semantic Password type owns the value and generated constructor validation")
+      generated.parameterSequence.parameters.head.typeName.fullName shouldBe
+        "org.goldenport.datatype.Password"
+      source should include(
+        "case class CredentialInput(password: Password /* constraints: min_length=1, max_length=1024 */)"
+      )
+      source should include(
+        """require(_text_constraint_values(password).forall(_.length >= 1), "password must have length >= 1")"""
+      )
+      source should include(
+        """require(_text_constraint_values(password).forall(_.length <= 1024), "password must have length <= 1024")"""
+      )
     }
 
     "enforce inherited predefined text constraints at the generated value boundary" in {

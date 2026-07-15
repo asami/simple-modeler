@@ -423,6 +423,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       ps.map { p =>
         SComponent.ComponentDefinition(
           name = p.name,
+          actors = p.actors.map(_to_actor_definition),
           coordinates = p.coordinates.map { c =>
             SComponent.ComponentCoordinate(
               group = c.group,
@@ -478,56 +479,8 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               postcondition = c.postcondition
             )
           },
-          domainUseCases = p.domainUseCases.map { u =>
-            SComponent.UseCaseDefinition(
-              name = u.name,
-              summary = u.summary,
-              description = u.description,
-              actor = u.actor,
-              primaryActor = u.primaryActor,
-              secondaryActor = u.secondaryActor,
-              supportingActor = u.supportingActor,
-              stakeholder = u.stakeholder,
-              goal = u.goal,
-              precondition = u.precondition,
-              postcondition = u.postcondition,
-              scenarios = u.scenarios.map { s =>
-                SComponent.UseCaseScenario(
-                  name = s.name,
-                  summary = s.summary,
-                  description = s.description,
-                  steps = s.steps,
-                  alternates = s.alternates,
-                  exceptions = s.exceptions
-                )
-              }
-            )
-          },
-          useCases = p.useCases.map { u =>
-            SComponent.UseCaseDefinition(
-              name = u.name,
-              summary = u.summary,
-              description = u.description,
-              actor = u.actor,
-              primaryActor = u.primaryActor,
-              secondaryActor = u.secondaryActor,
-              supportingActor = u.supportingActor,
-              stakeholder = u.stakeholder,
-              goal = u.goal,
-              precondition = u.precondition,
-              postcondition = u.postcondition,
-              scenarios = u.scenarios.map { s =>
-                SComponent.UseCaseScenario(
-                  name = s.name,
-                  summary = s.summary,
-                  description = s.description,
-                  steps = s.steps,
-                  alternates = s.alternates,
-                  exceptions = s.exceptions
-                )
-              }
-            )
-          },
+          domainUseCases = p.domainUseCases.map(_to_use_case_definition),
+          useCases = p.useCases.map(_to_use_case_definition),
           services = p.services.map { service =>
             SComponent.ComponentServiceDefinition(
               name = service.name,
@@ -624,31 +577,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               postcondition = c.postcondition
             )
           },
-          domainUseCases = p.domainUseCases.map { u =>
-            SComponent.UseCaseDefinition(
-              name = u.name,
-              summary = u.summary,
-              description = u.description,
-              actor = u.actor,
-              primaryActor = u.primaryActor,
-              secondaryActor = u.secondaryActor,
-              supportingActor = u.supportingActor,
-              stakeholder = u.stakeholder,
-              goal = u.goal,
-              precondition = u.precondition,
-              postcondition = u.postcondition,
-              scenarios = u.scenarios.map { s =>
-                SComponent.UseCaseScenario(
-                  name = s.name,
-                  summary = s.summary,
-                  description = s.description,
-                  steps = s.steps,
-                  alternates = s.alternates,
-                  exceptions = s.exceptions
-                )
-              }
-            )
-          }
+          domainUseCases = p.domainUseCases.map(_to_use_case_definition)
         )
       }
 
@@ -697,33 +626,47 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         ops,
         actions,
         _description_text(p),
-        p.serviceCore.useCases.map { u =>
-          SComponent.UseCaseDefinition(
-            name = u.name,
-            summary = u.summary,
-            description = u.description,
-            actor = u.actor,
-            primaryActor = u.primaryActor,
-            secondaryActor = u.secondaryActor,
-            supportingActor = u.supportingActor,
-            stakeholder = u.stakeholder,
-            goal = u.goal,
-            precondition = u.precondition,
-            postcondition = u.postcondition,
-            scenarios = u.scenarios.map { s =>
-              SComponent.UseCaseScenario(
-                name = s.name,
-                summary = s.summary,
-                description = s.description,
-                steps = s.steps,
-                alternates = s.alternates,
-                exceptions = s.exceptions
-              )
-            }
-          )
-        }
+        p.serviceCore.useCases.map(_to_use_case_definition)
       )
     }
+
+    private def _to_actor_definition(p: MComponent.ActorDefinition): SComponent.ActorDefinition =
+      SComponent.ActorDefinition(p.name, p.kind, p.summary, p.description)
+
+    private def _to_actor_reference(p: MComponent.ActorReference): SComponent.ActorReference =
+      SComponent.ActorReference(p.name, p.role, p.targetKind)
+
+    private def _to_use_case_definition(p: MComponent.UseCaseDefinition): SComponent.UseCaseDefinition =
+      SComponent.UseCaseDefinition(
+        name = p.name,
+        id = p.id,
+        summary = p.summary,
+        description = p.description,
+        actor = p.actor,
+        primaryActor = p.primaryActor,
+        secondaryActor = p.secondaryActor,
+        supportingActor = p.supportingActor,
+        stakeholder = p.stakeholder,
+        goal = p.goal,
+        precondition = p.precondition,
+        postcondition = p.postcondition,
+        trigger = p.trigger,
+        priority = p.priority,
+        status = p.status,
+        actorReferences = p.actorReferences.map(_to_actor_reference),
+        scenarios = p.scenarios.map(_to_use_case_scenario)
+      )
+
+    private def _to_use_case_scenario(p: MComponent.UseCaseScenario): SComponent.UseCaseScenario =
+      SComponent.UseCaseScenario(
+        name = p.name,
+        kind = p.kind,
+        summary = p.summary,
+        description = p.description,
+        steps = p.steps,
+        alternates = p.alternates,
+        exceptions = p.exceptions
+      )
 
     final protected def to_actions(
       ps: List[MOperation]
