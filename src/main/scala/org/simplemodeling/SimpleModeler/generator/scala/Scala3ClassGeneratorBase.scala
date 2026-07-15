@@ -22,7 +22,7 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul. 14, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1918,9 +1918,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         } yield ()
       case "content" =>
         for {
-          _ <- println(s"def $name: Option[org.goldenport.datatype.I18nText] = content")
-          _ <- println()
-          _ <- println(s"def $name(locale: java.util.Locale): Option[String] = content(locale)")
+          _ <- println(s"def $name: Option[org.simplemodeling.model.value.ContentBody] = content")
           _ <- println()
           _ <- println(s"def with$title(value: String): ${clazz.className.name} =")
           _ <- indent
