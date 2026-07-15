@@ -26,11 +26,12 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
  *  version Mar. 25, 2026
  *  version Apr.  5, 2026
  *  version May. 20, 2026
- * @version Jul.  9, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
   val fileSuffix = "scala"
+  protected val scala3_version = "3.3.8"
 
   override def transform(model: SimpleModel): TransformResult = {
     ScalaModelTransformer.clearObjectRegistry()
@@ -215,9 +216,9 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
   }
 
   override protected def build_makefile(b: Realm): Realm =
-    b.setContent("build.sbt", buildsbtcontent)
+    b.setContent("build.sbt", buildSbtContent)
 
-  val buildsbtcontent = """val scala3Version = "3.3.7"
+  val buildSbtContent = s"""val scala3Version = "$scala3_version"
 
 def sampleVersion(envname: String, filename: String, fallback: String): String =
   sys.env.get(envname)

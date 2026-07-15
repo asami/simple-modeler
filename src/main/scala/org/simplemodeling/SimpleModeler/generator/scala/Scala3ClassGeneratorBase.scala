@@ -480,14 +480,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       unit
     else {
       p.constraints.traverse_ { c =>
-        println(_validate_constraint_expr(p.name.name, p.name.name, c))
+        println(_validate_constraint_expr(p.name.name, p.name.name, p.typeName, c))
       }
     }
   }
 
   private def _validate_schema_attribute(p: Attribute): GenM[Unit] =
     p.constraints.traverse_ { constraint =>
-      println(_validate_constraint_expr(p.name.name, _schema_attribute_reference(p.name.name), constraint))
+      println(_validate_constraint_expr(p.name.name, _schema_attribute_reference(p.name.name), p.typeName, constraint))
     }
 
   private def _schema_attribute_reference(name: String): String =
@@ -510,6 +510,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _validate_constraint_expr(
     label: String,
     ref: String,
+    typeName: TypeName,
     c: org.simplemodeling.SimpleModeler.transformer.maker.PConstraint
   ): String = {
     val name = c.name.trim
@@ -520,19 +521,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     def _escape_scala_string(s: String): String =
       s.replace("\\", "\\\\").replace("\"", "\\\"")
     name match {
-      case "min_length" | "minLength" | "min-length" =>
+      case "min_length" | "minLength" | "min-length" if _is_text_constraint_type(typeName) =>
         s"""require(_text_constraint_values($ref).forall(_.length >= $value), "$label entries must have length >= $value")"""
-      case "max_length" | "maxLength" | "max-length" =>
+      case "max_length" | "maxLength" | "max-length" if _is_text_constraint_type(typeName) =>
         s"""require(_text_constraint_values($ref).forall(_.length <= $value), "$label entries must have length <= $value")"""
-      case "min" =>
+      case "min" if _is_numeric_constraint_type(typeName) =>
         s"""require(BigDecimal($ref.toString) >= BigDecimal("$value"), "$label must be >= $value")"""
-      case "max" =>
+      case "max" if _is_numeric_constraint_type(typeName) =>
         s"""require(BigDecimal($ref.toString) <= BigDecimal("$value"), "$label must be <= $value")"""
-      case "pattern" =>
+      case "pattern" if _is_text_constraint_type(typeName) =>
         val escaped = _escape_scala_string(value)
         val normalized = if (escaped == "^A-Z{2}$") "^[A-Z]{2}$" else escaped
         s"""require(_text_constraint_values($ref).forall(_.matches("$normalized")), "$label entries must match $normalized")"""
-      case "format" =>
+      case "format" if _is_text_constraint_type(typeName) =>
         value.toLowerCase(java.util.Locale.ROOT) match {
           case "email" =>
             s"""require(_text_constraint_values($ref).forall(_.matches("^[^@\\s]+@[^@\\s]+\\\\.[^@\\s]+$$")), "$label entries must be valid email values")"""
@@ -541,9 +542,52 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
           case _ =>
             s"// unsupported format constraint: ${c.name}=${c.literal}"
         }
+      case "min_length" | "minLength" | "min-length" | "max_length" | "maxLength" | "max-length" | "pattern" | "format" =>
+        RAISE.syntaxErrorFault(s"Text constraint '${c.name}' is not valid for ${typeName.fullName} attribute '$label'.")
+      case "min" | "max" =>
+        RAISE.syntaxErrorFault(s"Numeric constraint '${c.name}' is not valid for ${typeName.fullName} attribute '$label'; use min-length/max-length for text.")
       case _ =>
         s"// unsupported constraint: ${c.name}=${c.literal}"
     }
+  }
+
+  private def _is_numeric_constraint_type(p: TypeName): Boolean = {
+    val datatype = _schema_datatype_expr(p)
+    Vector(
+      "XInt",
+      "XLong",
+      "XFloat",
+      "XDouble",
+      "XInteger",
+      "XNonNegativeInteger",
+      "XPositiveInteger",
+      "XDecimal"
+    ).exists(datatype.endsWith)
+  }
+
+  private def _is_text_constraint_type(p: TypeName): Boolean = {
+    val name = _schema_base_type(p).name.toLowerCase(java.util.Locale.ROOT)
+    Set(
+      "string",
+      "stringdatatype",
+      "name",
+      "identifier",
+      "text",
+      "token",
+      "url",
+      "uri",
+      "urn",
+      "clob",
+      "contentbody",
+      "i18nstring",
+      "i18nlabel",
+      "i18ntitle",
+      "i18nbrief",
+      "i18nsummary",
+      "i18ndescription",
+      "i18ntext",
+      "i18nmessage"
+    ).contains(name)
   }
 
   protected def iri_method: GenM[Unit] =
@@ -1434,17 +1478,17 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _schema_web_validation_hints_expr(p: Attribute): Option[String] = {
     val args = p.constraints.flatMap { c =>
       c.name match {
-        case "min_length" | "minLength" | "min-length" =>
+        case "min_length" | "minLength" | "min-length" if _is_text_constraint_type(p.typeName) =>
           Some(s"minLength = Some(${c.literal})")
-        case "max_length" | "maxLength" | "max-length" =>
+        case "max_length" | "maxLength" | "max-length" if _is_text_constraint_type(p.typeName) =>
           Some(s"maxLength = Some(${c.literal})")
-        case "min" =>
+        case "min" if _is_numeric_constraint_type(p.typeName) =>
           Some(s"min = Some(${_schema_web_decimal_expr(c.literal)})")
-        case "max" =>
+        case "max" if _is_numeric_constraint_type(p.typeName) =>
           Some(s"max = Some(${_schema_web_decimal_expr(c.literal)})")
-        case "step" =>
+        case "step" if _is_numeric_constraint_type(p.typeName) =>
           Some(s"step = Some(${_schema_web_decimal_expr(c.literal)})")
-        case "pattern" | "regex" =>
+        case "pattern" | "regex" if _is_text_constraint_type(p.typeName) =>
           Some(s"pattern = Some(${_scala_string_literal(c.value.toString)})")
         case _ =>
           None

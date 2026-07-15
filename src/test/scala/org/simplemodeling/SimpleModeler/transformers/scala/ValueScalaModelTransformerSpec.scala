@@ -4,7 +4,7 @@ import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.goldenport.values.Designation
-import org.goldenport.record.v2.{XRecordInstance, XString}
+import org.goldenport.record.v2.{XInt, XRecordInstance, XString}
 import org.smartdox.Description
 import org.simplemodeling.model._
 import org.simplemodeling.model.domain.{MDomainResource, MDomainValue}
@@ -211,6 +211,70 @@ final class ValueScalaModelTransformerSpec
       )
     }
 
+    "generate numeric range validation only for numeric values" in {
+      Given("an integer value constrained by a numeric range")
+      val value = MDomainValue(
+        description = Description.name("Quantity"),
+        affiliation = MPackageRef("domain.value"),
+        stereotypes = Nil,
+        base = None,
+        traits = Nil,
+        powertypes = Nil,
+        attributes = List(
+          MAttribute(
+            Designation("value"),
+            MDataType(XInt),
+            MOne,
+            List(constraint("min", 1), constraint("max", 10)),
+            None
+          )
+        ),
+        operations = Nil
+      )
+
+      When("the Scala source family is generated")
+      val source = new Scala3ValueFamilyGenerator().generate(value).take.slots.head.content
+
+      Then("the generated validation compares numeric values and never treats them as text")
+      source should include(
+        """require(BigDecimal(value.toString) >= BigDecimal("1"), "value must be >= 1")"""
+      )
+      source should include(
+        """require(BigDecimal(value.toString) <= BigDecimal("10"), "value must be <= 10")"""
+      )
+      source should not include "_text_constraint_values(value)"
+    }
+
+    "reject numeric range constraints on text values" in {
+      Given("a string value incorrectly constrained with numeric min")
+      val value = MDomainValue(
+        description = Description.name("InvalidTextRange"),
+        affiliation = MPackageRef("domain.value"),
+        stereotypes = Nil,
+        base = None,
+        traits = Nil,
+        powertypes = Nil,
+        attributes = List(
+          MAttribute(
+            Designation("value"),
+            MDataType.string,
+            MOne,
+            List(constraint("min", 1)),
+            None
+          )
+        ),
+        operations = Nil
+      )
+
+      When("the Scala source family is generated")
+      val failure = the[RuntimeException] thrownBy {
+        new Scala3ValueFamilyGenerator().generate(value).take
+      }
+
+      Then("generation explains that text requires length constraints")
+      failure.getMessage should include("use min-length/max-length for text")
+    }
+
     "resolve short entity references to the generated entity package" in {
       Given("an entity and a value containing a short repeated reference to it")
       val account = MDomainResource(
@@ -352,4 +416,10 @@ final class ValueScalaModelTransformerSpec
       source should include("\"end\" -> _to_data_store_value(end)")
     }
   }
+
+  private def constraint(constraintName: String, constraintValue: Any): MConstraint =
+    new MConstraint {
+      override def name: String = constraintName
+      override def value: Any = constraintValue
+    }
 }
