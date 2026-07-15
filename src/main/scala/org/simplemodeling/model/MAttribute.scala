@@ -32,7 +32,8 @@ import org.simplemodeling.parser.SimpleModelParser
  *  version Feb. 10, 2026
  *  version Mar. 19, 2026
  *  version Apr. 19, 2026
- * @version May.  8, 2026
+ *  version May.  8, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 case class MAttribute(
@@ -70,7 +71,7 @@ object MAttribute {
     val confidentiality = _string_value_flexible(p, Seq("confidentiality", "confidentiality-level", "confidentialityLevel", "security-level", "securityLevel"))
     val constraints = p.getStringCaseInsensitive(config.constraintNames).
       map(MConstraint.create).
-      toList ++ web.validationConstraints
+      toList
     val derived = _string_value_flexible(p, config.derivedNames.list).orElse(
       p.getStringCaseInsensitive(config.derivedNames).map(_.trim).filterNot(_.isEmpty)
     ).orElse(
@@ -106,24 +107,8 @@ object MAttribute {
     help: Option[String] = None,
     required: Option[Boolean] = None,
     hidden: Option[Boolean] = None,
-    readonly: Option[Boolean] = None,
-    minLength: Option[String] = None,
-    maxLength: Option[String] = None,
-    min: Option[String] = None,
-    max: Option[String] = None,
-    step: Option[String] = None,
-    pattern: Option[String] = None
-  ) {
-    def validationConstraints: List[MConstraint] =
-      List(
-        minLength.map(LiteralConstraint("min_length", _)),
-        maxLength.map(LiteralConstraint("max_length", _)),
-        min.map(LiteralConstraint("min", _)),
-        max.map(LiteralConstraint("max", _)),
-        step.map(LiteralConstraint("step", _)),
-        pattern.map(LiteralConstraint("pattern", _))
-      ).flatten
-  }
+    readonly: Option[Boolean] = None
+  )
   object Web {
     val empty: Web = Web()
 
@@ -135,13 +120,7 @@ object MAttribute {
         help = _string_value_flexible(p, Seq("web-help", "webHelp")),
         required = _boolean_value_flexible(p, Seq("web-required", "webRequired")),
         hidden = _boolean_value_flexible(p, Seq("web-hidden", "webHidden")),
-        readonly = _boolean_value_flexible(p, Seq("web-readonly", "webReadonly", "web-read-only", "webReadOnly")),
-        minLength = _string_value_flexible(p, Seq("web-min-length", "webMinLength")),
-        maxLength = _string_value_flexible(p, Seq("web-max-length", "webMaxLength")),
-        min = _string_value_flexible(p, Seq("web-min", "webMin")),
-        max = _string_value_flexible(p, Seq("web-max", "webMax")),
-        step = _string_value_flexible(p, Seq("web-step", "webStep")),
-        pattern = _string_value_flexible(p, Seq("web-pattern", "webPattern", "web-regex", "webRegex"))
+        readonly = _boolean_value_flexible(p, Seq("web-readonly", "webReadonly", "web-read-only", "webReadOnly"))
       )
   }
 

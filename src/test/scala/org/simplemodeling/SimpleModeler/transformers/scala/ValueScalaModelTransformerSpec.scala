@@ -15,10 +15,10 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3ValueFamilyGenera
 /*
  * @since   Mar. 25, 2026
  *  version May. 23, 2026
- * @version Jul. 13, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
-class ValueScalaModelTransformerSpec
+final class ValueScalaModelTransformerSpec
     extends AnyWordSpec
     with Matchers
     with GivenWhenThen {
@@ -147,8 +147,12 @@ class ValueScalaModelTransformerSpec
             MOne,
             List(
               new MConstraint {
-                override def name: String = "min"
-                override def value: Any = 1
+                override def name: String = "min_length"
+                override def value: Any = 2
+              },
+              new MConstraint {
+                override def name: String = "max_length"
+                override def value: Any = 12
               },
               new MConstraint {
                 override def name: String = "pattern"
@@ -184,13 +188,26 @@ class ValueScalaModelTransformerSpec
       generated.parameterSequence.parameters.head.typeName.fullName shouldBe "String"
       generated.parameterSequence.parameters.head.constraints.map(c =>
         s"${c.name}=${c.literal}"
-      ) should contain allOf ("min=1", "pattern=^[A-Z]+$")
+      ) should contain allOf (
+        "min_length=2",
+        "max_length=12",
+        "pattern=^[A-Z]+$"
+      )
       source should include("private def validate(): Unit = {")
       source should include(
-        """require(BigDecimal(code.toString) >= BigDecimal("1"), "code must be >= 1")"""
+        """require(_text_constraint_values(code).forall(_.length >= 2), "code entries must have length >= 2")"""
       )
       source should include(
-        """require(code == null || code.toString.matches("^[A-Z]+$"), "code must match ^[A-Z]+$")"""
+        """require(_text_constraint_values(code).forall(_.length <= 12), "code entries must have length <= 12")"""
+      )
+      source should include(
+        "case x: org.goldenport.datatype.I18nTitle => x.toI18nString.entries.toVector.map(_._2)"
+      )
+      source should include(
+        "case x: org.goldenport.value.ContentBody => Vector(x.value)"
+      )
+      source should include(
+        """require(_text_constraint_values(code).forall(_.matches("^[A-Z]+$")), "code entries must match ^[A-Z]+$")"""
       )
     }
 

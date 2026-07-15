@@ -12,7 +12,8 @@ import org.goldenport.record.v2
  *  version Nov.  4, 2019
  *  version Jan.  5, 2020
  *  version Mar. 25, 2026
- * @version Apr. 19, 2026
+ *  version Apr. 19, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MConstraint {
@@ -22,8 +23,8 @@ trait MConstraint {
 
 case class RConstraint(constraint: v2.Constraint) extends MConstraint {
   override lazy val name: String = constraint match {
-    case _: v2.CMaxLength => "max"
-    case _: v2.CMinLength => "min"
+    case _: v2.CMaxLength => "max_length"
+    case _: v2.CMinLength => "min_length"
     case _: v2.CRegex => "pattern"
     case m => m.label
   }

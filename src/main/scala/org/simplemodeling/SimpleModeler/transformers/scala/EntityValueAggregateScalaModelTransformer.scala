@@ -10,7 +10,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Mar. 17, 2026
  *  version Mar. 30, 2026
  *  version Apr.  2, 2026
- * @version May. 22, 2026
+ *  version May. 22, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -101,7 +102,9 @@ class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaMo
       case m: SCaseClass if _is_simple_entity_parent(m.core.parentClass) =>
         val params = m.core.parameterSequence.parameters
         val idparam = params.find(_.name.name == "id").getOrElse(_id_parameter())
-        val ownparams = params.filterNot(x => _inherited_simple_entity_keys.contains(x.name.name))
+        val (inheritedparams, ownparams) =
+          params.filterNot(_.name.name == "id").partition(x => _inherited_simple_entity_keys.contains(x.name.name))
+        val schemaattrs = ParameterSequence(inheritedparams).distillAttributes.attributes
         val compositeparams = Vector(
           _simple_object_parameter("nameAttributes", "NameAttributes"),
           _simple_object_parameter("descriptiveAttributes", "DescriptiveAttributes"),
@@ -115,7 +118,8 @@ class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaMo
           _simple_object_parameter("contextualAttribute", "ContextualAttributes")
         )
         val normalized = ParameterSequence(idparam +: (compositeparams ++ ownparams))
-        m.copy(core = m.core.copy(parameterSequence = normalized))
+        val directive = m.core.directive.withSchemaAttributes(schemaattrs)
+        m.copy(core = m.core.copy(parameterSequence = normalized, directive = directive))
       case _ =>
         p
     }
@@ -146,6 +150,14 @@ class EntityValueAggregateScalaModelTransformer() extends EntityCaseClassScalaMo
     "id",
     "name",
     "title",
+    "headline",
+    "brief",
+    "summary",
+    "description",
+    "lead",
+    "abstract",
+    "remarks",
+    "tooltip",
     "contentAttributes",
     "content"
   )

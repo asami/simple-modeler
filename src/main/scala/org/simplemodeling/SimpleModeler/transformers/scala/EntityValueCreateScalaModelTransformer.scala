@@ -12,9 +12,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  *  version Sep. 23, 2025
  *  version Feb. 27, 2026
  *  version Mar. 24, 2026
- *  version Sep. 23, 2025
- *  version Feb. 27, 2026
- * @version May. 22, 2026
+ *  version May. 22, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -71,7 +70,9 @@ class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModel
       case m: SCaseClass if _is_simple_entity_create_parent(m.core.parentClass) =>
         val params = m.core.parameterSequence.parameters
         val idparam = params.find(_.name.name == "id").getOrElse(_id_parameter())
-        val ownparams = params.filterNot(x => _inherited_simple_entity_keys.contains(x.name.name))
+        val (inheritedparams, ownparams) =
+          params.filterNot(_.name.name == "id").partition(x => _inherited_simple_entity_keys.contains(x.name.name))
+        val schemaattrs = ParameterSequence(inheritedparams).distillAttributes.attributes
         val compositeparams = Vector(
           _simple_object_parameter("nameAttributes", "NameAttributes"),
           _simple_object_parameter("descriptiveAttributes", "DescriptiveAttributes"),
@@ -85,7 +86,8 @@ class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModel
           _simple_object_parameter("contextualAttribute", "ContextualAttributes")
         )
         val normalized = ParameterSequence(idparam +: (compositeparams ++ ownparams))
-        m.copy(core = m.core.copy(parameterSequence = normalized))
+        val directive = m.core.directive.withSchemaAttributes(schemaattrs)
+        m.copy(core = m.core.copy(parameterSequence = normalized, directive = directive))
       case _ =>
         p
     }
@@ -116,6 +118,14 @@ class EntityValueCreateScalaModelTransformer() extends EntityCaseClassScalaModel
     "id",
     "name",
     "title",
+    "headline",
+    "brief",
+    "summary",
+    "description",
+    "lead",
+    "abstract",
+    "remarks",
+    "tooltip",
     "contentAttributes",
     "content"
   )

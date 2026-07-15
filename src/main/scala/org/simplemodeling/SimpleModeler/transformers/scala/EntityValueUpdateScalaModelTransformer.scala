@@ -12,9 +12,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  *  version Sep. 23, 2025
  *  version Feb. 18, 2026
  *  version Mar. 24, 2026
- *  version Sep. 23, 2025
- *  version Feb. 18, 2026
- * @version May. 22, 2026
+ *  version May. 22, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -41,7 +40,7 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
 
   override protected def to_parameter(p: MAttribute): Parameter = {
     val t = _update_type(to_typename(p))
-    Parameter(ParameterName(p.name), t, true, false, web = to_web_attribute(p), confidentiality = p.confidentiality)
+    super.to_parameter(p).copy(typeName = t)
   }
 
   private def _is_id_attribute(p: MAttribute): Boolean =
@@ -69,7 +68,9 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
       case m: SCaseClass if _is_simple_entity_update_parent(m.core.parentClass) =>
         val params = m.core.parameterSequence.parameters
         val idparam = params.find(_.name.name == "id").getOrElse(_id_parameter())
-        val ownparams = params.filterNot(x => _inherited_simple_entity_keys.contains(x.name.name))
+        val (inheritedparams, ownparams) =
+          params.filterNot(_.name.name == "id").partition(x => _inherited_simple_entity_keys.contains(x.name.name))
+        val schemaattrs = ParameterSequence(inheritedparams).distillAttributes.attributes
         val compositeparams = Vector(
           _simple_object_parameter("nameAttributes", "NameAttributesUpdate"),
           _simple_object_parameter("descriptiveAttributes", "DescriptiveAttributesUpdate"),
@@ -83,7 +84,8 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
           _simple_object_parameter("contextualAttribute", "ContextualAttributesUpdate")
         )
         val normalized = ParameterSequence(idparam +: (compositeparams ++ ownparams))
-        m.copy(core = m.core.copy(parameterSequence = normalized))
+        val directive = m.core.directive.withSchemaAttributes(schemaattrs)
+        m.copy(core = m.core.copy(parameterSequence = normalized, directive = directive))
       case _ =>
         p
     }
@@ -117,6 +119,14 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
     "id",
     "name",
     "title",
+    "headline",
+    "brief",
+    "summary",
+    "description",
+    "lead",
+    "abstract",
+    "remarks",
+    "tooltip",
     "contentAttributes",
     "content"
   )

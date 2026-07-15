@@ -324,7 +324,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _has_validate_method: Boolean =
-    clazz.parameterSequence.parameters.exists(_.constraints.nonEmpty)
+    clazz.parameterSequence.parameters.exists(_.constraints.nonEmpty) ||
+      clazz.directive.schemaAttributes.exists(_.constraints.nonEmpty)
 
   protected def section_import_in_class: GenM[Unit] =
     println(s"import ${clazz.className}.*")
@@ -412,11 +413,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     // }
 
   protected def validate_method: GenM[Unit] =
-    if (clazz.parameterSequence.parameters.exists(_.constraints.nonEmpty)) {
+    if (_has_validate_method) {
       for {
+        _ <- if (_has_text_value_constraint) _text_constraint_values_method else unit
         _ <- println("private def validate(): Unit = {")
         _ <- indent
         _ <- clazz.parameterSequence.parameters.traverse_(_validate_parameter)
+        _ <- clazz.directive.schemaAttributes.traverse_(_validate_schema_attribute)
         _ <- outdent
         _ <- println("}")
         _ <- println()
@@ -426,40 +429,115 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       println("// validate_method")
     }
 
+  private def _has_text_value_constraint: Boolean =
+    _validation_constraints.exists { constraint =>
+      constraint.name.trim match {
+        case "min_length" | "minLength" | "min-length" => true
+        case "max_length" | "maxLength" | "max-length" => true
+        case "pattern" | "format" => true
+        case _ => false
+      }
+    }
+
+  private def _validation_constraints: Vector[org.simplemodeling.SimpleModeler.transformer.maker.PConstraint] =
+    clazz.parameterSequence.parameters.flatMap(_.constraints) ++
+      clazz.directive.schemaAttributes.flatMap(_.constraints)
+
+  private def _text_constraint_values_method: GenM[Unit] =
+    for {
+      _ <- println("private def _text_constraint_values(value: Any): Vector[String] =")
+      _ <- indent
+      _ <- println("if (value.asInstanceOf[AnyRef] eq null)")
+      _ <- indent
+      _ <- println("Vector.empty")
+      _ <- outdent
+      _ <- println("else value match {")
+      _ <- indent
+      _ <- println("case x: Option[?] => x.fold(Vector.empty[String])(_text_constraint_values)")
+      _ <- println("case x: org.simplemodeling.model.directive.Update[?] => x.fold(Vector.empty, _text_constraint_values, Vector.empty)")
+      _ <- println("case xs: cats.data.NonEmptyVector[?] => xs.toVector.flatMap(_text_constraint_values)")
+      _ <- println("case xs: Iterable[?] => xs.iterator.flatMap(_text_constraint_values).toVector")
+      _ <- println("case x: String => Vector(x)")
+      _ <- println("case x: org.goldenport.datatype.StringDataType => Vector(x.value)")
+      _ <- println("case x: org.goldenport.value.ContentBody => Vector(x.value)")
+      _ <- println("case x: org.goldenport.datatype.I18nString => x.entries.toVector.map(_._2)")
+      _ <- println("case x: org.goldenport.datatype.I18nLabel => x.toI18nString.entries.toVector.map(_._2)")
+      _ <- println("case x: org.goldenport.datatype.I18nTitle => x.toI18nString.entries.toVector.map(_._2)")
+      _ <- println("case x: org.goldenport.datatype.I18nBrief => x.toI18nString.entries.toVector.map(_._2)")
+      _ <- println("case x: org.goldenport.datatype.I18nSummary => x.toI18nString.entries.toVector.map(_._2)")
+      _ <- println("case x: org.goldenport.datatype.I18nDescription => x.toI18nString.entries.toVector.map(_._2)")
+      _ <- println("case x: org.goldenport.datatype.I18nText => x.toI18nString.entries.toVector.map(_._2)")
+      _ <- println("case x: org.goldenport.datatype.I18nMessage => x.entries.toVector.map(_._2)")
+      _ <- println("case x => throw new IllegalArgumentException(s\"Unsupported text length constraint value: $${x.getClass.getName}\")")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println()
+    } yield ()
+
   private def _validate_parameter(p: Parameter): GenM[Unit] = {
     if (p.constraints.isEmpty)
       unit
     else {
       p.constraints.traverse_ { c =>
-        println(_validate_constraint_expr(p, c))
+        println(_validate_constraint_expr(p.name.name, p.name.name, c))
       }
     }
   }
 
-  private def _validate_constraint_expr(p: Parameter, c: org.simplemodeling.SimpleModeler.transformer.maker.PConstraint): String = {
+  private def _validate_schema_attribute(p: Attribute): GenM[Unit] =
+    p.constraints.traverse_ { constraint =>
+      println(_validate_constraint_expr(p.name.name, _schema_attribute_reference(p.name.name), constraint))
+    }
+
+  private def _schema_attribute_reference(name: String): String =
+    name match {
+      case "name" => "nameAttributes.name"
+      case "label" => "nameAttributes.label"
+      case "title" => "nameAttributes.title"
+      case "headline" => "descriptiveAttributes.headline"
+      case "brief" => "descriptiveAttributes.brief"
+      case "summary" => "descriptiveAttributes.summary"
+      case "description" => "descriptiveAttributes.description"
+      case "lead" => "descriptiveAttributes.lead"
+      case "abstract" => "descriptiveAttributes.`abstract`"
+      case "remarks" => "descriptiveAttributes.remarks"
+      case "tooltip" => "descriptiveAttributes.tooltip"
+      case "content" => "contentAttributes.content"
+      case _ => _class_constructor_parameter_name(name)
+    }
+
+  private def _validate_constraint_expr(
+    label: String,
+    ref: String,
+    c: org.simplemodeling.SimpleModeler.transformer.maker.PConstraint
+  ): String = {
     val name = c.name.trim
     val value = c.literal match {
       case s if s.length >= 2 && s.head == '"' && s.last == '"' => s.substring(1, s.length - 1)
       case s => s
     }
-    val ref = p.name.name
     def _escape_scala_string(s: String): String =
       s.replace("\\", "\\\\").replace("\"", "\\\"")
     name match {
+      case "min_length" | "minLength" | "min-length" =>
+        s"""require(_text_constraint_values($ref).forall(_.length >= $value), "$label entries must have length >= $value")"""
+      case "max_length" | "maxLength" | "max-length" =>
+        s"""require(_text_constraint_values($ref).forall(_.length <= $value), "$label entries must have length <= $value")"""
       case "min" =>
-        s"""require(BigDecimal($ref.toString) >= BigDecimal("$value"), "$ref must be >= $value")"""
+        s"""require(BigDecimal($ref.toString) >= BigDecimal("$value"), "$label must be >= $value")"""
       case "max" =>
-        s"""require(BigDecimal($ref.toString) <= BigDecimal("$value"), "$ref must be <= $value")"""
+        s"""require(BigDecimal($ref.toString) <= BigDecimal("$value"), "$label must be <= $value")"""
       case "pattern" =>
         val escaped = _escape_scala_string(value)
         val normalized = if (escaped == "^A-Z{2}$") "^[A-Z]{2}$" else escaped
-        s"""require($ref == null || $ref.toString.matches("$normalized"), "$ref must match $normalized")"""
+        s"""require(_text_constraint_values($ref).forall(_.matches("$normalized")), "$label entries must match $normalized")"""
       case "format" =>
         value.toLowerCase(java.util.Locale.ROOT) match {
           case "email" =>
-            s"""require($ref == null || $ref.toString.matches("^[^@\\s]+@[^@\\s]+\\\\.[^@\\s]+$$"), "$ref must be a valid email")"""
+            s"""require(_text_constraint_values($ref).forall(_.matches("^[^@\\s]+@[^@\\s]+\\\\.[^@\\s]+$$")), "$label entries must be valid email values")"""
           case "uri" =>
-            s"""require($ref == null || scala.util.Try(java.net.URI.create($ref.toString)).isSuccess, "$ref must be a valid URI")"""
+            s"""require(_text_constraint_values($ref).forall(x => scala.util.Try(java.net.URI.create(x)).isSuccess), "$label entries must be valid URI values")"""
           case _ =>
             s"// unsupported format constraint: ${c.name}=${c.literal}"
         }
@@ -1325,7 +1403,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _schema_web_column_expr(p: Attribute): String = {
     val web = _schema_effective_web_attribute(p)
-    if (web.isEmpty)
+    val validation = _schema_web_validation_hints_expr(p)
+    if (web.isEmpty && validation.isEmpty)
       "org.goldenport.schema.WebColumn.empty"
     else {
       val args = Vector(
@@ -1338,7 +1417,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _option_when(web.multiple, "multiple = true"),
         web.placeholder.map(x => s"placeholder = Some(${_scala_string_literal(x)})"),
         web.help.map(x => s"help = Some(${_scala_string_literal(x)})"),
-        _schema_web_validation_hints_expr(p).map(x => s"validation = ${x}"),
+        validation.map(x => s"validation = ${x}"),
         web.confidentiality.map(x => s"confidentiality = ${_schema_confidentiality_expr(Some(x))}")
       ).flatten
       s"org.goldenport.schema.WebColumn(${args.mkString(", ")})"
@@ -1353,16 +1432,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }.getOrElse("org.goldenport.schema.DataConfidentiality.Public")
 
   private def _schema_web_validation_hints_expr(p: Attribute): Option[String] = {
-    val stringlike = p.typeName.contentType.isString
     val args = p.constraints.flatMap { c =>
       c.name match {
         case "min_length" | "minLength" | "min-length" =>
           Some(s"minLength = Some(${c.literal})")
         case "max_length" | "maxLength" | "max-length" =>
-          Some(s"maxLength = Some(${c.literal})")
-        case "min" if stringlike =>
-          Some(s"minLength = Some(${c.literal})")
-        case "max" if stringlike =>
           Some(s"maxLength = Some(${c.literal})")
         case "min" =>
           Some(s"min = Some(${_schema_web_decimal_expr(c.literal)})")

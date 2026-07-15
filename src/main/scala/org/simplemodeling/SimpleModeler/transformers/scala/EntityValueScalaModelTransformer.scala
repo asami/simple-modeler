@@ -10,7 +10,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Sep. 19, 2025
  *  version Sep. 23, 2025
  *  version Mar. 24, 2026
- * @version May. 22, 2026
+ *  version May. 22, 2026
+ * @version Jul. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -94,6 +95,14 @@ class EntityValueScalaModelTransformer() extends EntityCaseClassScalaModelTransf
     "id",
     "name",
     "title",
+    "headline",
+    "brief",
+    "summary",
+    "description",
+    "lead",
+    "abstract",
+    "remarks",
+    "tooltip",
     "contentAttributes",
     "content"
   )
