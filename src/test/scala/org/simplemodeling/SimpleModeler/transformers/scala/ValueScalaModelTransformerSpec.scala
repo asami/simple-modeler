@@ -245,6 +245,44 @@ final class ValueScalaModelTransformerSpec
       source should not include "_text_constraint_values(value)"
     }
 
+    "enforce inherited predefined text constraints at the generated value boundary" in {
+      Given("a locale-aware text value with inherited catalog constraints")
+      val value = MDomainValue(
+        description = Description.name("Narrative"),
+        affiliation = MPackageRef("domain.value"),
+        stereotypes = Nil,
+        base = None,
+        traits = Nil,
+        powertypes = Nil,
+        attributes = List(
+          MAttribute(
+            Designation("body"),
+            MObjectAttributeType(MObjectRef.create("org.goldenport.datatype.I18nText")),
+            MOne,
+            Nil,
+            None,
+            typeConstraints = List(
+              _constraint("min_length", 1),
+              _constraint("max_length", 8192)
+            )
+          )
+        ),
+        operations = Nil
+      )
+
+      When("the Scala source family is generated")
+      val source = new Scala3ValueFamilyGenerator().generate(value).take.slots.head.content
+
+      Then("the constructor validates every I18nText locale entry")
+      source should include("private def validate(): Unit = {")
+      source should include(
+        """require(_text_constraint_values(body).forall(_.length >= 1), "body entries must have length >= 1")"""
+      )
+      source should include(
+        """require(_text_constraint_values(body).forall(_.length <= 8192), "body entries must have length <= 8192")"""
+      )
+    }
+
     "escape predefined format regular expressions as Scala string literals" in {
       Given("email and E.164 phone attributes with canonical format constraints")
       val value = MDomainValue(

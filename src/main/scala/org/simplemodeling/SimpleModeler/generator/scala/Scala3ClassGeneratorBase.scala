@@ -340,8 +340,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _has_validate_method: Boolean =
-    clazz.parameterSequence.parameters.exists(_.constraints.nonEmpty) ||
-      clazz.directive.schemaAttributes.exists(_.constraints.nonEmpty)
+    clazz.parameterSequence.parameters.exists(p => _effective_validation_constraints(p.constraints, p.typeConstraints, p.typeName).nonEmpty) ||
+      clazz.directive.schemaAttributes.exists(p => _effective_validation_constraints(p.constraints, p.typeConstraints, p.typeName).nonEmpty)
 
   protected def section_import_in_class: GenM[Unit] =
     println(s"import ${clazz.className}.*")
@@ -456,8 +456,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _validation_constraints: Vector[org.simplemodeling.SimpleModeler.transformer.maker.PConstraint] =
-    clazz.parameterSequence.parameters.flatMap(_.constraints) ++
-      clazz.directive.schemaAttributes.flatMap(_.constraints)
+    clazz.parameterSequence.parameters.flatMap(p => _effective_validation_constraints(p.constraints, p.typeConstraints, p.typeName)) ++
+      clazz.directive.schemaAttributes.flatMap(p => _effective_validation_constraints(p.constraints, p.typeConstraints, p.typeName))
 
   private def _text_constraint_values_method: GenM[Unit] =
     for {
@@ -496,18 +496,40 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } yield ()
 
   private def _validate_parameter(p: Parameter): GenM[Unit] = {
-    if (p.constraints.isEmpty)
+    val constraints = _effective_validation_constraints(p.constraints, p.typeConstraints, p.typeName)
+    if (constraints.isEmpty)
       unit
     else {
-      p.constraints.traverse_ { c =>
+      constraints.traverse_ { c =>
         println(_validate_constraint_expr(p.name.name, p.name.name, p.typeName, c))
       }
     }
   }
 
   private def _validate_schema_attribute(p: Attribute): GenM[Unit] =
-    p.constraints.traverse_ { constraint =>
+    _effective_validation_constraints(p.constraints, p.typeConstraints, p.typeName).traverse_ { constraint =>
       println(_validate_constraint_expr(p.name.name, _schema_attribute_reference(p.name.name), p.typeName, constraint))
+    }
+
+  private def _effective_validation_constraints(
+    declared: Vector[org.simplemodeling.SimpleModeler.transformer.maker.PConstraint],
+    inherited: Vector[org.simplemodeling.SimpleModeler.transformer.maker.PConstraint],
+    typename: TypeName
+  ): Vector[org.simplemodeling.SimpleModeler.transformer.maker.PConstraint] = {
+    val declaredkeys = declared.map(x => _schema_constraint_key(x.name)).toSet
+    declared ++ inherited
+      .filter(_is_validation_constraint_applicable(_, typename))
+      .filterNot(x => declaredkeys.contains(_schema_constraint_key(x.name)))
+  }
+
+  private def _is_validation_constraint_applicable(
+    constraint: org.simplemodeling.SimpleModeler.transformer.maker.PConstraint,
+    typename: TypeName
+  ): Boolean =
+    _schema_constraint_key(constraint.name) match {
+      case "min-length" | "max-length" | "pattern" | "format" => _is_text_constraint_type(typename)
+      case "min" | "max" => _is_numeric_constraint_type(typename)
+      case _ => true
     }
 
   private def _schema_attribute_reference(name: String): String =
