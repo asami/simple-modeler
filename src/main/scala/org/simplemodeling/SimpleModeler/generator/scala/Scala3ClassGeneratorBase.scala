@@ -605,7 +605,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   private def _is_numeric_constraint_type(p: TypeName): Boolean = {
-    val datatype = _schema_datatype_expr(p)
+    val datatype = schema_datatype_expr(p)
     Vector(
       "XInt",
       "XLong",
@@ -1522,8 +1522,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println(s"""baseContent = org.simplemodeling.model.value.BaseContent.simple("${p.name.name}"),""")
       _ <- println("domain = org.goldenport.schema.ValueDomain(")
       _ <- indent
-      _ <- println(s"datatype = ${_schema_datatype_expr(p.typeName)},")
-      _ <- println(s"multiplicity = ${_schema_multiplicity_expr(p.typeName)}")
+      _ <- println(s"datatype = ${schema_datatype_expr(p.typeName)},")
+      _ <- println(s"multiplicity = ${schema_multiplicity_expr(p.typeName)}")
       _ <- outdent
       _ <- println("),")
       _ <- p.label match {
@@ -1557,6 +1557,32 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       ).flatten
       s"org.goldenport.schema.WebColumn(${args.mkString(", ")})"
     }
+  }
+
+  protected final def schema_web_column_expr(p: Parameter): String = {
+    val required = schema_parameter_multiplicity_expr(p) match {
+      case "org.goldenport.schema.Multiplicity.ZeroOne" | "org.goldenport.schema.Multiplicity.ZeroMore" => false
+      case _ => true
+    }
+    val web = p.web.copy(
+      required = Some(required),
+      confidentiality = p.web.confidentiality.orElse(p.confidentiality)
+    )
+    _schema_web_column_expr(
+      Attribute(
+        name = AttributeName(p.name.name),
+        typeName = p.typeName,
+        label = p.label,
+        dbColumnName = p.dbColumnName,
+        dbColumnType = p.dbColumnType,
+        externalName = p.externalName,
+        derived = p.derived,
+        web = web,
+        constraints = p.constraints,
+        confidentiality = p.confidentiality.orElse(p.web.confidentiality),
+        typeConstraints = p.typeConstraints
+      )
+    )
   }
 
   private def _schema_confidentiality_expr(
@@ -1632,13 +1658,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     )
 
   private def _schema_default_required(p: TypeName): Boolean =
-    _schema_multiplicity_expr(p) match {
+    schema_multiplicity_expr(p) match {
       case "org.goldenport.schema.Multiplicity.ZeroOne" | "org.goldenport.schema.Multiplicity.ZeroMore" => false
       case _ => true
     }
 
   private def _schema_default_control_type(p: Attribute): Option[String] = {
-    val datatype = _schema_datatype_expr(p.typeName)
+    val datatype = schema_datatype_expr(p.typeName)
     val name = p.name.name.toLowerCase(java.util.Locale.ROOT)
     if (datatype.endsWith("XBoolean")) Some("checkbox")
     else if (datatype.endsWith("XInt") || datatype.endsWith("XLong") || datatype.endsWith("XFloat") || datatype.endsWith("XDouble") || datatype.endsWith("XInteger") || datatype.endsWith("XNonNegativeInteger") || datatype.endsWith("XPositiveInteger") || datatype.endsWith("XDecimal")) Some("number")
@@ -1648,7 +1674,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     else None
   }
 
-  private def _schema_datatype_expr(p: TypeName): String = {
+  protected final def schema_datatype_expr(p: TypeName): String = {
     val base = _schema_base_type(p)
     base match {
       case m: TypeName.Primitive => _schema_datatype_expr_by_name(m.datatype.name)
@@ -1694,6 +1720,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "charset" => s"${schema}XCharset"
       case "contentbody" | "content_body" => s"${schema}XContentBody"
       case "contentmarkup" | "content_markup" => s"${schema}XContentMarkup"
+      case "record" => named("record")
       case "date" => named("date")
       case "localdate" => named("localDate")
       case "time" => named("time")
@@ -1712,7 +1739,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     case m => m
   }
 
-  private def _schema_multiplicity_expr(p: TypeName): String = p match {
+  protected final def schema_multiplicity_expr(p: TypeName): String = p match {
     case m: TypeName.Container if m.isOption =>
       "org.goldenport.schema.Multiplicity.ZeroOne"
     case m: TypeName.Container if _is_non_empty_collection(m.container) =>
@@ -1722,6 +1749,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     case _ =>
       "org.goldenport.schema.Multiplicity.One"
   }
+
+  protected final def schema_parameter_multiplicity_expr(p: Parameter): String =
+    p.typeName match {
+      case m: TypeName.Container if m.isCollection => schema_multiplicity_expr(m)
+      case _ if !p.isRequired => "org.goldenport.schema.Multiplicity.ZeroOne"
+      case _ => schema_multiplicity_expr(p.typeName)
+    }
 
   private def _is_collection(p: TypeName): Boolean = p match {
     case m: TypeName.Plain =>

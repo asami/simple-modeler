@@ -1695,13 +1695,11 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
     private def _parameter_definition_expr(p: Parameter): String = {
       val name = _string_literal(p.name.name)
-      val multiplicity =
-        if (p.typeName.isRequired)
-          "org.goldenport.schema.Multiplicity.One"
-        else
-          "org.goldenport.schema.Multiplicity.ZeroOne"
+      val datatype = schema_datatype_expr(p.typeName)
+      val multiplicity = schema_parameter_multiplicity_expr(p)
+      val web = schema_web_column_expr(p)
       val confidentiality = _parameter_confidentiality_expr(p)
-      s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = org.goldenport.schema.XString, multiplicity = $multiplicity), web = org.goldenport.schema.WebColumn(confidentiality = $confidentiality), confidentiality = $confidentiality)"
+      s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = $datatype, multiplicity = $multiplicity), web = $web, confidentiality = $confidentiality)"
     }
 
     private def _parameter_confidentiality_expr(p: Parameter): String =
