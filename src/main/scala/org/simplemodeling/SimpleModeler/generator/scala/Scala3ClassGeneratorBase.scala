@@ -1805,6 +1805,26 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- outdent
       _ <- println("}")
       _ <- println()
+      _ <- println("private def _record_get_as_context_c[A](")
+      _ <- indent
+      _ <- println("record: Record,")
+      _ <- println("keys: List[String]")
+      _ <- outdent
+      _ <- println(")(using vr: org.goldenport.convert.ValueReader[A], ctx: org.goldenport.context.ExecutionContext): Consequence[Option[A]] = {")
+      _ <- indent
+      _ <- println("keys.foldLeft(Consequence.success(Option.empty[A])) { (z, key) =>")
+      _ <- indent
+      _ <- println("z.flatMap {")
+      _ <- indent
+      _ <- println("case s @ Some(_) => Consequence.success(s)")
+      _ <- println("case None => record.getAsContextC[A](key)")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("}")
+      _ <- println()
       _ <- println("private def _record_with_derived_target_aliases(")
       _ <- indent
       _ <- println("record: Record,")
@@ -1875,6 +1895,44 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("case Some(xs: Seq[?]) => decode_all(xs).map(Some(_))")
       _ <- println("case Some(xs: Array[?]) => decode_all(xs.toVector).map(Some(_))")
       _ <- println("case Some(other) => vr.readC(other).map(x => Some(Vector(x)))")
+      _ <- println("case None => Consequence.success(None)")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("}")
+      _ <- println()
+      _ <- println("private def _record_get_vector_as_context_c[A](")
+      _ <- indent
+      _ <- println("record: Record,")
+      _ <- println("keys: List[String]")
+      _ <- outdent
+      _ <- println(")(using vr: org.goldenport.convert.ValueReader[A], ctx: org.goldenport.context.ExecutionContext): Consequence[Option[Vector[A]]] = {")
+      _ <- indent
+      _ <- println("def decode_all(xs: Seq[?]): Consequence[Vector[A]] =")
+      _ <- indent
+      _ <- println("xs.foldLeft(Consequence.success(Vector.empty[A])) { (z, x) =>")
+      _ <- indent
+      _ <- println("z.flatMap(zs => vr.readContextC(x).map(a => zs :+ a))")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println("keys.foldLeft(Consequence.success(Option.empty[Vector[A]])) { (z, key) =>")
+      _ <- indent
+      _ <- println("z.flatMap {")
+      _ <- indent
+      _ <- println("case s @ Some(_) => Consequence.success(s)")
+      _ <- println("case None =>")
+      _ <- indent
+      _ <- println("record.getAny(key) match {")
+      _ <- indent
+      _ <- println("case Some(xs: Seq[?]) => decode_all(xs).map(Some(_))")
+      _ <- println("case Some(xs: Array[?]) => decode_all(xs.toVector).map(Some(_))")
+      _ <- println("case Some(other) => vr.readContextC(other).map(x => Some(Vector(x)))")
       _ <- println("case None => Consequence.success(None)")
       _ <- outdent
       _ <- println("}")
@@ -2874,6 +2932,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- print(TypeName.consequence(clazz).name)
         _ <- println(" = {")
         _ <- indent
+        _ <- println("def _record_get_as_c[A](record: Record, keys: List[String])(using vr: org.goldenport.convert.ValueReader[A]): Consequence[Option[A]] =")
+        _ <- indent
+        _ <- println("_record_get_as_context_c(record, keys)(using vr, ctx)")
+        _ <- outdent
+        _ <- println("def _record_get_vector_as_c[A](record: Record, keys: List[String])(using vr: org.goldenport.convert.ValueReader[A]): Consequence[Option[Vector[A]]] =")
+        _ <- indent
+        _ <- println("_record_get_vector_as_context_c(record, keys)(using vr, ctx)")
+        _ <- outdent
         _ <- _builder_buildc_method_body(_build_record_param_with_execution_context)
         _ <- outdent
         _ <- println("}")
