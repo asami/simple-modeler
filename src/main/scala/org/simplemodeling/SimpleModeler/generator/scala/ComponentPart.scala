@@ -11,7 +11,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Apr. 30, 2026
  *  version May. 15, 2026
  *  version Jun. 27, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -986,7 +986,11 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           x.help.map(v => s"help = Some(${_string_literal(v)})"),
           x.required.map(v => s"required = Some(${v})"),
           x.confidentiality.map(v => s"confidentiality = Some(${_string_literal(v)})"),
-          _operation_field_web_validation_hints_expr(x).map(v => s"validation = $v")
+          _operation_field_web_validation_hints_expr(x).map(v => s"validation = $v"),
+          x.update.map { update =>
+            val sourcemultiplicity = _string_literal(update.sourceMultiplicity)
+            s"update = Some(org.goldenport.cncf.operation.CmlOperationUpdateField(sourceMultiplicity = $sourcemultiplicity, nullAllowed = ${update.nullAllowed}))"
+          }
         ).flatten
         s"""org.goldenport.cncf.operation.CmlOperationField(${args.mkString(", ")})"""
       }.mkString("Vector(", ", ", ")")

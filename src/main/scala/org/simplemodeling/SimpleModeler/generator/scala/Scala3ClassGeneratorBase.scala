@@ -22,7 +22,7 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1805,6 +1805,20 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- outdent
       _ <- println("}")
       _ <- println()
+      _ <- println("private def _record_get_update_set_null[A](")
+      _ <- indent
+      _ <- println("record: Record,")
+      _ <- println("keys: List[String]")
+      _ <- outdent
+      _ <- println("): Option[org.simplemodeling.model.directive.Update[A]] =")
+      _ <- indent
+      _ <- println("keys.iterator.flatMap(record.getAny).collectFirst {")
+      _ <- indent
+      _ <- println("case _: org.simplemodeling.model.directive.Update.SetNull.type => org.simplemodeling.model.directive.Update.setNull[A]")
+      _ <- outdent
+      _ <- println("}")
+      _ <- outdent
+      _ <- println()
       _ <- println("private def _record_get_as_context_c[A](")
       _ <- indent
       _ <- println("record: Record,")
@@ -3539,6 +3553,24 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   private def _build_param_or_var_update(
+    p: Parameter,
+    container: TypeName.Container
+  ): GenM[Unit] = {
+    val keyname = input_keys_name(p.name.name)
+    for {
+      _ <- print("_record_get_update_set_null[", container.containee.fullName, "](record, ", keyname, ") match {")
+      _ <- println()
+      _ <- indent
+      _ <- println("case Some(s) => Consequence.success(s)")
+      _ <- print("case None => ")
+      _ <- _build_param_or_var_update_value(p, container)
+      _ <- println()
+      _ <- outdent
+      _ <- print("}")
+    } yield ()
+  }
+
+  private def _build_param_or_var_update_value(
     p: Parameter,
     container: TypeName.Container
   ): GenM[Unit] = {

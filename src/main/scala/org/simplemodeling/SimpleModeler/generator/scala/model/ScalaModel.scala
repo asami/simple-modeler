@@ -26,7 +26,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Mar. 31, 2026
  *  version Apr. 30, 2026
  *  version May.  8, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -1318,6 +1318,11 @@ object SComponent {
     condition: Option[String] = None
   )
 
+  final case class OperationUpdateField(
+    sourceMultiplicity: String,
+    nullAllowed: Boolean
+  )
+
   final case class OperationField(
     name: String,
     datatype: String,
@@ -1329,7 +1334,8 @@ object SComponent {
     required: Option[Boolean] = None,
     confidentiality: Option[String] = None,
     constraints: Vector[PConstraint] = Vector.empty,
-    typeConstraints: Vector[PConstraint] = Vector.empty
+    typeConstraints: Vector[PConstraint] = Vector.empty,
+    update: Option[OperationUpdateField] = None
   )
 
   final case class EntityRuntimeDescriptor(

@@ -10,7 +10,7 @@ import org.simplemodeling.model._
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
  *  version May.  8, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -401,6 +401,11 @@ object MComponent {
     condition: Option[String] = None
   )
 
+  final case class OperationUpdateField(
+    sourceMultiplicity: String,
+    nullAllowed: Boolean
+  )
+
   final case class OperationField(
     name: String,
     datatype: String,
@@ -412,7 +417,8 @@ object MComponent {
     required: Option[Boolean] = None,
     confidentiality: Option[String] = None,
     constraints: List[MConstraint] = Nil,
-    typeConstraints: List[MConstraint] = Nil
+    typeConstraints: List[MConstraint] = Nil,
+    update: Option[OperationUpdateField] = None
   )
 
   final case class EntityRuntimeDescriptor(
