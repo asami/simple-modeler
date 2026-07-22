@@ -11,7 +11,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
  *  version May. 22, 2026
- * @version Jul. 19, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -327,6 +327,28 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
               anonymousOperationModes = a.anonymousOperationModes
             )
           ),
+          evaluation = p.evaluation.map { e =>
+            SComponent.OperationEvaluation(
+              corpus = e.corpus.map { c =>
+                SComponent.CorpusOperationEvaluation(
+                  capture = c.capture,
+                  profile = c.profile,
+                  admission = c.admission,
+                  outcomes = c.outcomes,
+                  sampling = c.sampling,
+                  redaction = c.redaction
+                )
+              },
+              experiment = e.experiment.map { x =>
+                SComponent.ExperimentOperationEvaluation(
+                  eligible = x.eligible,
+                  purpose = x.purpose,
+                  admission = x.admission,
+                  variantProfile = x.variantProfile
+                )
+              }
+            )
+          },
           childEntityBindings = p.childEntityBindings.map { x =>
             SComponent.OperationChildEntityBinding(
               name = x.name,

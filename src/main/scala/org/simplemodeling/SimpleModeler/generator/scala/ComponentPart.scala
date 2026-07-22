@@ -11,7 +11,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Apr. 30, 2026
  *  version May. 15, 2026
  *  version Jun. 27, 2026
- * @version Jul. 19, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -643,6 +643,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     val operationAuthorization = _operation_authorization_expr(d.operationAuthorization)
     val childEntityBindings = _operation_child_entity_bindings_expr(d.childEntityBindings)
     val associationBinding = _operation_association_binding_expr(d.associationBinding)
+    val evaluation = _operation_evaluation_expr(d.evaluation)
     for {
       _ <- println("org.goldenport.cncf.operation.CmlOperationDefinition(")
       _ <- indent
@@ -669,11 +670,41 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"resultFields = ${_operation_fields_expr(d.resultFields)},")
       _ <- println(s"operationAuthorization = ${operationAuthorization},")
       _ <- println(s"childEntityBindings = ${childEntityBindings},")
-      _ <- println(s"associationBinding = ${associationBinding}")
+      _ <- println(s"associationBinding = ${associationBinding},")
+      _ <- println(s"evaluation = ${evaluation}")
       _ <- outdent
       _ <- println(")")
     } yield ()
   }
+
+  private def _operation_evaluation_expr(
+    p: Option[SComponent.OperationEvaluation]
+  ): String =
+    p.map { e =>
+      val corpus = e.corpus.map { c =>
+        val outcomes = c.outcomes.map(x => s"org.goldenport.cncf.operation.evaluation.OperationEvaluationOutcome.${_evaluation_outcome_name(x)}").mkString("Vector(", ", ", ")")
+        val sampling = c.sampling.map(x => s"Some(org.goldenport.cncf.operation.evaluation.OperationEvaluationName.unsafe(${_string_literal(x)}))").getOrElse("None")
+        val redaction = c.redaction.map(x => s"Some(org.goldenport.cncf.operation.evaluation.OperationEvaluationName.unsafe(${_string_literal(x)}))").getOrElse("None")
+        s"Some(org.goldenport.cncf.operation.evaluation.CmlCorpusEvaluationDeclaration(capture = org.goldenport.cncf.operation.evaluation.CorpusCaptureMode.${_enum_name(c.capture)}, profile = org.goldenport.cncf.operation.evaluation.OperationEvaluationName.unsafe(${_string_literal(c.profile)}), admission = org.goldenport.cncf.operation.evaluation.EvaluationAdmissionRequirement.${_enum_name(c.admission)}, outcomes = $outcomes, sampling = $sampling, redaction = $redaction))"
+      }.getOrElse("None")
+      val experiment = e.experiment.map { x =>
+        val variantprofile = x.variantProfile.map(v => s"Some(org.goldenport.cncf.operation.evaluation.OperationEvaluationName.unsafe(${_string_literal(v)}))").getOrElse("None")
+        s"Some(org.goldenport.cncf.operation.evaluation.CmlExperimentEvaluationDeclaration(eligible = ${x.eligible}, purpose = org.goldenport.cncf.operation.evaluation.OperationEvaluationName.unsafe(${_string_literal(x.purpose)}), admission = org.goldenport.cncf.operation.evaluation.EvaluationAdmissionRequirement.${_enum_name(x.admission)}, variantProfile = $variantprofile))"
+      }.getOrElse("None")
+      s"Some(org.goldenport.cncf.operation.evaluation.CmlOperationEvaluationDeclaration(corpus = $corpus, experiment = $experiment))"
+    }.getOrElse("None")
+
+  private def _enum_name(p: String): String =
+    p.trim.toLowerCase(java.util.Locale.ROOT).split("[-_]", -1).filter(_.nonEmpty).map(_.capitalize).mkString
+
+  private def _evaluation_outcome_name(p: String): String =
+    p.trim.toLowerCase(java.util.Locale.ROOT) match {
+      case "success" => "Success"
+      case "failure" => "Failure"
+      case "timeout" => "Timeout"
+      case "cancellation" => "Cancellation"
+      case x => throw new IllegalArgumentException(s"Unsupported operation evaluation outcome: $x")
+    }
 
   private def _relationship_definitions_method(
     defs: Vector[SComponent.RelationshipDefinition]

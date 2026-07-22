@@ -10,7 +10,7 @@ import org.simplemodeling.model._
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
  *  version May.  8, 2026
- * @version Jul. 19, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -379,13 +379,35 @@ object MComponent {
     resultFields: Vector[OperationField] = Vector.empty,
     operationAuthorization: Option[OperationAuthorization] = None,
     childEntityBindings: Vector[OperationChildEntityBinding] = Vector.empty,
-    associationBinding: Option[OperationAssociationBinding] = None
+    associationBinding: Option[OperationAssociationBinding] = None,
+    evaluation: Option[OperationEvaluation] = None
   )
 
   final case class OperationAuthorization(
     operationModes: Vector[String] = Vector.empty,
     allowAnonymous: Option[Boolean] = None,
     anonymousOperationModes: Vector[String] = Vector.empty
+  )
+
+  final case class OperationEvaluation(
+    corpus: Option[CorpusOperationEvaluation] = None,
+    experiment: Option[ExperimentOperationEvaluation] = None
+  )
+
+  final case class CorpusOperationEvaluation(
+    capture: String,
+    profile: String,
+    admission: String = "optional",
+    outcomes: Vector[String] = Vector.empty,
+    sampling: Option[String] = None,
+    redaction: Option[String] = None
+  )
+
+  final case class ExperimentOperationEvaluation(
+    eligible: Boolean,
+    purpose: String,
+    admission: String = "optional",
+    variantProfile: Option[String] = None
   )
 
   final case class OperationAccess(
