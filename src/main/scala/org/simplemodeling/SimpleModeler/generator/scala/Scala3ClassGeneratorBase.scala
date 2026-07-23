@@ -22,7 +22,7 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul. 19, 2026
+ * @version Jul. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -71,14 +71,14 @@ object Scala3ClassGeneratorBase {
 
 class Scala3ClassGeneratorExecutor[T <: SClassBase](
   context: ScalaModel.Context,
-  classKind: Scala3ClassGeneratorBase.ClassKind,
+  classkind: Scala3ClassGeneratorBase.ClassKind,
   val clazz: T
 ) extends ComponentPart[T] {
   import Scala3ClassGeneratorBase._
 
   protected final def scala_context = context
 
-  // protected final def is_entity = classKind match {
+  // protected final def is_entity = classkind match {
   //   case ClassKind.Entity => true
   //   case _ => false
   // }
@@ -86,8 +86,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected final def is_entity_value_create: Boolean =
     is_entity_value && clazz.directive.isCreate
 
-  protected final def is_value = classKind.isValue
-  protected final def is_entity_value = classKind.isEntityValue
+  protected final def is_value = classkind.isValue
+  protected final def is_entity_value = classkind.isEntityValue
   protected final def is_powertype =
     clazz.parentClass.exists {
       case TypeName.Plain(pkg, "Powertype", _) if pkg.name == "org.simplemodeling.model.powertype" => true
@@ -233,7 +233,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       List("EntityPersistableUpdate")
     else if (is_entity_value_create)
       List("EntityPersistableCreate")
-    else if (classKind == ClassKind.Component)
+    else if (classkind == ClassKind.Component)
       List("CollectionTransitionRuleProvider")
     else if (is_entity_value)
       List("EntityPersistable", "EntityDisplayable", "org.goldenport.record.RecordPresentable")
@@ -268,7 +268,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected def declare_derives: GenM[Unit] =
     if (is_nominal_scalar)
       unit
-    else classKind match { // TODO Eq
+    else classkind match { // TODO Eq
       case ClassKind.EntityValue if _is_codec_derives_supported =>
         print(" derives Codec.AsObject ") // Case class
       case ClassKind.Value if _is_codec_derives_supported =>
@@ -556,7 +556,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _validate_constraint_expr(
     label: String,
     ref: String,
-    typeName: TypeName,
+    typename: TypeName,
     c: org.simplemodeling.SimpleModeler.transformer.maker.PConstraint
   ): String = {
     val name = c.name.trim
@@ -566,21 +566,21 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
     def _escape_scala_string(s: String): String =
       s.replace("\\", "\\\\").replace("\"", "\\\"")
-    val textsubject = _text_constraint_subject(label, ref, typeName)
+    val textsubject = _text_constraint_subject(label, ref, typename)
     name match {
-      case "min_length" | "minLength" | "min-length" if _is_text_constraint_type(typeName) =>
+      case "min_length" | "minLength" | "min-length" if _is_text_constraint_type(typename) =>
         s"""require(_text_constraint_values($ref).forall(_.length >= $value), "$textsubject must have length >= $value")"""
-      case "max_length" | "maxLength" | "max-length" if _is_text_constraint_type(typeName) =>
+      case "max_length" | "maxLength" | "max-length" if _is_text_constraint_type(typename) =>
         s"""require(_text_constraint_values($ref).forall(_.length <= $value), "$textsubject must have length <= $value")"""
-      case "min" if _is_numeric_constraint_type(typeName) =>
+      case "min" if _is_numeric_constraint_type(typename) =>
         s"""require(BigDecimal($ref.toString) >= BigDecimal("$value"), "$label must be >= $value")"""
-      case "max" if _is_numeric_constraint_type(typeName) =>
+      case "max" if _is_numeric_constraint_type(typename) =>
         s"""require(BigDecimal($ref.toString) <= BigDecimal("$value"), "$label must be <= $value")"""
-      case "pattern" if _is_text_constraint_type(typeName) =>
+      case "pattern" if _is_text_constraint_type(typename) =>
         val escaped = _escape_scala_string(value)
         val normalized = if (escaped == "^A-Z{2}$") "^[A-Z]{2}$" else escaped
         s"""require(_text_constraint_values($ref).forall(_.matches("$normalized")), "$textsubject must match $normalized")"""
-      case "format" if _is_text_constraint_type(typeName) =>
+      case "format" if _is_text_constraint_type(typename) =>
         value.toLowerCase(java.util.Locale.ROOT) match {
           case "email" =>
             val regex = _escape_scala_string("""^[^@\s]+@[^@\s]+\.[^@\s]+$""")
@@ -596,9 +596,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
             s"// unsupported format constraint: ${c.name}=${c.literal}"
         }
       case "min_length" | "minLength" | "min-length" | "max_length" | "maxLength" | "max-length" | "pattern" | "format" =>
-        RAISE.syntaxErrorFault(s"Text constraint '${c.name}' is not valid for ${typeName.fullName} attribute '$label'.")
+        RAISE.syntaxErrorFault(s"Text constraint '${c.name}' is not valid for ${typename.fullName} attribute '$label'.")
       case "min" | "max" =>
-        RAISE.syntaxErrorFault(s"Numeric constraint '${c.name}' is not valid for ${typeName.fullName} attribute '$label'; use min-length/max-length for text.")
+        RAISE.syntaxErrorFault(s"Numeric constraint '${c.name}' is not valid for ${typename.fullName} attribute '$label'; use min-length/max-length for text.")
       case _ =>
         s"// unsupported constraint: ${c.name}=${c.literal}"
     }
@@ -748,10 +748,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println("def toDisplayRecord(view: String, fields: Vector[String]): Record = {")
         _ <- indent
         _ <- println("val source = toRecord()")
-        _ <- println("val sourceMap = source.asMap")
+        _ <- println("val sourcemap = source.asMap")
         _ <- println("val rows = fields.flatMap { field =>")
         _ <- indent
-        _ <- println("sourceMap.find { case (key, _) => _normalized_field_name(key) == _normalized_field_name(field) }.map { case (_, value) => field -> value }")
+        _ <- println("sourcemap.find { case (key, _) => _normalized_field_name(key) == _normalized_field_name(field) }.map { case (_, value) => field -> value }")
         _ <- outdent
         _ <- println("}")
         _ <- println("Record.dataAuto(rows*)")
@@ -3112,13 +3112,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     _builder_default_expression_raw(p.name.name) match {
       case Some(expr) =>
         val issecurity = p.toRawType.typeName.name == "SecurityAttributes"
-        val recordexpr = if (issecurity) "securityRecord" else "record"
+        val recordexpr = if (issecurity) "securityrecord" else "record"
         for {
           _ <- if (issecurity) {
             for {
               _ <- println("{")
               _ <- indent
-              _ <- println("val securityRecord = _record_with_derived_target_aliases(record, \"ownerId\", ", _record_keys_for_derived_target("ownerId"), ")")
+              _ <- println("val securityrecord = _record_with_derived_target_aliases(record, \"ownerId\", ", _record_keys_for_derived_target("ownerId"), ")")
             } yield ()
           } else unit
           _ <- print("_record_get_as_c[", p.toRawType.typeName.name, "](record, ", input_keys_name(p.name.name), ").flatMap {")
@@ -3141,13 +3141,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         } yield ()
       case None =>
         val issecurity = p.toRawType.typeName.name == "SecurityAttributes"
-        val recordexpr = if (issecurity) "securityRecord" else "record"
+        val recordexpr = if (issecurity) "securityrecord" else "record"
         for {
           _ <- if (issecurity) {
             for {
               _ <- println("{")
               _ <- indent
-              _ <- println("val securityRecord = _record_with_derived_target_aliases(record, \"ownerId\", ", _record_keys_for_derived_target("ownerId"), ")")
+              _ <- println("val securityrecord = _record_with_derived_target_aliases(record, \"ownerId\", ", _record_keys_for_derived_target("ownerId"), ")")
             } yield ()
           } else unit
           _ <- print("_record_get_as_c[", p.toRawType.typeName.name, "](record, ", input_keys_name(p.name.name), ").flatMap {")
@@ -3956,7 +3956,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println(s"given org.goldenport.convert.ValueReader[$name] with")
         _ <- println(s"  def readC(v: Any): Consequence[$name] = v match")
         _ <- if (is_nominal_scalar)
-          _nominal_scalar_value_reader(name)
+          _scalar_value_reader(name)
         else if (is_powertype)
           for {
             _ <- println(s"    case m: $name => Consequence.success(m)")
@@ -3966,6 +3966,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
             _ <- println(s"    case m: Record => createC(m)")
             _ <- println(s"    case _ => Consequence.valueInvalid(v, org.goldenport.schema.XString)")
           } yield ()
+        else if (_single_scalar_value_parameter.nonEmpty)
+          _scalar_value_reader(name)
         else
           for {
             _ <- println(s"    case m: Record => createC(m)")
@@ -3976,16 +3978,16 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       unit
     }
 
-  private def _nominal_scalar_value_reader(name: String): GenM[Unit] =
+  private def _scalar_value_reader(name: String): GenM[Unit] =
     _single_scalar_value_parameter match {
       case Some(parameter) =>
         for {
           _ <- println(s"    case m: $name => Consequence.success(m)")
           _ <- println(s"    case m: Record => createC(m)")
-          _ <- println(s"    case other => summon[org.goldenport.convert.ValueReader[${parameter.typeName.fullName}]].readC(other).flatMap(value => Consequence($name(value)))")
+          _ <- println(s"    case other => summon[org.goldenport.convert.ValueReader[${parameter.typeName.fullName}]].readC(other).flatMap(value => createC(value).recoverWith(conclusion => Consequence.valueInvalid(conclusion.displayMessage)))")
         } yield ()
       case None =>
-        RAISE.syntaxErrorFault(s"Nominal scalar ${clazz.className.name} requires exactly one scalar value parameter.")
+        RAISE.syntaxErrorFault(s"Scalar datastore value ${clazz.className.name} requires exactly one scalar value parameter.")
     }
 
   private def _nominal_scalar_codec(name: String): GenM[Unit] =
