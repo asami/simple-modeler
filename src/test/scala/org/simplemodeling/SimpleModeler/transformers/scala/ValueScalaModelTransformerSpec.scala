@@ -488,6 +488,31 @@ final class ValueScalaModelTransformerSpec
         source should not include ("def toDataStore(): Record")
       }
 
+      "delegate malformed numeric scalar input to the primitive value reader" in {
+        Given("a single-field integer value")
+        val value = MDomainValue(
+          description = Description.name("ReviewPriority"),
+          affiliation = MPackageRef("domain.value"),
+          stereotypes = Nil,
+          base = None,
+          traits = Nil,
+          powertypes = Nil,
+          attributes = List(
+            MAttribute(Designation("value"), MDataType(XInt), MOne, Nil, None)
+          ),
+          operations = Nil
+        )
+
+        When("the Scala source family is generated")
+        val source = new Scala3ValueFamilyGenerator().generate(value).take.slots.head.content
+
+        Then("the reader preserves primitive conversion failure before value construction")
+        source should include("def toDataStore(): Int")
+        source should include(
+          "case other => summon[org.goldenport.convert.ValueReader[Int]].readC(other).flatMap(value => createC(value).recoverWith(conclusion => Consequence.valueInvalid(conclusion.displayMessage)))"
+        )
+      }
+
       "generate a constrained nominal scalar for a plain datatype" in {
         Given("a named string datatype with canonical length and pattern constraints")
         val datatype = MNominalDataType(
