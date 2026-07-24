@@ -11,7 +11,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Apr. 30, 2026
  *  version May. 15, 2026
  *  version Jun. 27, 2026
- * @version Jul. 23, 2026
+ * @version Jul. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -1230,7 +1230,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- indent
       _ <- _action_vector_expr("exit", p.exit)
       _ <- _transition_action_expr(p.transition)
-      _ <- _action_vector_expr("entry", p.entry, isLast = true)
+      _ <- _action_vector_expr("entry", p.entry, islast = true)
       _ <- outdent
       _ <- println(")")
     } yield ()
@@ -1239,9 +1239,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
   private def _action_vector_expr(
     label: String,
     p: Vector[SComponent.RuleAction],
-    isLast: Boolean = false
+    islast: Boolean = false
   ): GenM[Unit] = {
-    val suffix = if (isLast) "" else ","
+    val suffix = if (islast) "" else ","
     if (p.isEmpty)
       println(s"${label} = Vector.empty${suffix}")
     else {
@@ -1680,8 +1680,13 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
     private def _request_definition_expr(op: SMethod): String = {
       val fields = _operation_model_definition(op).map(_.parameters).getOrElse(Vector.empty)
-      if (fields.nonEmpty)
-        s"RequestDefinition(parameters = List(${fields.map(_operation_field_parameter_definition_expr).mkString(", ")}))"
+      if (fields.nonEmpty) {
+        val fieldnames = fields.map(x => _operation_contract_name(x.name)).toSet
+        val additions = _request_parameters(op).filterNot(x => fieldnames.contains(_operation_contract_name(x.name.name)))
+        val definitions =
+          fields.map(_operation_field_parameter_definition_expr) ++ additions.map(_parameter_definition_expr)
+        s"RequestDefinition(parameters = List(${definitions.mkString(", ")}))"
+      }
       else {
         val params = _request_parameters(op)
         if (params.isEmpty)
@@ -1690,6 +1695,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           s"RequestDefinition(parameters = List(${params.map(_parameter_definition_expr).mkString(", ")}))"
       }
     }
+
+    private def _operation_contract_name(p: String): String =
+      Option(p).getOrElse("").filter(_.isLetterOrDigit).toLowerCase(java.util.Locale.ROOT)
 
     private def _request_parameters(op: SMethod): Vector[Parameter] = {
       def flatten(p: Parameter): Vector[Parameter] =
@@ -2113,8 +2121,29 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     }
 
     private def _operation_output_type(op: SMethod): String = {
-      _operation_model_definition(op).map(_.outputType).getOrElse(op.returnType.name)
+      val runtimeoutput = op.returnType.name
+      _operation_model_definition(op) match {
+        case Some(definition)
+            if _has_entity_update_value(op) &&
+              _is_unit_output(definition.outputType) &&
+              !_is_unit_output(runtimeoutput) =>
+          runtimeoutput
+        case Some(definition) =>
+          definition.outputType
+        case None =>
+          runtimeoutput
+      }
     }
+
+    private def _has_entity_update_value(op: SMethod): Boolean = {
+      def go(p: SClassBase): Boolean =
+        p.directive.isUpdate || p.parameterSequence.parameters.exists(_.value.exists(go))
+
+      op.parameters.parameters.exists(_.value.exists(go))
+    }
+
+    private def _is_unit_output(p: String): Boolean =
+      Option(p).getOrElse("").split('.').lastOption.exists(_.equalsIgnoreCase("unit"))
 
     private def _operation_model_definition(
       op: SMethod
