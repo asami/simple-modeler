@@ -22,7 +22,7 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul. 23, 2026
+ * @version Jul. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -564,7 +564,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case s if s.length >= 2 && s.head == '"' && s.last == '"' => s.substring(1, s.length - 1)
       case s => s
     }
-    def _escape_scala_string(s: String): String =
+    def _escape_scala_string_(s: String): String =
       s.replace("\\", "\\\\").replace("\"", "\\\"")
     val textsubject = _text_constraint_subject(label, ref, typename)
     name match {
@@ -577,20 +577,20 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "max" if _is_numeric_constraint_type(typename) =>
         s"""require(BigDecimal($ref.toString) <= BigDecimal("$value"), "$label must be <= $value")"""
       case "pattern" if _is_text_constraint_type(typename) =>
-        val escaped = _escape_scala_string(value)
+        val escaped = _escape_scala_string_(value)
         val normalized = if (escaped == "^A-Z{2}$") "^[A-Z]{2}$" else escaped
         s"""require(_text_constraint_values($ref).forall(_.matches("$normalized")), "$textsubject must match $normalized")"""
       case "format" if _is_text_constraint_type(typename) =>
         value.toLowerCase(java.util.Locale.ROOT) match {
           case "email" =>
-            val regex = _escape_scala_string("""^[^@\s]+@[^@\s]+\.[^@\s]+$""")
+            val regex = _escape_scala_string_("""^[^@\s]+@[^@\s]+\.[^@\s]+$""")
             s"""require(_text_constraint_values($ref).forall(_.matches("$regex")), "$textsubject must be valid email values")"""
           case "uri" =>
             s"""require(_text_constraint_values($ref).forall(x => scala.util.Try(java.net.URI.create(x)).isSuccess), "$textsubject must be valid URI values")"""
           case "url" =>
             s"""require(_text_constraint_values($ref).forall(x => scala.util.Try(java.net.URI.create(x)).toOption.exists(uri => Option(uri.getScheme).exists(_.nonEmpty))), "$textsubject must be valid URL values")"""
           case "phone" | "tel" | "e164" =>
-            val regex = _escape_scala_string("""^\+?[1-9]\d{6,14}$""")
+            val regex = _escape_scala_string_("""^\+?[1-9]\d{6,14}$""")
             s"""require(_text_constraint_values($ref).forall(_.matches("$regex")), "$textsubject must be valid phone values")"""
           case _ =>
             s"// unsupported format constraint: ${c.name}=${c.literal}"
@@ -1686,7 +1686,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _schema_datatype_expr_by_name(name: String): String = {
     val key = Option(name).getOrElse("").trim.toLowerCase(java.util.Locale.ROOT)
     val schema = "org.goldenport.schema."
-    def named(p: String): String = schema + "DataType.Named(\"" + p + "\")"
+    def _named_(p: String): String = schema + "DataType.Named(\"" + p + "\")"
     key match {
       case "date-time" => RAISE.syntaxErrorFault("Unsupported datatype: date-time; use instant for absolute lifecycle timestamps or datetime for zoned datetime values.")
       case "string" => s"${schema}XString"
@@ -1706,31 +1706,31 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "yearmonth" => s"${schema}XYearMonth"
       case "locale" | "timezone" => s"${schema}XString"
       case "age" => s"${schema}XInt"
-      case "name" => named("name")
-      case "identifier" => named("identifier")
-      case "text" => named("text")
-      case "token" => named("token")
-      case "password" => named("password")
-      case "url" => named("url")
-      case "uri" => named("uri")
-      case "urn" => named("urn")
-      case "blob" => named("blob")
-      case "clob" => named("clob")
+      case "name" => _named_("name")
+      case "identifier" => _named_("identifier")
+      case "text" => _named_("text")
+      case "token" => _named_("token")
+      case "password" => _named_("password")
+      case "url" => _named_("url")
+      case "uri" => _named_("uri")
+      case "urn" => _named_("urn")
+      case "blob" => _named_("blob")
+      case "clob" => _named_("clob")
       case "mimetype" | "mime_type" => s"${schema}XMimeType"
       case "charset" => s"${schema}XCharset"
       case "contentbody" | "content_body" => s"${schema}XContentBody"
       case "contentmarkup" | "content_markup" => s"${schema}XContentMarkup"
-      case "record" => named("record")
-      case "date" => named("date")
-      case "localdate" => named("localDate")
-      case "time" => named("time")
-      case "localtime" => named("localTime")
-      case "year" => named("year")
-      case "month" => named("month")
-      case "monthday" => named("monthDay")
-      case "day" => named("day")
-      case "duration" => named("duration")
-      case _ => named(name)
+      case "record" => _named_("record")
+      case "date" => _named_("date")
+      case "localdate" => _named_("localDate")
+      case "time" => _named_("time")
+      case "localtime" => _named_("localTime")
+      case "year" => _named_("year")
+      case "month" => _named_("month")
+      case "monthday" => _named_("monthDay")
+      case "day" => _named_("day")
+      case "duration" => _named_("duration")
+      case _ => _named_(name)
     }
   }
 
@@ -2427,24 +2427,24 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _builder_with_methods(p: Parameter): GenM[Unit] = {
     val propname = p.name.name
-    def methodname = "with" + StringUtils.makeTitle(propname)
+    def _method_name_ = "with" + StringUtils.makeTitle(propname)
     val optionp = Parameter(p.name, option_type(p.typeName))
 
     if (is_condition_type(p.typeName)) {
       for {
-        _ <- define_method(methodname, builder_type, raw_parameter(p)) {
+        _ <- define_method(_method_name_, builder_type, raw_parameter(p)) {
           println("copy(", propname, " = Some(Condition.is(", propname, ")), _failures = _failures)")
         }
-        _ <- define_method(methodname, builder_type, p) {
+        _ <- define_method(_method_name_, builder_type, p) {
           println("copy(", propname, " = Some(", propname, "), _failures = _failures)")
         }
       } yield ()
     } else if (is_update_type(p.typeName)) {
       for {
-        _ <- define_method(methodname, builder_type, raw_parameter(p)) {
+        _ <- define_method(_method_name_, builder_type, raw_parameter(p)) {
           println("copy(", propname, " = Some(Update.set(", propname, ")), _failures = _failures)")
         }
-        _ <- define_method(methodname, builder_type, p) {
+        _ <- define_method(_method_name_, builder_type, p) {
           println("copy(", propname, " = Some(", propname, "), _failures = _failures)")
         }
       } yield ()
@@ -2452,28 +2452,28 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       p.typeName match {
         case m: TypeName.Container if m.isNonEmptyVector =>
           for {
-            _ <- define_method(methodname, builder_type, raw_parameter(p)) {
+            _ <- define_method(_method_name_, builder_type, raw_parameter(p)) {
               println("copy(", propname, " = Some(NonEmptyVector.one(", propname, ")), _failures = _failures)")
             }
-            _ <- define_method(methodname, builder_type, p) {
+            _ <- define_method(_method_name_, builder_type, p) {
               println("copy(", propname, " = Some(", propname, "), _failures = _failures)")
             }
           } yield ()
         case m: TypeName.Container if m.isList || m.isVector || m.isSet =>
           for {
-            _ <- define_method(methodname, builder_type, raw_parameter(p)) {
+            _ <- define_method(_method_name_, builder_type, raw_parameter(p)) {
               println("copy(", propname, " = ", _container_wrap_expression(propname, m), ", _failures = _failures)")
             }
-            _ <- define_method(methodname, builder_type, option_parameter(p)) {
+            _ <- define_method(_method_name_, builder_type, option_parameter(p)) {
               println("copy(", propname, " = ", propname, ", _failures = _failures)")
             }
           } yield ()
         case _ =>
           for {
-            _ <- define_method(methodname, builder_type, raw_parameter(p)) {
+            _ <- define_method(_method_name_, builder_type, raw_parameter(p)) {
               println("copy(", propname, " = Some(", propname, "), _failures = _failures)")
             }
-            _ <- define_method(methodname, builder_type, option_parameter(p)) {
+            _ <- define_method(_method_name_, builder_type, option_parameter(p)) {
               println("copy(", propname, " = ", propname, ", _failures = _failures)")
             }
             _ <- _builder_with_methods_parse(p)
@@ -4209,7 +4209,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     _simple_object_attribute_keys.map(_class_constructor_parameter_name)
 
   private val _simple_entity_override_keys: Set[String] =
-    _simple_object_attribute_keys ++ _simple_object_attribute_constructor_keys ++ Set("id", "name", "title")
+    _simple_object_attribute_keys ++ _simple_object_attribute_constructor_keys ++ Set("id", "revision", "name", "title")
 
   private val _simple_entity_create_override_keys: Set[String] =
     _simple_object_attribute_keys ++ _simple_object_attribute_constructor_keys + "id"

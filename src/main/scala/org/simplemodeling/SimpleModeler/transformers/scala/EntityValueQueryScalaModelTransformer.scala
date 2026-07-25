@@ -11,7 +11,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  *  version Feb. 19, 2026
  *  version Mar. 24, 2026
  *  version May. 22, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueQueryScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -24,6 +24,14 @@ class EntityValueQueryScalaModelTransformer() extends EntityCaseClassScalaModelT
         TypeName.Plain(PackageName("org.simplemodeling.model"), "SimpleEntityQuery")
       case m => m
     }
+
+  override protected def transform_entity(
+    p: MEntity,
+    purpose: Purpose
+  ): Consequence[Vector[SClassBase]] =
+    super.transform_entity(p, purpose).map(
+      _.map(x => SimpleEntityScalaModelSupport.normalizeInput(x, "SimpleEntityQuery"))
+    )
 
   override protected def to_parameter(p: MAttribute): Parameter = {
     val base = super.to_parameter(p)

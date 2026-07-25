@@ -13,7 +13,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  *  version Feb. 18, 2026
  *  version Mar. 24, 2026
  *  version May. 22, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModelTransformer() {
@@ -31,7 +31,10 @@ class EntityValueUpdateScalaModelTransformer() extends EntityCaseClassScalaModel
     p: MEntity,
     purpose: Purpose
   ): Consequence[Vector[SClassBase]] =
-    super.transform_entity(p, purpose).map(_.map(_normalize_update_parameters))
+    super.transform_entity(p, purpose).map(
+      _.map(_normalize_update_parameters).
+        map(x => SimpleEntityScalaModelSupport.normalizeInput(x, "SimpleEntityUpdate"))
+    )
 
   override protected def to_parameters(ps: List[MAttribute]): ParameterSequence = {
     val xs = ps.filterNot(_is_id_attribute).toVector.map(to_parameter)

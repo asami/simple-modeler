@@ -9,7 +9,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
 /*
  * @since   Apr.  2, 2026
  *  version May. 22, 2026
- * @version Jul. 15, 2026
+ * @version Jul. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class EntityValueProjectionScalaModelTransformer(
@@ -29,31 +29,7 @@ class EntityValueProjectionScalaModelTransformer(
   }
 
   private def _normalize_projection_parameters(p: SClassBase): SClassBase =
-    p match {
-      case m: SCaseClass if _is_simple_entity_parent(m.core.parentClass) =>
-        val params = m.core.parameterSequence.parameters
-        val idparam = params.find(_.name.name == "id").getOrElse(_id_parameter())
-        val (inheritedparams, ownparams) =
-          params.filterNot(_.name.name == "id").partition(x => _inherited_simple_entity_keys.contains(x.name.name))
-        val schemaattrs = ParameterSequence(inheritedparams).distillAttributes.attributes
-        val compositeparams = Vector(
-          _simple_object_parameter("nameAttributes", "NameAttributes"),
-          _simple_object_parameter("descriptiveAttributes", "DescriptiveAttributes"),
-          _simple_object_parameter("contentAttributes", "ContentAttributes"),
-          _simple_object_parameter("lifecycleAttributes", "LifecycleAttributes"),
-          _simple_object_parameter("publicationAttributes", "PublicationAttributes"),
-          _simple_object_parameter("securityAttributes", "SecurityAttributes"),
-          _simple_object_parameter("resourceAttributes", "ResourceAttributes"),
-          _simple_object_parameter("auditAttributes", "AuditAttributes"),
-          _simple_object_parameter("mediaAttributes", "MediaAttributes"),
-          _simple_object_parameter("contextualAttribute", "ContextualAttributes")
-        )
-        val normalized = ParameterSequence(idparam +: (compositeparams ++ ownparams))
-        val directive = m.core.directive.withSchemaAttributes(schemaattrs)
-        m.copy(core = m.core.copy(parameterSequence = normalized, directive = directive))
-      case _ =>
-        p
-    }
+    SimpleEntityScalaModelSupport.normalizeOutput(p, _value_package_name)
 
   protected final def _view_package(name: Option[String]): String =
     name.flatMap(_token_opt).fold("entity.view")(x => s"entity.view.$x")
@@ -75,28 +51,6 @@ class EntityValueProjectionScalaModelTransformer(
     b.toString
   }
 
-  private def _is_simple_entity_parent(p: Option[TypeName]): Boolean =
-    p.exists {
-      case TypeName.Plain(pkg, "SimpleEntity", _) if pkg.name == "org.simplemodeling.model" => true
-      case _ => false
-    }
-
-  private def _simple_object_parameter(name: String, typename: String): Parameter =
-    Parameter(
-      ParameterName(name),
-      TypeName.Plain(PackageName(_value_package_name(typename)), typename),
-      isAttribute = true,
-      isDefault = false
-    )
-
-  private def _id_parameter(): Parameter =
-    Parameter(
-      ParameterName("id"),
-      TypeName.Plain(PackageName("org.simplemodeling.model.datatype"), "EntityId"),
-      isAttribute = true,
-      isDefault = false
-    )
-
   private def _value_package_name(typename: String): String =
     typename match {
       case "NameAttributes" =>
@@ -107,19 +61,4 @@ class EntityValueProjectionScalaModelTransformer(
         "org.simplemodeling.model.value"
     }
 
-  private val _inherited_simple_entity_keys: Set[String] = Set(
-    "id",
-    "name",
-    "title",
-    "headline",
-    "brief",
-    "summary",
-    "description",
-    "lead",
-    "abstract",
-    "remarks",
-    "tooltip",
-    "contentAttributes",
-    "content"
-  )
 }
