@@ -11,7 +11,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
  *  version May. 22, 2026
- * @version Jul. 23, 2026
+ * @version Jul. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -124,7 +124,9 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
           usageKind = p.usageKind,
           operationKind = p.operationKind,
           applicationDomain = p.applicationDomain,
-          viewNames = p.viewNames
+          viewNames = p.viewNames,
+          revisionModelKind = p.revisionModelKind,
+          revisionRepresentation = p.revisionRepresentation
         )
       }
 

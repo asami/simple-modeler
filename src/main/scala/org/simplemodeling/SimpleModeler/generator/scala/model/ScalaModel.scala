@@ -26,7 +26,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Mar. 31, 2026
  *  version Apr. 30, 2026
  *  version May.  8, 2026
- * @version Jul. 23, 2026
+ * @version Jul. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -1367,7 +1367,9 @@ object SComponent {
     usageKind: Option[String] = None,
     operationKind: Option[String] = None,
     applicationDomain: Option[String] = None,
-    viewNames: Vector[String] = Vector.empty
+    viewNames: Vector[String] = Vector.empty,
+    revisionModelKind: Option[String] = None,
+    revisionRepresentation: Option[String] = None
   ) {
     def entityObjectName: String =
       if (packageName.name.isEmpty)

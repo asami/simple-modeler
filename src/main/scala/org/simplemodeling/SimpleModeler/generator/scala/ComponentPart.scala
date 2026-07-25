@@ -95,18 +95,42 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
   private def _entity_runtime_descriptor_expr(
     d: SComponent.EntityRuntimeDescriptor
   ): GenM[Unit] = {
-    val entityKind = _string_literal(d.entityKind.getOrElse(""))
-    val usageKind = _string_literal(d.usageKind.getOrElse(""))
-    val operationKind = _string_literal(d.operationKind.getOrElse(""))
-    val entityKindExpr = d.entityKind
-      .map(_ => s"org.goldenport.cncf.entity.runtime.EntityKind.parse(${entityKind})")
-      .orElse(d.operationKind.map(_ => s"org.goldenport.cncf.entity.runtime.EntityRuntimeDescriptor.legacyEntityKind(org.goldenport.cncf.security.EntityOperationKind.parse(${operationKind}))"))
+    val entitykind = _string_literal(d.entityKind.getOrElse(""))
+    val usagekind = _string_literal(d.usageKind.getOrElse(""))
+    val operationkind = _string_literal(d.operationKind.getOrElse(""))
+    val entitykindexpr = d.entityKind
+      .map(_ => s"org.goldenport.cncf.entity.runtime.EntityKind.parse(${entitykind})")
+      .orElse(d.operationKind.map(_ => s"org.goldenport.cncf.entity.runtime.EntityRuntimeDescriptor.legacyEntityKind(org.goldenport.cncf.security.EntityOperationKind.parse(${operationkind}))"))
       .getOrElse("org.goldenport.cncf.entity.runtime.EntityKind.default")
-    val operationKindExpr = d.operationKind
-      .map(_ => s"org.goldenport.cncf.security.EntityOperationKind.parse(${operationKind})")
-      .orElse(d.entityKind.map(_ => s"org.goldenport.cncf.entity.runtime.EntityKind.parse(${entityKind}).legacyOperationKind"))
+    val operationkindexpr = d.operationKind
+      .map(_ => s"org.goldenport.cncf.security.EntityOperationKind.parse(${operationkind})")
+      .orElse(d.entityKind.map(_ => s"org.goldenport.cncf.entity.runtime.EntityKind.parse(${entitykind}).legacyOperationKind"))
       .getOrElse("org.goldenport.cncf.security.EntityOperationKind.default")
-    val applicationDomain = _string_literal(d.applicationDomain.getOrElse(""))
+    val applicationdomain = _string_literal(d.applicationDomain.getOrElse(""))
+    val revisionmodelkindexpr = d.revisionModelKind
+      .map {
+        case "simple-entity" =>
+          "Some(org.goldenport.cncf.entity.EntityRevisionModelKind.SimpleEntity)"
+        case "non-simple-entity" =>
+          "Some(org.goldenport.cncf.entity.EntityRevisionModelKind.NonSimpleEntity)"
+        case x =>
+          throw new IllegalArgumentException(
+            s"Unsupported Entity revision model kind: $x"
+          )
+      }
+      .getOrElse("None")
+    val revisionrepresentationexpr = d.revisionRepresentation
+      .map {
+        case "embedded" =>
+          "Some(org.goldenport.cncf.entity.EntityRevisionRepresentation.Embedded)"
+        case "detached" =>
+          "Some(org.goldenport.cncf.entity.EntityRevisionRepresentation.Detached)"
+        case x =>
+          throw new IllegalArgumentException(
+            s"Unsupported Entity revision representation: $x"
+          )
+      }
+      .getOrElse("None")
     for {
       _ <- println("org.goldenport.cncf.entity.runtime.EntityRuntimeDescriptor(")
       _ <- indent
@@ -122,12 +146,14 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println("schema = None,")
       _ <- println("aggregateNames = Vector.empty,")
       _ <- println(s"viewNames = ${_string_vector_expr(d.viewNames)},")
-      _ <- println(s"entityKind = ${entityKindExpr},")
-      _ <- println(s"usageKind = org.goldenport.cncf.security.EntityUsageKind.parse(${usageKind}),")
-      _ <- println(s"operationKind = ${operationKindExpr},")
-      _ <- println(s"applicationDomain = org.goldenport.cncf.security.EntityApplicationDomain.parse(${applicationDomain}),")
+      _ <- println(s"entityKind = ${entitykindexpr},")
+      _ <- println(s"usageKind = org.goldenport.cncf.security.EntityUsageKind.parse(${usagekind}),")
+      _ <- println(s"operationKind = ${operationkindexpr},")
+      _ <- println(s"applicationDomain = org.goldenport.cncf.security.EntityApplicationDomain.parse(${applicationdomain}),")
       _ <- println(s"entityKindExplicit = ${d.entityKind.isDefined},")
-      _ <- println(s"operationKindExplicit = ${d.operationKind.isDefined}")
+      _ <- println(s"operationKindExplicit = ${d.operationKind.isDefined},")
+      _ <- println(s"revisionModelKind = ${revisionmodelkindexpr},")
+      _ <- println(s"revisionRepresentation = ${revisionrepresentationexpr}")
       _ <- outdent
       _ <- println(")")
     } yield ()
@@ -614,35 +640,35 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
   ): GenM[Unit] = {
     val summary = d.summary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
     val execution = d.execution.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-    val commandKind = d.commandKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-    val commandExecutionProperties = _string_map_record_expr(d.commandExecutionProperties)
-    val commandExecutionPolicy = d.commandExecutionPolicy
+    val commandkind = d.commandKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val commandexecutionproperties = _string_map_record_expr(d.commandExecutionProperties)
+    val commandexecutionpolicy = d.commandExecutionPolicy
       .map(_string_literal)
       .map(x => s"org.goldenport.cncf.action.CommandExecutionPolicy.parse($x)")
       .getOrElse("None")
     val implementation = d.implementation.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-    val inputSummary = d.inputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-    val inputDescription = d.inputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-    val outputSummary = d.outputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-    val outputDescription = d.outputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val inputsummary = d.inputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val inputdescription = d.inputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val outputsummary = d.outputSummary.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val outputdescription = d.outputDescription.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
     val visibility = d.visibility.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
     val access = d.access.map { a =>
       val resource = a.resource.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
       val target = a.target.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
       val mode = a.mode.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
       val relation = a.relation.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-      val operationModel = a.operationModel.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-      val entityUsage = a.entityUsage.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-      val entityOperationKind = a.entityOperationKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-      val entityApplicationDomain = a.entityApplicationDomain.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val operationmodel = a.operationModel.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val entityusage = a.entityUsage.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val entityoperationkind = a.entityOperationKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+      val entityapplicationdomain = a.entityApplicationDomain.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
       val condition = a.condition.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-      s"""Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = ${_string_literal(a.policy)}, resource = ${resource}, target = ${target}, mode = ${mode}, relation = ${relation}, operationModel = ${operationModel}, entityUsage = ${entityUsage}, entityOperationKind = ${entityOperationKind}, entityApplicationDomain = ${entityApplicationDomain}, condition = ${condition}))"""
+      s"""Some(org.goldenport.cncf.operation.CmlOperationAccess(policy = ${_string_literal(a.policy)}, resource = ${resource}, target = ${target}, mode = ${mode}, relation = ${relation}, operationModel = ${operationmodel}, entityUsage = ${entityusage}, entityOperationKind = ${entityoperationkind}, entityApplicationDomain = ${entityapplicationdomain}, condition = ${condition}))"""
     }.getOrElse("None")
-    val entityName = d.entityName.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-    val entityNames = d.entityNames.map(_string_literal).mkString("Vector(", ", ", ")")
-    val operationAuthorization = _operation_authorization_expr(d.operationAuthorization)
-    val childEntityBindings = _operation_child_entity_bindings_expr(d.childEntityBindings)
-    val associationBinding = _operation_association_binding_expr(d.associationBinding)
+    val entityname = d.entityName.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+    val entitynames = d.entityNames.map(_string_literal).mkString("Vector(", ", ", ")")
+    val operationauthorization = _operation_authorization_expr(d.operationAuthorization)
+    val childentitybindings = _operation_child_entity_bindings_expr(d.childEntityBindings)
+    val associationbinding = _operation_association_binding_expr(d.associationBinding)
     val evaluation = _operation_evaluation_expr(d.evaluation)
     for {
       _ <- println("org.goldenport.cncf.operation.CmlOperationDefinition(")
@@ -651,26 +677,26 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"kind = ${_string_literal(d.kind)},")
       _ <- println(s"summary = ${summary},")
       _ <- println(s"execution = ${execution},")
-      _ <- println(s"commandKind = ${commandKind},")
-      _ <- println(s"commandExecutionProperties = ${commandExecutionProperties},")
-      _ <- println(s"commandExecutionPolicy = ${commandExecutionPolicy},")
+      _ <- println(s"commandKind = ${commandkind},")
+      _ <- println(s"commandExecutionProperties = ${commandexecutionproperties},")
+      _ <- println(s"commandExecutionPolicy = ${commandexecutionpolicy},")
       _ <- println(s"implementation = ${implementation},")
-      _ <- println(s"entityName = ${entityName},")
-      _ <- println(s"entityNames = ${entityNames},")
+      _ <- println(s"entityName = ${entityname},")
+      _ <- println(s"entityNames = ${entitynames},")
       _ <- println(s"inputType = ${_string_literal(d.inputType)},")
-      _ <- println(s"inputSummary = ${inputSummary},")
-      _ <- println(s"inputDescription = ${inputDescription},")
+      _ <- println(s"inputSummary = ${inputsummary},")
+      _ <- println(s"inputDescription = ${inputdescription},")
       _ <- println(s"outputType = ${_string_literal(d.outputType)},")
-      _ <- println(s"outputSummary = ${outputSummary},")
-      _ <- println(s"outputDescription = ${outputDescription},")
+      _ <- println(s"outputSummary = ${outputsummary},")
+      _ <- println(s"outputDescription = ${outputdescription},")
       _ <- println(s"inputValueKind = ${_string_literal(d.inputValueKind)},")
       _ <- println(s"visibility = ${visibility},")
       _ <- println(s"access = ${access},")
       _ <- println(s"parameters = ${_operation_fields_expr(d.parameters)},")
       _ <- println(s"resultFields = ${_operation_fields_expr(d.resultFields)},")
-      _ <- println(s"operationAuthorization = ${operationAuthorization},")
-      _ <- println(s"childEntityBindings = ${childEntityBindings},")
-      _ <- println(s"associationBinding = ${associationBinding},")
+      _ <- println(s"operationAuthorization = ${operationauthorization},")
+      _ <- println(s"childEntityBindings = ${childentitybindings},")
+      _ <- println(s"associationBinding = ${associationbinding},")
       _ <- println(s"evaluation = ${evaluation}")
       _ <- outdent
       _ <- println(")")
@@ -717,15 +743,15 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- indent
         _ <- defs.zipWithIndex.foldLeft(unit) { case (z, (d, i)) =>
           z.flatMap { _ =>
-            val sourceRole = d.sourceRole.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val targetRole = d.targetRole.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val sourcerole = d.sourceRole.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val targetrole = d.targetRole.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             val multiplicity = d.multiplicity.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val parentIdField = d.parentIdField.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val valueField = d.valueField.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val sortOrderField = d.sortOrderField.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val associationDomain = d.associationDomain.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val targetKind = d.targetKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
-            val lifecyclePolicy = d.lifecyclePolicy.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val parentidfield = d.parentIdField.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val valuefield = d.valueField.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val sortorderfield = d.sortOrderField.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val associationdomain = d.associationDomain.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val targetkind = d.targetKind.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
+            val lifecyclepolicy = d.lifecyclePolicy.map(_string_literal).map(x => s"Some($x)").getOrElse("None")
             for {
               _ <- println("org.goldenport.cncf.operation.CmlEntityRelationshipDefinition(")
               _ <- indent
@@ -734,16 +760,16 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               _ <- println(s"sourceEntityName = ${_string_literal(d.sourceEntityName)},")
               _ <- println(s"targetEntityName = ${_string_literal(d.targetEntityName)},")
               _ <- if (d.targetModelKind != "entity") println(s"targetModelKind = ${_string_literal(d.targetModelKind)},") else unit
-              _ <- println(s"sourceRole = ${sourceRole},")
-              _ <- println(s"targetRole = ${targetRole},")
+              _ <- println(s"sourceRole = ${sourcerole},")
+              _ <- println(s"targetRole = ${targetrole},")
               _ <- println(s"multiplicity = ${multiplicity},")
               _ <- println(s"storageMode = ${_string_literal(d.storageMode)},")
-              _ <- println(s"parentIdField = ${parentIdField},")
-              _ <- if (d.valueField.nonEmpty) println(s"valueField = ${valueField},") else unit
-              _ <- println(s"sortOrderField = ${sortOrderField},")
-              _ <- println(s"associationDomain = ${associationDomain},")
-              _ <- println(s"targetKind = ${targetKind},")
-              _ <- println(s"lifecyclePolicy = ${lifecyclePolicy}")
+              _ <- println(s"parentIdField = ${parentidfield},")
+              _ <- if (d.valueField.nonEmpty) println(s"valueField = ${valuefield},") else unit
+              _ <- println(s"sortOrderField = ${sortorderfield},")
+              _ <- println(s"associationDomain = ${associationdomain},")
+              _ <- println(s"targetKind = ${targetkind},")
+              _ <- println(s"lifecyclePolicy = ${lifecyclepolicy}")
               _ <- outdent
               _ <- println(")")
               _ <- if (i < defs.length - 1) println(",") else unit
@@ -762,12 +788,12 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       "Vector.empty"
     else
       values.map { x =>
-        val relationshipName = x.relationshipName.map(_string_literal).map(v => s"Some($v)").getOrElse("None")
-        val sourceEntityIdParameters = x.sourceEntityIdParameters.map(_string_literal).mkString("Vector(", ", ", ")")
-        val sourceEntityIdResultFields = x.sourceEntityIdResultFields.map(_string_literal).mkString("Vector(", ", ", ")")
-        val childIdField = x.childIdField.map(_string_literal).map(v => s"Some($v)").getOrElse("None")
-        val sortOrderField = x.sortOrderField.map(_string_literal).map(v => s"Some($v)").getOrElse("None")
-        s"""org.goldenport.cncf.operation.CmlOperationChildEntityBinding(name = ${_string_literal(x.name)}, entityName = ${_string_literal(x.entityName)}, inputParameter = ${_string_literal(x.inputParameter)}, parentIdField = ${_string_literal(x.parentIdField)}, relationshipName = ${relationshipName}, sourceEntityIdMode = ${_string_literal(x.sourceEntityIdMode)}, sourceEntityIdParameters = ${sourceEntityIdParameters}, sourceEntityIdResultFields = ${sourceEntityIdResultFields}, childIdField = ${childIdField}, sortOrderField = ${sortOrderField}, createsEntity = ${x.createsEntity}, failurePolicy = ${_string_literal(x.failurePolicy)})"""
+        val relationshipname = x.relationshipName.map(_string_literal).map(v => s"Some($v)").getOrElse("None")
+        val sourceentityidparameters = x.sourceEntityIdParameters.map(_string_literal).mkString("Vector(", ", ", ")")
+        val sourceentityidresultfields = x.sourceEntityIdResultFields.map(_string_literal).mkString("Vector(", ", ", ")")
+        val childidfield = x.childIdField.map(_string_literal).map(v => s"Some($v)").getOrElse("None")
+        val sortorderfield = x.sortOrderField.map(_string_literal).map(v => s"Some($v)").getOrElse("None")
+        s"""org.goldenport.cncf.operation.CmlOperationChildEntityBinding(name = ${_string_literal(x.name)}, entityName = ${_string_literal(x.entityName)}, inputParameter = ${_string_literal(x.inputParameter)}, parentIdField = ${_string_literal(x.parentIdField)}, relationshipName = ${relationshipname}, sourceEntityIdMode = ${_string_literal(x.sourceEntityIdMode)}, sourceEntityIdParameters = ${sourceentityidparameters}, sourceEntityIdResultFields = ${sourceentityidresultfields}, childIdField = ${childidfield}, sortOrderField = ${sortorderfield}, createsEntity = ${x.createsEntity}, failurePolicy = ${_string_literal(x.failurePolicy)})"""
       }.mkString("Vector(", ", ", ")")
 
   private def _operation_association_binding_expr(
@@ -776,11 +802,11 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     value.map { x =>
       val roles = x.roles.map(_string_literal).mkString("Vector(", ", ", ")")
       val parameters = x.parameters.map(_string_literal).mkString("Vector(", ", ", ")")
-      val sourceEntityIdParameters = x.sourceEntityIdParameters.map(_string_literal).mkString("Vector(", ", ", ")")
-      val sourceEntityIdResultFields = x.sourceEntityIdResultFields.map(_string_literal).mkString("Vector(", ", ", ")")
-      val targetIdParameters = x.targetIdParameters.map(_string_literal).mkString("Vector(", ", ", ")")
-      val sortOrderParameters = x.sortOrderParameters.map(_string_literal).mkString("Vector(", ", ", ")")
-      s"""Some(org.goldenport.cncf.operation.CmlOperationAssociationBinding(domain = ${_string_literal(x.domain)}, targetKind = ${_string_literal(x.targetKind)}, createsAssociation = ${x.createsAssociation}, detachesAssociation = ${x.detachesAssociation}, roles = ${roles}, parameters = ${parameters}, sourceEntityIdMode = ${_string_literal(x.sourceEntityIdMode)}, sourceEntityIdParameters = ${sourceEntityIdParameters}, sourceEntityIdResultFields = ${sourceEntityIdResultFields}, targetIdParameters = ${targetIdParameters}, sortOrderParameters = ${sortOrderParameters}))"""
+      val sourceentityidparameters = x.sourceEntityIdParameters.map(_string_literal).mkString("Vector(", ", ", ")")
+      val sourceentityidresultfields = x.sourceEntityIdResultFields.map(_string_literal).mkString("Vector(", ", ", ")")
+      val targetidparameters = x.targetIdParameters.map(_string_literal).mkString("Vector(", ", ", ")")
+      val sortorderparameters = x.sortOrderParameters.map(_string_literal).mkString("Vector(", ", ", ")")
+      s"""Some(org.goldenport.cncf.operation.CmlOperationAssociationBinding(domain = ${_string_literal(x.domain)}, targetKind = ${_string_literal(x.targetKind)}, createsAssociation = ${x.createsAssociation}, detachesAssociation = ${x.detachesAssociation}, roles = ${roles}, parameters = ${parameters}, sourceEntityIdMode = ${_string_literal(x.sourceEntityIdMode)}, sourceEntityIdParameters = ${sourceentityidparameters}, sourceEntityIdResultFields = ${sourceentityidresultfields}, targetIdParameters = ${targetidparameters}, sortOrderParameters = ${sortorderparameters}))"""
     }.getOrElse("None")
 
   private def _component_definitions_method(
@@ -809,10 +835,10 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     p: Option[SComponent.OperationAuthorization]
   ): String =
     p.map { x =>
-      val operationModes = _operation_modes_expr(x.operationModes)
-      val allowAnonymous = x.allowAnonymous.map(_.toString).map(v => s"Some($v)").getOrElse("None")
-      val anonymousOperationModes = _operation_modes_expr(x.anonymousOperationModes)
-      s"Some(org.goldenport.cncf.security.OperationAuthorizationRule(operationModes = ${operationModes}, allowAnonymous = ${allowAnonymous}.getOrElse(false), anonymousOperationModes = ${anonymousOperationModes}))"
+      val operationmodes = _operation_modes_expr(x.operationModes)
+      val allowanonymous = x.allowAnonymous.map(_.toString).map(v => s"Some($v)").getOrElse("None")
+      val anonymousoperationmodes = _operation_modes_expr(x.anonymousOperationModes)
+      s"Some(org.goldenport.cncf.security.OperationAuthorizationRule(operationModes = ${operationmodes}, allowAnonymous = ${allowanonymous}.getOrElse(false), anonymousOperationModes = ${anonymousoperationmodes}))"
     }.getOrElse("None")
 
   private def _operation_modes_expr(
@@ -1850,8 +1876,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
             else
               println("request: Request")
             _ <- params.zipWithIndex.traverse { case ((paramname, paramclasstype), i) =>
-              val isLast = i == params.length - 1
-              if (isLast)
+              val islast = i == params.length - 1
+              if (islast)
                 println(s"${paramname}: ${typename_relative_name(paramclasstype)}")
               else
                 println(s"${paramname}: ${typename_relative_name(paramclasstype)},")

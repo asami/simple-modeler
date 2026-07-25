@@ -10,7 +10,7 @@ import org.simplemodeling.model._
  *  version Jul. 24, 2020
  *  version Feb.  9, 2026
  *  version May.  8, 2026
- * @version Jul. 23, 2026
+ * @version Jul. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -450,7 +450,9 @@ object MComponent {
     usageKind: Option[String] = None,
     operationKind: Option[String] = None,
     applicationDomain: Option[String] = None,
-    viewNames: Vector[String] = Vector.empty
+    viewNames: Vector[String] = Vector.empty,
+    revisionModelKind: Option[String] = None,
+    revisionRepresentation: Option[String] = None
   )
 
   case class Core(
