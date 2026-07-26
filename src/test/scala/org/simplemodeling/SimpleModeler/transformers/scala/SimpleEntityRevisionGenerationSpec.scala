@@ -59,6 +59,14 @@ final class SimpleEntityRevisionGenerationSpec
       revisionparameter.web.system shouldBe true
       revisionparameter.web.readonly shouldBe true
 
+      And("Entity builders initialize the framework-owned revision without application input")
+      _output_paths.foreach { path =>
+        val source = _source(sources, path)
+        source should include(
+          "revision.getOrElse(org.simplemodeling.model.datatype.EntityRevision.INITIAL)"
+        )
+      }
+
       And("create, update, and query inputs do not expose revision")
       _input_paths.foreach { path =>
         val source = _source(sources, path)

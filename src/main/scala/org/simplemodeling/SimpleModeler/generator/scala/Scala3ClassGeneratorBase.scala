@@ -22,7 +22,7 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul. 25, 2026
+ * @version Jul. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -3683,6 +3683,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       }
     } else {
     name match {
+      case "revision" if _is_simple_entity_output =>
+        Some("org.simplemodeling.model.datatype.EntityRevision.INITIAL")
       case "name_Attributes" =>
         Some("org.simplemodeling.model.value.NameAttributes.simple(Name(\"unknown\"))")
       case "nameAttributes" =>
@@ -3728,6 +3730,13 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
     }
   }
+
+  private def _is_simple_entity_output: Boolean =
+    clazz.parentClass.exists {
+      case TypeName.Plain(pkg, "SimpleEntity", _) =>
+        pkg.name == "org.simplemodeling.model"
+      case _ => false
+    }
 
   // protected def builder_build_recordc_method(p: T): GenM[Unit] = {
   //   val m = SMethod.create("buildC", TypeName.consequence(p), Parameter.record) {
@@ -3867,7 +3876,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
             _ <- println("  case Some(n: Long) if n.isValidInt => fromDbValue(n.toInt).map(Consequence.success).getOrElse(Consequence.valueInvalid(n, org.goldenport.schema.XInt))")
             _ <- println("""  case Some(s: String) => from(s).orElse(s.trim.toIntOption.flatMap(fromDbValue)).map(Consequence.success).getOrElse(Consequence.valueInvalid(s, org.goldenport.schema.XString))""")
             _ <- println("""  case Some(other) => from(other.toString).map(Consequence.success).getOrElse(Consequence.valueInvalid(other, org.goldenport.schema.XString))""")
-            _ <- println("""  case None => Consequence.failRecordNotFound("value", record)""")
+            _ <- println("""  case None => Consequence.recordNotFound("value", record)""")
             _ <- println("}")
           } yield ()
         else
@@ -3983,7 +3992,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case Some(parameter) =>
         for {
           _ <- println(s"    case m: $name => Consequence.success(m)")
-          _ <- println(s"    case m: Record => createC(m)")
+          _ <-
+            if (parameter.typeName.isString || parameter.typeName.name == "String")
+              for {
+                _ <- println(s"    case m: Record if ${input_keys_name(parameter.name.name)}.exists(key => m.getAny(key).isDefined) => createC(m)")
+                _ <- println(s"    case m: Record => createC(m.toJsonString)")
+              } yield ()
+            else
+              println(s"    case m: Record => createC(m)")
           _ <- println(s"    case other => summon[org.goldenport.convert.ValueReader[${parameter.typeName.fullName}]].readC(other).flatMap(value => createC(value).recoverWith(conclusion => Consequence.valueInvalid(conclusion.displayMessage)))")
         } yield ()
       case None =>

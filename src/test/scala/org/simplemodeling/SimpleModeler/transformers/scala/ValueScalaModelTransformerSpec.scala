@@ -15,7 +15,7 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3ValueFamilyGenera
 /*
  * @since   Mar. 25, 2026
  *  version May. 23, 2026
- * @version Jul. 23, 2026
+ * @version Jul. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ValueScalaModelTransformerSpec
@@ -545,6 +545,27 @@ final class ValueScalaModelTransformerSpec
         source should include("value must have length <= 64")
         source should include("value must match ^[A-Za-z0-9._-]+$")
         source should not include("derives Codec.AsObject")
+      }
+
+      "preserve a JSON object restored as a Record for a nominal String scalar" in {
+        Given("a nominal String scalar whose persisted value may contain a JSON object")
+        val datatype = MNominalDataType(
+          description = Description.name("MetadataJson"),
+          affiliation = MPackageRef("domain.datatype"),
+          datatype = XString,
+          constraints = Nil
+        )
+
+        When("the nominal scalar source is generated")
+        val source = new Scala3ValueFamilyGenerator().generate(datatype).take.slots.head.content
+
+        Then("a value wrapper and a scalar JSON object use distinct Record decoding paths")
+        source should include(
+          "case m: Record if INPUT_KEYS_VALUE.exists(key => m.getAny(key).isDefined) => createC(m)"
+        )
+        source should include(
+          "case m: Record => createC(m.toJsonString)"
+        )
       }
 
       "keep structured datastore representation for multi-field values" in {
