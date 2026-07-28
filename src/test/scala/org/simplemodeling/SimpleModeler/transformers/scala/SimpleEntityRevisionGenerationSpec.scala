@@ -15,7 +15,7 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.
 
 /*
  * @since   Jul. 25, 2026
- * @version Jul. 25, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 final class SimpleEntityRevisionGenerationSpec
@@ -75,6 +75,20 @@ final class SimpleEntityRevisionGenerationSpec
         source should not include "Condition[EntityRevision]"
         source should not include "\"revision\" ->"
       }
+
+      And("the persistence codec restores the exact owning collection identity")
+      val entitysource = _source(sources, "/entity/Person.scala")
+      entitysource should include(
+        "override def fromStoreRecord(context: EntityStoreDecodeContext, r: Record): Consequence[Person]"
+      )
+      entitysource should include("EntityPersistent.restoreCollectionIdentity(")
+      entitysource should include("context.owningCollectionId")
+      entitysource should include("id => entity.copy(id = id)")
+
+      And("the generated storage decoder applies the declared scalar projection")
+      entitysource should include(
+        "EntityStoreRecordProjection.project(r, _store_record_attributes).flatMap(createC)"
+      )
     }
 
     "preserve an ordinary revision attribute on non-SimpleEntity inputs" in {
@@ -102,6 +116,15 @@ final class SimpleEntityRevisionGenerationSpec
       )
       _source(sources, "/entity/query/Document.scala") should include(
         "revision: Condition[String]"
+      )
+
+      And("the generated storage metadata identifies the direct String field")
+      val entitysource = _source(sources, "/entity/Document.scala")
+      entitysource should include(
+        """EntityStoreAttribute.scalarString("name", "name")"""
+      )
+      entitysource should include(
+        "EntityStoreRecordProjection.project(r, _store_record_attributes).flatMap(createC)"
       )
     }
   }

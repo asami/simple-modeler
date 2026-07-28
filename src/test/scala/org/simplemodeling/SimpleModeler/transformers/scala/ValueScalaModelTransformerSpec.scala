@@ -15,7 +15,7 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3ValueFamilyGenera
 /*
  * @since   Mar. 25, 2026
  *  version May. 23, 2026
- * @version Jul. 27, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ValueScalaModelTransformerSpec
@@ -547,8 +547,8 @@ final class ValueScalaModelTransformerSpec
         source should not include("derives Codec.AsObject")
       }
 
-      "preserve a JSON object restored as a Record for a nominal String scalar" in {
-        Given("a nominal String scalar whose persisted value may contain a JSON object")
+      "keep persisted scalar restoration outside the ordinary nominal String reader" in {
+        Given("a nominal String scalar that supports an ordinary value wrapper")
         val datatype = MNominalDataType(
           description = Description.name("MetadataJson"),
           affiliation = MPackageRef("domain.datatype"),
@@ -559,13 +559,16 @@ final class ValueScalaModelTransformerSpec
         When("the nominal scalar source is generated")
         val source = new Scala3ValueFamilyGenerator().generate(datatype).take.slots.head.content
 
-        Then("a value wrapper and a scalar JSON object use distinct Record decoding paths")
+        Then("the declared value wrapper remains an ordinary Record input")
         source should include(
           "case m: Record if INPUT_KEYS_VALUE.exists(key => m.getAny(key).isDefined) => createC(m)"
         )
+
+        And("an arbitrary Record fails instead of becoming persisted scalar text")
         source should include(
-          "case m: Record => createC(m.toJsonString)"
+          "case m: Record => Consequence.valueInvalid(m, org.goldenport.schema.XString)"
         )
+        source should not include "case m: Record => createC(m.toJsonString)"
       }
 
       "keep structured datastore representation for multi-field values" in {

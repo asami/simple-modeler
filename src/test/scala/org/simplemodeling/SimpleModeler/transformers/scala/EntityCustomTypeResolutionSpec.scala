@@ -15,7 +15,7 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3EntityFamilyGener
 /*
  * @since   Apr.  9, 2026
  *  version May. 23, 2026
- * @version Jul. 16, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -261,7 +261,7 @@ final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers wit
     source should not include "private def _normalize_store_record_collections"
   }
 
-    "scalarize nested generated values inside update directives" in {
+    "preserve repeated generated values across datastore write and read projections" in {
     Given("an entity with a repeated generated value attribute")
     val tag = MDomainValue(
       description = Description.name("Tag"),
@@ -310,10 +310,14 @@ final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers wit
     source should include("case _: org.simplemodeling.model.directive.Update.SetNull.type => org.simplemodeling.model.directive.Update.SetNull")
     source should include("case org.simplemodeling.model.directive.Update.SetValue(value) => org.simplemodeling.model.directive.Update.SetValue(_to_data_store_value(value))")
     source should include("case m: org.example.account.value.Tag => m.toDataStore()")
+
+    And("the persistence decoder projects the stored record before applying collection compatibility")
     source should include("private def _normalize_store_record_collections")
     source should include("s.split(\",\")")
     source should include("z.upsertSingle(key, values)")
-    source should include("createC(r).orElse(createC(_normalize_store_record_collections(r)))")
+    source should include(
+      "EntityStoreRecordProjection.project(r, _store_record_attributes).flatMap(projected => createC(projected).orElse(createC(_normalize_store_record_collections(projected))))"
+    )
   }
 
     "generate simplemodeling datatype collection record readers through ValueReader" in {

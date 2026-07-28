@@ -7,6 +7,8 @@ import org.goldenport.record.v2._
 import org.goldenport.util.StringUtils
 import org.goldenport.scalaz.FoldTraverseUtil
 import org.simplemodeling.SimpleModeler.generator.SourceArtifacts
+import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
+import org.simplemodeling.model.{MDataType, MValue}
 import model._
 import Generator.{State => GState, _}
 
@@ -22,7 +24,7 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul. 27, 2026
+ * @version Jul. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -3996,7 +3998,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
             if (parameter.typeName.isString || parameter.typeName.name == "String")
               for {
                 _ <- println(s"    case m: Record if ${input_keys_name(parameter.name.name)}.exists(key => m.getAny(key).isDefined) => createC(m)")
-                _ <- println(s"    case m: Record => createC(m.toJsonString)")
+                _ <- println(s"    case m: Record => Consequence.valueInvalid(m, org.goldenport.schema.XString)")
               } yield ()
             else
               println(s"    case m: Record => createC(m)")
@@ -4078,6 +4080,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       } yield ()
     } else if (is_entity_value) {
       for {
+        _ <- _store_record_projection_metadata
         _ <- _store_record_collection_compatibility
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
         _ <- println(s"given EntityPersistent[$name] with")
@@ -4086,9 +4089,77 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println(s"  def fromRecord(r: Record): Consequence[$name] = createC(r)")
         _ <- println(s"  override def toStoreRecord(e: $name): Record = e.toDataStore()")
         _ <- println(s"  override def fromStoreRecord(r: Record): Consequence[$name] = ${_from_store_record_expression("r")}")
+        _ <- println(s"  override def fromStoreRecord(context: EntityStoreDecodeContext, r: Record): Consequence[$name] =")
+        _ <- println(s"    ${_from_store_record_expression("r")}.flatMap { entity =>")
+        _ <- println("      EntityPersistent.restoreCollectionIdentity(")
+        _ <- println("        entity,")
+        _ <- println("        entity.id,")
+        _ <- println("        context.owningCollectionId")
+        _ <- println("      )(id => entity.copy(id = id))")
+        _ <- println("    }")
       } yield ()
     } else {
       unit
+    }
+
+  private def _store_record_projection_metadata: GenM[Unit] = {
+    val attributes = attributes_vector.filter(x => _is_store_scalar_string_type(x.typeName))
+    if (attributes.isEmpty) {
+      println("private val _store_record_attributes: Vector[EntityStoreAttribute] = Vector.empty")
+    } else {
+      for {
+        _ <- println("private val _store_record_attributes: Vector[EntityStoreAttribute] = Vector(")
+        _ <- indent
+        _ <- FoldTraverseUtil.intercalateTraverseWithEnd_(
+          attributes,
+          println(","),
+          println()
+        ) { attribute =>
+          val logicalname = attribute.name.name
+          val storagename = attribute.dbColumnName.getOrElse(logicalname)
+          print(
+            "EntityStoreAttribute.scalarString(",
+            "\"" + logicalname + "\", ",
+            "\"" + storagename + "\")"
+          )
+        }
+        _ <- outdent
+        _ <- println(")")
+        _ <- println()
+      } yield ()
+    }
+  }
+
+  private def _is_store_scalar_string_type(p: TypeName): Boolean =
+    p match {
+      case m: TypeName.Primitive =>
+        m.isString
+      case m: TypeName.Container if m.isOption =>
+        _is_store_scalar_string_type(m.containee)
+      case _: TypeName.Container =>
+        false
+      case m: TypeName.Plain =>
+        ScalaModelTransformer
+          .resolveDeclaredType(m.fullName, clazz.packageName.name)
+          .exists(_is_store_scalar_string_model)
+      case _ =>
+        false
+    }
+
+  private def _is_store_scalar_string_model(p: org.simplemodeling.model.MObject): Boolean =
+    p match {
+      case m: MValue =>
+        m.attributes match {
+          case List(attribute) =>
+            attribute.attributeType match {
+              case datatype: MDataType => datatype.datatype == XString
+              case _ => false
+            }
+          case _ =>
+            false
+        }
+      case _ =>
+        false
     }
 
   private def _store_record_collection_compatibility: GenM[Unit] = {
@@ -4136,9 +4207,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _from_store_record_expression(name: String): String =
     if (_legacy_store_collection_attribute_names.isEmpty)
-      s"createC($name)"
+      s"EntityStoreRecordProjection.project($name, _store_record_attributes).flatMap(createC)"
     else
-      s"createC($name).orElse(createC(_normalize_store_record_collections($name)))"
+      s"EntityStoreRecordProjection.project($name, _store_record_attributes).flatMap(projected => createC(projected).orElse(createC(_normalize_store_record_collections(projected))))"
 
   //
   protected def parameter_list(p: ParameterSequence): GenM[Unit] =

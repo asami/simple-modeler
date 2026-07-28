@@ -4,7 +4,7 @@ name := "simplemodeler"
 
 organization := "org.simplemodeling"
 
-version := "1.1.24"
+version := "1.1.25-SNAPSHOT"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -48,6 +48,8 @@ libraryDependencies += "com.typesafe.play" %% "play-json" % "2.6.10" % "provided
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test"
+
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.19.0" % "test"
 
 libraryDependencies += "junit" % "junit" % "4.10" % "test"
 
