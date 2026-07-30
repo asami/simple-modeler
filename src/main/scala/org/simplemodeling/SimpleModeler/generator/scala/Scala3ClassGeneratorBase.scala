@@ -4089,14 +4089,6 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         _ <- println(s"  def fromRecord(r: Record): Consequence[$name] = createC(r)")
         _ <- println(s"  override def toStoreRecord(e: $name): Record = e.toDataStore()")
         _ <- println(s"  override def fromStoreRecord(r: Record): Consequence[$name] = ${_from_store_record_expression("r")}")
-        _ <- println(s"  override def fromStoreRecord(context: EntityStoreDecodeContext, r: Record): Consequence[$name] =")
-        _ <- println(s"    ${_from_store_record_expression("r")}.flatMap { entity =>")
-        _ <- println("      EntityPersistent.restoreCollectionIdentity(")
-        _ <- println("        entity,")
-        _ <- println("        entity.id,")
-        _ <- println("        context.owningCollectionId")
-        _ <- println("      )(id => entity.copy(id = id))")
-        _ <- println("    }")
       } yield ()
     } else {
       unit

@@ -15,7 +15,7 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.
 
 /*
  * @since   Jul. 25, 2026
- * @version Jul. 28, 2026
+ * @version Jul. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 final class SimpleEntityRevisionGenerationSpec
@@ -76,14 +76,26 @@ final class SimpleEntityRevisionGenerationSpec
         source should not include "\"revision\" ->"
       }
 
-      And("the persistence codec restores the exact owning collection identity")
+      And("the persistence codec uses the exact canonical EntityId scalar without owner rebinding")
       val entitysource = _source(sources, "/entity/Person.scala")
+      entitysource should not include "EntityStoreDecodeContext"
+      entitysource should not include "EntityPersistent.restoreCollectionIdentity"
+
+      And("optional and repeated EntityId attributes use the generated store encode/decode route")
+      entitysource should include("primaryFacilityId: Option[EntityId]")
+      entitysource should include("relatedFacilityIds: Vector[EntityId]")
       entitysource should include(
-        "override def fromStoreRecord(context: EntityStoreDecodeContext, r: Record): Consequence[Person]"
+        "\"primaryFacilityId\" -> _to_data_store_value(primaryFacilityId)"
       )
-      entitysource should include("EntityPersistent.restoreCollectionIdentity(")
-      entitysource should include("context.owningCollectionId")
-      entitysource should include("id => entity.copy(id = id)")
+      entitysource should include(
+        "\"relatedFacilityIds\" -> _to_data_store_value(relatedFacilityIds)"
+      )
+      entitysource should include(
+        "_record_get_as_c[EntityId](record, INPUT_KEYS_PRIMARY_FACILITY_ID)"
+      )
+      entitysource should include(
+        "_record_get_vector_as_c[org.simplemodeling.model.datatype.EntityId](record, INPUT_KEYS_RELATED_FACILITY_IDS)"
+      )
 
       And("the generated storage decoder applies the declared scalar projection")
       entitysource should include(
@@ -166,6 +178,20 @@ final class SimpleEntityRevisionGenerationSpec
           Designation("name"),
           MDataType.string,
           MOne,
+          Nil,
+          None
+        ),
+        MAttribute(
+          Designation("primaryFacilityId"),
+          MDataType(Designation("EntityId"), XEntityId, MPackageRef.default),
+          MZeroOne,
+          Nil,
+          None
+        ),
+        MAttribute(
+          Designation("relatedFacilityIds"),
+          MDataType(Designation("EntityId"), XEntityId, MPackageRef.default),
+          MZeroMore,
           Nil,
           None
         )
