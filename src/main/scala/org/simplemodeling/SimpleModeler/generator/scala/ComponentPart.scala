@@ -1558,21 +1558,6 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         unit
       else
         for {
-          _ <- println("override def create_aggregate_from_record(")
-          _ <- indent
-          _ <- println("entityName: String,")
-          _ <- println("record: Record,")
-          _ <- println("default: => Consequence[Any]")
-          _ <- outdent
-          _ <- println("): Consequence[Any] = entityName match {")
-          _ <- indent
-          _ <- defs.foldLeft(unit) { (z, d) =>
-            z.flatMap(_ => println(s"""case ${_string_literal(d.entityName)} => ${_aggregate_factory_method_name(d)}(record)"""))
-          }
-          _ <- println("case _ => default")
-          _ <- outdent
-          _ <- println("}")
-          _ <- separator
           _ <- intercalateTraverse_(defs, separator)(d => _aggregate_factory_method(d))
         } yield ()
     }
