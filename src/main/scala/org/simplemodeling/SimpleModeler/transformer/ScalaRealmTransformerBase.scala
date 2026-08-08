@@ -26,7 +26,8 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
  *  version Mar. 25, 2026
  *  version Apr.  5, 2026
  *  version May. 20, 2026
- * @version Jul. 15, 2026
+ *  version Jul. 15, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
@@ -263,7 +264,9 @@ lazy val root = project
 """
 
   override protected def build_component(b: Realm.Builder, model: MComponent): Realm.Builder = {
-    val g = new Scala3ComponentFamilyGenerator()
+    val generatorcontext =
+      org.simplemodeling.SimpleModeler.generator.scala.model.ScalaModel.Context.current
+    val g = new Scala3ComponentFamilyGenerator(generatorcontext)
     g.generate(model) match {
       case Consequence.Success(r, _) => r.build(b)
       case Consequence.Error(c) => c.RAISE

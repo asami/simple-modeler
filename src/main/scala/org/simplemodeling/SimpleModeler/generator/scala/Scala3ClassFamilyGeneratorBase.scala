@@ -17,13 +17,14 @@ import Generator.{State => GState, _}
  *  version Sep. 21, 2025
  *  version Nov.  8, 2025
  *  version Feb. 26, 2026
- * @version Apr. 12, 2026
+ *  version Apr. 12, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 trait Scala3ClassFamilyGeneratorBase[T <: MObject] extends SourceArtifactsGenerator[T] {
   import SourceArtifactsGenerator.ArtifactsPipeline
 
-  protected val scala_context = ScalaModel.Context.default
+  protected val scala_context: ScalaModel.Context = ScalaModel.Context.default
 
   def run(p: T): ArtifactsPipeline = {
     scala_model_transformers.foldMap(_generate_class(_, p))

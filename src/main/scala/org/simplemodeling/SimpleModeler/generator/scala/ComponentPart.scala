@@ -11,7 +11,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Apr. 30, 2026
  *  version May. 15, 2026
  *  version Jun. 27, 2026
- * @version Jul. 25, 2026
+ *  version Jul. 25, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -1518,16 +1519,26 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
     private def _factory(actioncalldescs: ActionCallDescriptorCollection): GenM[Unit] = {
       val servicedefs = services.filter(_.methods.nonEmpty).map(service_object_name)
+      val componentid = (scala_context.componentNamespace, scala_context.componentLocalId) match {
+        case (Some(namespace), Some(localid)) => s"$namespace.$localid"
+        case _ => component_name
+      }
+      val componentexpr = scala_context.componentDisplayName match {
+        case Some(displayname) =>
+          s"new ${component_class_name}() { override def displayName: String = ${_string_literal(displayname)} }"
+        case None =>
+          s"${component_class_name}()"
+      }
       for {
         _ <- _comment(component.description)
-        _ <- println(s"""val name = "${component_name}"""")
-        _ <- println(s"val componentId = ComponentId(name) // TODO")
+        _ <- println(s"val name = ${_string_literal(componentid)}")
+        _ <- println(s"val componentId = ComponentId(name)")
         _ <- separator
         _ <- println(s"class Factory extends Component.SinglePrimaryBundleFactory {")
         _ <- indent
         _ <- println("protected def create_Component(params: ComponentCreate): Component =")
         _ <- indent
-        _ <- println(s"${component_class_name}()")
+        _ <- println(componentexpr)
         _ <- outdent
         _ <- separator
         _ <- println(s"override protected def create_Core(")

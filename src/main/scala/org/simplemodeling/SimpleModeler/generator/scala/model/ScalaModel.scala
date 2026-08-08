@@ -26,7 +26,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Mar. 31, 2026
  *  version Apr. 30, 2026
  *  version May.  8, 2026
- * @version Jul. 25, 2026
+ *  version Jul. 25, 2026
+ * @version Aug.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -40,6 +41,9 @@ object ScalaModel {
   final val MAX_GENERATED_FQN_LENGTH = 1024
 
   abstract class Context() {
+    def componentNamespace: Option[String] = None
+    def componentLocalId: Option[String] = None
+    def componentDisplayName: Option[String] = None
     def optionType(p: TypeName): TypeName = TypeName.Container.option(p)
     def stringType: TypeName = TypeName.Primitive.string
     def optionParameter(p: Parameter): Parameter = p.typeName match {
@@ -81,8 +85,31 @@ object ScalaModel {
   }
   object Context {
     val default = Default()
+    private val _component_identity_scope = new ThreadLocal[List[Default]] {
+      override def initialValue(): List[Default] = Nil
+    }
 
-    case class Default() extends Context() {
+    def current: Context =
+      _component_identity_scope.get().headOption.getOrElse(default)
+
+    def withComponentIdentity[A](
+      namespace: String,
+      localId: String,
+      displayName: Option[String]
+    )(body: => A): A = {
+      val stack = _component_identity_scope.get()
+      _component_identity_scope.set(
+        Default(Some(namespace), Some(localId), displayName) :: stack
+      )
+      try body
+      finally _component_identity_scope.set(stack)
+    }
+
+    case class Default(
+      override val componentNamespace: Option[String] = None,
+      override val componentLocalId: Option[String] = None,
+      override val componentDisplayName: Option[String] = None
+    ) extends Context() {
     }
   }
 }
