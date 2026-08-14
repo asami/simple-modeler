@@ -11,7 +11,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @since   Feb. 11, 2026
  *  version Feb. 18, 2026
  *  version May. 22, 2026
- * @version Jul. 25, 2026
+ *  version Jul. 25, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -151,7 +152,17 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         priority = p.priority,
         declarationOrder = p.declarationOrder,
         guard = p.guard.map(_to_rule_guard),
-        plan = _to_rule_plan(p.plan)
+        plan = _to_rule_plan(p.plan),
+        historyCompositeName = p.historyCompositeName,
+        historyFieldName = p.historyFieldName,
+        historyDirectLeaves = p.historyDirectLeaves,
+        historyFallbackLeaf = p.historyFallbackLeaf,
+        expectedHistoryRecordWrites = p.expectedHistoryRecordWrites.map { write =>
+          SComponent.StateMachineHistoryRecordWrite(
+            compositeName = write.compositeName,
+            leafName = write.leafName
+          )
+        }
       )
 
     private def _to_state_machine_definitions(
@@ -165,7 +176,15 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       SComponent.StateMachineDefinition(
         name = p.name,
         states = p.states,
-        events = p.events
+        events = p.events,
+        historyFieldName = p.historyFieldName,
+        historyComposites = p.historyComposites.map { composite =>
+          SComponent.StateMachineHistoryComposite(
+            name = composite.name,
+            directLeaves = composite.directLeaves,
+            fallbackLeaf = composite.fallbackLeaf
+          )
+        }
       )
 
     private def _to_event_reception_definitions(

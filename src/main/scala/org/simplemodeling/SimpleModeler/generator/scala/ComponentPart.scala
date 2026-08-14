@@ -12,7 +12,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version May. 15, 2026
  *  version Jun. 27, 2026
  *  version Jul. 25, 2026
- * @version Aug.  8, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -234,7 +234,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- indent
       _ <- println(s"name = ${_string_literal(p.name)},")
       _ <- println(s"states = ${_string_vector_expr(p.states)},")
-      _ <- println(s"events = ${_string_vector_expr(p.events)}")
+      _ <- println(s"events = ${_string_vector_expr(p.events)},")
+      _ <- println(s"historyFieldName = ${_option_string_literal(p.historyFieldName)},")
+      _ <- println(s"historyComposites = ${_history_composite_vector_expr(p.historyComposites)}")
       _ <- outdent
       _ <- println(")")
     } yield ()
@@ -1240,6 +1242,11 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"fromStateValue = ${_int_option_expr(p.fromStateValue)},")
       _ <- println(s"toState = ${_option_string_literal(p.toState)},")
       _ <- println(s"toStateValue = ${_int_option_expr(p.toStateValue)},")
+      _ <- println(s"historyCompositeName = ${_option_string_literal(p.historyCompositeName)},")
+      _ <- println(s"historyFieldName = ${_option_string_literal(p.historyFieldName)},")
+      _ <- println(s"historyDirectLeaves = ${_string_vector_expr(p.historyDirectLeaves)},")
+      _ <- println(s"historyFallbackLeaf = ${_option_string_literal(p.historyFallbackLeaf)},")
+      _ <- println(s"expectedHistoryRecordWrites = ${_history_record_write_vector_expr(p.expectedHistoryRecordWrites)},")
       _ <- println(s"priority = ${p.priority},")
       _ <- println(s"declarationOrder = ${p.declarationOrder},")
       _ <- println(s"guard = ${_guard_expr(p.guard)},")
@@ -1338,6 +1345,20 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
   private def _option_string_literal(p: Option[String]): String =
     p.map(x => s"Some(${_string_literal(x)})").getOrElse("None")
+
+  private def _history_composite_vector_expr(
+    p: Vector[SComponent.StateMachineHistoryComposite]
+  ): String =
+    p.map { composite =>
+      s"org.goldenport.cncf.statemachine.CmlHistoryCompositeDefinition(name = ${_string_literal(composite.name)}, directLeaves = ${_string_vector_expr(composite.directLeaves)}, fallbackLeaf = ${_option_string_literal(composite.fallbackLeaf)})"
+    }.mkString("Vector(", ", ", ")")
+
+  private def _history_record_write_vector_expr(
+    p: Vector[SComponent.StateMachineHistoryRecordWrite]
+  ): String =
+    p.map { write =>
+      s"org.goldenport.cncf.statemachine.HistoryRecordWrite(compositeName = ${_string_literal(write.compositeName)}, leafName = ${_string_literal(write.leafName)})"
+    }.mkString("Vector(", ", ", ")")
 
   private def _option_boolean_expr(p: Option[Boolean]): String =
     p.map(x => s"Some(${x.toString})").getOrElse("None")

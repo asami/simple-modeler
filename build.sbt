@@ -34,7 +34,7 @@ resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/
 // resolvers += "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"
 
 // override goldenport-record
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.30"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.31-SNAPSHOT"
 
 libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 

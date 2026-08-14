@@ -27,7 +27,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Apr. 30, 2026
  *  version May.  8, 2026
  *  version Jul. 25, 2026
- * @version Aug.  8, 2026
+ * @version Aug. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -984,6 +984,17 @@ object SComponent {
     entry: Vector[RuleAction] = Vector.empty
   )
 
+  final case class StateMachineHistoryRecordWrite(
+    compositeName: String,
+    leafName: String
+  )
+
+  final case class StateMachineHistoryComposite(
+    name: String,
+    directLeaves: Vector[String] = Vector.empty,
+    fallbackLeaf: Option[String] = None
+  )
+
   final case class StateMachineTransitionRule(
     collectionName: String,
     trigger: TransitionTrigger,
@@ -997,13 +1008,20 @@ object SComponent {
     priority: Int = 0,
     declarationOrder: Int = 0,
     guard: Option[RuleGuard] = None,
-    plan: RulePlan = RulePlan()
+    plan: RulePlan = RulePlan(),
+    historyCompositeName: Option[String] = None,
+    historyFieldName: Option[String] = None,
+    historyDirectLeaves: Vector[String] = Vector.empty,
+    historyFallbackLeaf: Option[String] = None,
+    expectedHistoryRecordWrites: Vector[StateMachineHistoryRecordWrite] = Vector.empty
   )
 
   final case class StateMachineDefinition(
     name: String,
     states: Vector[String] = Vector.empty,
-    events: Vector[String] = Vector.empty
+    events: Vector[String] = Vector.empty,
+    historyFieldName: Option[String] = None,
+    historyComposites: Vector[StateMachineHistoryComposite] = Vector.empty
   )
 
   final case class EventReceptionDefinition(
