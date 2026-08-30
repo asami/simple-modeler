@@ -27,7 +27,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Apr. 30, 2026
  *  version May.  8, 2026
  *  version Jul. 25, 2026
- * @version Aug. 14, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -887,6 +887,37 @@ case class STrait(core: ClassCore) extends SClassBaseWithCore {
 }
 
 case class SCaseClass(core: ClassCore) extends SClassBaseWithCore {
+}
+
+case class SStateMachine(
+  core: ClassCore,
+  stateMachineCore: SStateMachine.StateMachineCore
+) extends SClassBaseWithCore with SStateMachine.StateMachineCore.Holder {
+}
+object SStateMachine {
+  case class State(
+    name: String,
+    value: Either[String, Int]
+  )
+
+  case class Transition(
+    from: String,
+    event: Option[String],
+    to: String
+  )
+
+  case class StateMachineCore(
+    states: Vector[State],
+    transitions: Vector[Transition]
+  )
+  object StateMachineCore {
+    trait Holder {
+      def stateMachineCore: StateMachineCore
+
+      def states: Vector[State] = stateMachineCore.states
+      def transitions: Vector[Transition] = stateMachineCore.transitions
+    }
+  }
 }
 
 case class SEnum(core: ClassCore) extends SClassBaseWithCore {

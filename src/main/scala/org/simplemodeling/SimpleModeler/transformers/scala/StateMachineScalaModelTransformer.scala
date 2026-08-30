@@ -4,16 +4,16 @@ import org.goldenport.context.Consequence
 import org.simplemodeling.model._
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.Purpose
-import org.simplemodeling.SimpleModeler.transformer.scala.CaseClassScalaModelTransformer
 import org.simplemodeling.SimpleModeler.generator.scala.model._
 
 /*
  * @since   Mar. 24, 2026
  *  version Mar. 25, 2026
- * @version May. 22, 2026
+ *  version May. 22, 2026
+ * @version Aug. 30, 2026
  * @author  ASAMI, Tomoharu
  */
-class StateMachineScalaModelTransformer() extends CaseClassScalaModelTransformer() {
+class StateMachineScalaModelTransformer() extends ScalaModelTransformer() {
   protected def accept_purposes: Vector[Purpose] = Vector(Purpose.Plain)
   protected def is_accept_object(p: MObject): Boolean = p.isInstanceOf[MStateMachine]
 
@@ -30,6 +30,16 @@ class StateMachineScalaModelTransformer() extends CaseClassScalaModelTransformer
     purpose: Purpose
   ): Consequence[Vector[SClassBase]] = Consequence {
     val core = to_scala_core_with_subpackage(p).withPurpose(purpose)
-    Vector(SCaseClass(core))
+    val states = p.states.toVector.map { state =>
+      SStateMachine.State(state.name, state.value)
+    }
+    val transitions = p.transitions.toVector.map { transition =>
+      SStateMachine.Transition(
+        transition.preState.name,
+        transition.event.map(_.name),
+        transition.postState.name
+      )
+    }
+    Vector(SStateMachine(core, SStateMachine.StateMachineCore(states, transitions)))
   }
 }
