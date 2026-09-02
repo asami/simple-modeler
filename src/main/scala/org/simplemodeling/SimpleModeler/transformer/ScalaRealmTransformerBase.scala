@@ -12,8 +12,8 @@ import org.simplemodeling.model.domain.MDomainValue
 import org.simplemodeling.SimpleModeler.transformer.maker.ScalaClassDefinition
 import org.simplemodeling.SimpleModeler.transformer.maker._
 import org.simplemodeling.SimpleModeler.transformer.maker.mobject.MPEntity
+import org.simplemodeling.SimpleModeler.generator.scala.model.ScalaModel
 import org.simplemodeling.SimpleModeler.generators.scala._
-import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
 
 /*
  * Derived from SimpleModel2ScalaRealmTransformerBase (Nov. 19, 2012)
@@ -35,12 +35,10 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
   protected val scala3_version = "3.3.8"
 
   override def transform(model: SimpleModel): TransformResult = {
-    ScalaModelTransformer.clearObjectRegistry()
-    model.elements.foreach {
-      case m: MObject => ScalaModelTransformer.registerObject(m)
-      case _ =>
+    val scalacontext = ScalaModel.Context.fromModel(model)
+    ScalaModel.Context.withContext(scalacontext) {
+      super.transform(model)
     }
-    super.transform(model)
   }
 
   protected def make_entity_legacy(model: PModel, p: PEntity): String = {
@@ -56,7 +54,7 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
   }
 
   override protected def build_entity(b: Realm.Builder, p: MEntity): Realm.Builder = {
-    val g = new Scala3EntityFamilyGenerator()
+    val g = new Scala3EntityFamilyGenerator(ScalaModel.Context.current)
     g.generate(p) match {
       case Consequence.Success(r, _) => r.build(b)
       case Consequence.Error(c) => c.RAISE
@@ -66,19 +64,19 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
   override protected def build_value(b: Realm.Builder, p: MValue): Realm.Builder = {
     p match {
       case m: MDomainValue =>
-        val g = new Scala3ValueFamilyGenerator()
+        val g = new Scala3ValueFamilyGenerator(ScalaModel.Context.current)
         g.generate(m) match {
           case Consequence.Success(r, _) => r.build(b)
           case Consequence.Error(c) => c.RAISE
         }
       case m: MStructuredDataType =>
-        val g = new Scala3ValueFamilyGenerator()
+        val g = new Scala3ValueFamilyGenerator(ScalaModel.Context.current)
         g.generate(m) match {
           case Consequence.Success(r, _) => r.build(b)
           case Consequence.Error(c) => c.RAISE
         }
       case m: MNominalDataType =>
-        val g = new Scala3ValueFamilyGenerator()
+        val g = new Scala3ValueFamilyGenerator(ScalaModel.Context.current)
         g.generate(m) match {
           case Consequence.Success(r, _) => r.build(b)
           case Consequence.Error(c) => c.RAISE
@@ -89,7 +87,7 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
   }
 
   override protected def build_powertype(b: Realm.Builder, p: MPowertype): Realm.Builder = {
-    val g = new Scala3PowertypeFamilyGenerator()
+    val g = new Scala3PowertypeFamilyGenerator(ScalaModel.Context.current)
     g.generate(p) match {
       case Consequence.Success(r, _) => r.build(b)
       case Consequence.Error(c) => c.RAISE
@@ -97,7 +95,7 @@ trait ScalaRealmTransformerBase extends ProgramRealmTransformerBase {
   }
 
   override protected def build_state_machine(b: Realm.Builder, p: MStateMachine): Realm.Builder = {
-    val g = new Scala3StateMachineFamilyGenerator()
+    val g = new Scala3StateMachineFamilyGenerator(ScalaModel.Context.current)
     g.generate(p) match {
       case Consequence.Success(r, _) => r.build(b)
       case Consequence.Error(c) => c.RAISE
@@ -264,8 +262,7 @@ lazy val root = project
 """
 
   override protected def build_component(b: Realm.Builder, model: MComponent): Realm.Builder = {
-    val generatorcontext =
-      org.simplemodeling.SimpleModeler.generator.scala.model.ScalaModel.Context.current
+    val generatorcontext = ScalaModel.Context.current
     val g = new Scala3ComponentFamilyGenerator(generatorcontext)
     g.generate(model) match {
       case Consequence.Success(r, _) => r.build(b)

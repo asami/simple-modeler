@@ -443,14 +443,12 @@ final class ValueScalaModelTransformerSpec
           operations = Nil
         )
 
-        When("the registered model is transformed")
-        ScalaModelTransformer.clearObjectRegistry()
-        ScalaModelTransformer.registerObject(account)
-        ScalaModelTransformer.registerObject(snapshot)
-
+        When("the request-owned model context is transformed")
+        val scalacontext = ScalaModel.Context.fromObjects(Vector(account, snapshot))
         val tx = new ValueScalaModelTransformer()
-        val generated =
+        val generated = ScalaModel.Context.withContext(scalacontext) {
           tx((snapshot, ScalaModelTransformer.Purpose.Plain)).take.head
+        }
 
         Then("the short reference resolves to the generated entity package")
         generated.parameterSequence.parameters.head.typeName.fullName shouldBe "scala.collection.immutable.Vector[org.example.entity.Account]"

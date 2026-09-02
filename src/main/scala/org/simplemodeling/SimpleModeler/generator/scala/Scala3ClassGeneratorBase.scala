@@ -7,7 +7,6 @@ import org.goldenport.record.v2._
 import org.goldenport.util.StringUtils
 import org.goldenport.scalaz.FoldTraverseUtil
 import org.simplemodeling.SimpleModeler.generator.SourceArtifacts
-import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
 import org.simplemodeling.model.{MDataType, MValue}
 import model._
 import Generator.{State => GState, _}
@@ -4131,7 +4130,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case _: TypeName.Container =>
         false
       case m: TypeName.Plain =>
-        ScalaModelTransformer
+        scala_context
           .resolveDeclaredType(m.fullName, clazz.packageName.name)
           .exists(_is_store_scalar_string_model)
       case _ =>

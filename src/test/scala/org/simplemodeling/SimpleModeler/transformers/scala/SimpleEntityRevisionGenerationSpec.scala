@@ -8,7 +8,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.smartdox.Description
 import org.simplemodeling.model._
 import org.simplemodeling.model.domain.MDomainResource
-import org.simplemodeling.SimpleModeler.generator.scala.model.SCaseClass
+import org.simplemodeling.SimpleModeler.generator.scala.model.{SCaseClass, ScalaModel}
 import org.simplemodeling.SimpleModeler.generators.scala.Scala3EntityFamilyGenerator
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.Purpose
@@ -26,21 +26,22 @@ final class SimpleEntityRevisionGenerationSpec
     "project one managed revision on outputs and none on application inputs" in {
       Given("a SimpleEntity model carrying the canonical revision attribute")
       val entity = _entity
-      ScalaModelTransformer.clearObjectRegistry()
-      ScalaModelTransformer.registerObject(entity)
+      val scalacontext = ScalaModel.Context.fromObjects(Vector(entity))
 
       When("the complete Scala Entity family is generated")
-      val sources = new Scala3EntityFamilyGenerator()
+      val sources = new Scala3EntityFamilyGenerator(scalacontext)
         .generate(entity)
         .take
         .slots
         .map(x => x.path -> x.content)
         .toMap
-      val plainmodel = new EntityValueScalaModelTransformer()
-        .apply((entity, Purpose.Plain))
-        .take
-        .collectFirst { case m: SCaseClass => m }
-        .getOrElse(fail("generated plain Entity model missing"))
+      val plainmodel = ScalaModel.Context.withContext(scalacontext) {
+        new EntityValueScalaModelTransformer()
+          .apply((entity, Purpose.Plain))
+          .take
+          .collectFirst { case m: SCaseClass => m }
+          .getOrElse(fail("generated plain Entity model missing"))
+      }
 
       Then("every Entity output implements one typed read-only revision")
       _output_paths.foreach { path =>
@@ -106,11 +107,10 @@ final class SimpleEntityRevisionGenerationSpec
     "preserve an ordinary revision attribute on non-SimpleEntity inputs" in {
       Given("an Entity whose business model defines revision without extending SimpleEntity")
       val entity = _ordinary_entity
-      ScalaModelTransformer.clearObjectRegistry()
-      ScalaModelTransformer.registerObject(entity)
+      val scalacontext = ScalaModel.Context.fromObjects(Vector(entity))
 
       When("the complete Scala Entity family is generated")
-      val sources = new Scala3EntityFamilyGenerator()
+      val sources = new Scala3EntityFamilyGenerator(scalacontext)
         .generate(entity)
         .take
         .slots

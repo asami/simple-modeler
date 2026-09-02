@@ -27,7 +27,15 @@ trait Scala3ClassFamilyGeneratorBase[T <: MObject] extends SourceArtifactsGenera
   protected val scala_context: ScalaModel.Context = ScalaModel.Context.default
 
   def run(p: T): ArtifactsPipeline = {
-    scala_model_transformers.foldMap(_generate_class(_, p))
+    val pipeline = ScalaModel.Context.withContext(scala_context) {
+      scala_model_transformers.foldMap(_generate_class(_, p))
+    }
+    ReaderWriterStateT {
+      (config: SourceArtifactsGenerator.Config, state: SourceArtifactsGenerator.State) =>
+      ScalaModel.Context.withContext(scala_context) {
+        pipeline.run(config, state)
+      }
+    }
   }
 
   protected def scala_model_transformers: Vector[ScalaModelTransformer]

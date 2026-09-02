@@ -17,8 +17,11 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  * @author  ASAMI, Tomoharu
  */
 class Scala3EntityFamilyGenerator(
+  context: ScalaModel.Context = ScalaModel.Context.default
 ) extends Scala3ClassFamilyGeneratorBase[MEntity] {
   import Scala3EntityFamilyGenerator._
+
+  override protected val scala_context = context
 
   protected def scala_model_transformers: Vector[ScalaModelTransformer] =
     Vector(

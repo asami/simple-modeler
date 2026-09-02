@@ -41,14 +41,15 @@ final class EntityUpdateOperationContractProjectionSpec
       val component = _component(entity, operation)
 
       When("the component operation adapter is generated")
-      ScalaModelTransformer.clearObjectRegistry()
-      ScalaModelTransformer.registerObject(entity)
-      val transformed = new ComponentScalaModelTransformer()
-        .apply((component, Purpose.Plain))
-        .take
-        .collectFirst { case m: SComponent => m }
-        .getOrElse(fail("generated component model missing"))
-      val source = new Scala3ComponentGenerator(ScalaModel.Context.default)
+      val scalacontext = ScalaModel.Context.fromObjects(Vector(entity, component))
+      val transformed = ScalaModel.Context.withContext(scalacontext) {
+        new ComponentScalaModelTransformer()
+          .apply((component, Purpose.Plain))
+          .take
+          .collectFirst { case m: SComponent => m }
+          .getOrElse(fail("generated component model missing"))
+      }
+      val source = new Scala3ComponentGenerator(scalacontext)
         .generate(transformed)
         .take
         .slots

@@ -27,7 +27,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Apr. 30, 2026
  *  version May.  8, 2026
  *  version Jul. 25, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -44,6 +45,13 @@ object ScalaModel {
     def componentNamespace: Option[String] = None
     def componentLocalId: Option[String] = None
     def componentDisplayName: Option[String] = None
+    def declaredTypeRegistry: DeclaredTypeRegistry = DeclaredTypeRegistry.empty
+    def resolveObject(ref: MObjectRef, scope: MObject): Option[MObject] =
+      declaredTypeRegistry.resolveObject(ref, scope)
+    def resolveDeclaredType(ref: MObjectRef, scopePackage: String): Option[MObject] =
+      declaredTypeRegistry.resolveDeclaredType(ref, scopePackage)
+    def resolveDeclaredType(name: String, scopePackage: String): Option[MObject] =
+      declaredTypeRegistry.resolveDeclaredType(name, scopePackage)
     def optionType(p: TypeName): TypeName = TypeName.Container.option(p)
     def stringType: TypeName = TypeName.Primitive.string
     def optionParameter(p: Parameter): Parameter = p.typeName match {
@@ -85,31 +93,142 @@ object ScalaModel {
   }
   object Context {
     val default = Default()
-    private val _component_identity_scope = new ThreadLocal[List[Default]] {
-      override def initialValue(): List[Default] = Nil
+    private val _context_scope = new ThreadLocal[List[Context]] {
+      override def initialValue(): List[Context] = Nil
     }
 
     def current: Context =
-      _component_identity_scope.get().headOption.getOrElse(default)
+      _context_scope.get().headOption.getOrElse(default)
+
+    def fromModel(model: SimpleModel): Context =
+      fromObjects(model.elements.collect { case m: MObject => m })
+
+    def fromObjects(objects: Iterable[MObject]): Context = {
+      val context = current
+      Default(
+        componentNamespace = context.componentNamespace,
+        componentLocalId = context.componentLocalId,
+        componentDisplayName = context.componentDisplayName,
+        declaredTypeRegistry = DeclaredTypeRegistry(objects)
+      )
+    }
+
+    def withContext[A](context: Context)(body: => A): A = {
+      val stack = _context_scope.get()
+      _context_scope.set(context :: stack)
+      try body
+      finally _context_scope.set(stack)
+    }
 
     def withComponentIdentity[A](
       namespace: String,
       localId: String,
       displayName: Option[String]
     )(body: => A): A = {
-      val stack = _component_identity_scope.get()
-      _component_identity_scope.set(
-        Default(Some(namespace), Some(localId), displayName) :: stack
-      )
-      try body
-      finally _component_identity_scope.set(stack)
+      val context = current
+      withContext(
+        Default(
+          Some(namespace),
+          Some(localId),
+          displayName,
+          context.declaredTypeRegistry
+        )
+      )(body)
     }
 
     case class Default(
       override val componentNamespace: Option[String] = None,
       override val componentLocalId: Option[String] = None,
-      override val componentDisplayName: Option[String] = None
+      override val componentDisplayName: Option[String] = None,
+      override val declaredTypeRegistry: DeclaredTypeRegistry = DeclaredTypeRegistry.empty
     ) extends Context() {
+    }
+  }
+
+  final class DeclaredTypeRegistry private (
+    private val _object_by_qualified_name: Map[String, MObject],
+    private val _object_by_name: Map[String, Vector[MObject]]
+  ) {
+    def resolveObject(ref: MObjectRef, scope: MObject): Option[MObject] =
+      _resolve_by_qualified_name(scope.packageName, ref.objectName).
+        orElse(_resolve_by_qualified_name(ref.packageName, ref.objectName)).
+        orElse(_resolve_short_name(ref.objectName))
+
+    def resolveDeclaredType(name: String, scopePackage: String): Option[MObject] =
+      resolveDeclaredType(MObjectRef.create(name), scopePackage)
+
+    def resolveDeclaredType(ref: MObjectRef, scopePackage: String): Option[MObject] =
+      _resolve_by_qualified_name(scopePackage, ref.objectName).
+        orElse(_resolve_by_qualified_name(ref.packageName, ref.objectName)).
+        orElse(_resolve_short_name(ref.objectName)).
+        orElse(_resolve_default_model_declared_type(ref)).
+        filter(_is_declared_type)
+
+    private def _resolve_by_qualified_name(
+      pkg: String,
+      name: String
+    ): Option[MObject] =
+      _object_by_qualified_name.get(_qualified_name(pkg, name))
+
+    private def _resolve_short_name(name: String): Option[MObject] =
+      _object_by_name.get(name).flatMap(_.headOption)
+
+    private def _resolve_default_model_declared_type(ref: MObjectRef): Option[MObject] =
+      if (ref.packageName.nonEmpty)
+        None
+      else {
+        _resolve_by_qualified_name(
+          "org.simplemodeling.model.value",
+          ref.objectName
+        ).orElse(
+          _resolve_by_qualified_name(
+            "org.simplemodeling.model.datatype",
+            ref.objectName
+          )
+        ).orElse(Some(_default_declared_type_stub(ref.objectName)))
+      }
+
+    private def _is_declared_type(p: MObject): Boolean = p match {
+      case _: MEntity => true
+      case _: MValue => true
+      case _: MDataType => true
+      case _ => false
+    }
+
+    private def _default_declared_type_stub(name: String): MObject =
+      org.simplemodeling.model.domain.MDomainValue(
+        description = org.smartdox.Description.name(name),
+        affiliation = MPackageRef("org.simplemodeling.model.value"),
+        stereotypes = Nil,
+        base = None,
+        traits = Nil,
+        powertypes = Nil,
+        attributes = Nil,
+        operations = Nil
+      )
+
+    private def _qualified_name(pkg: String, name: String): String =
+      if (pkg == null || pkg.isEmpty)
+        name
+      else
+        s"$pkg.$name"
+  }
+  object DeclaredTypeRegistry {
+    val empty = new DeclaredTypeRegistry(Map.empty, Map.empty)
+
+    def apply(objects: Iterable[MObject]): DeclaredTypeRegistry = {
+      val objectvector = objects.toVector
+      val objectbyqualifiedname = objectvector.foldLeft(Map.empty[String, MObject]) {
+        case (z, x) => z.updated(x.qualifiedName, x)
+      }
+      val objectbyname = objectvector.foldLeft(Map.empty[String, Vector[MObject]]) {
+        case (z, x) =>
+          val xs = z.getOrElse(x.name, Vector.empty).filterNot(
+            _.qualifiedName == x.qualifiedName
+          )
+          z.updated(x.name, xs :+ x)
+      }
+      new DeclaredTypeRegistry(objectbyqualifiedname, objectbyname)
     }
   }
 }

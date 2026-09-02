@@ -8,7 +8,7 @@ import org.goldenport.record.v2.XString
 import org.smartdox.Description
 import org.simplemodeling.model._
 import org.simplemodeling.model.domain.{MDomainResource, MDomainValue}
-import org.simplemodeling.SimpleModeler.generator.scala.model.{PackageName, TypeName}
+import org.simplemodeling.SimpleModeler.generator.scala.model.{PackageName, ScalaModel, TypeName}
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
 import org.simplemodeling.SimpleModeler.generators.scala.Scala3EntityFamilyGenerator
 
@@ -53,13 +53,12 @@ final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers wit
         MDataType(Designation("FacilityName"), XString, MPackageRef("org.example.facility.datatype"))
       )
 
-      ScalaModelTransformer.clearObjectRegistry()
-      ScalaModelTransformer.registerObject(facilityname)
-      ScalaModelTransformer.registerObject(stringfacility)
-      ScalaModelTransformer.registerObject(typedfacility)
+      val scalacontext = ScalaModel.Context.fromObjects(
+        Vector(facilityname, stringfacility, typedfacility)
+      )
 
       When("the Scala entity create families are generated")
-      val generator = new Scala3EntityFamilyGenerator()
+      val generator = new Scala3EntityFamilyGenerator(scalacontext)
       val stringsource = generator.generate(stringfacility).take.slots.map(_.content).mkString("\n")
       val typedsource = generator.generate(typedfacility).take.slots.map(_.content).mkString("\n")
 
@@ -104,12 +103,12 @@ final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers wit
         stateMachines = Nil
       )
 
-      ScalaModelTransformer.clearObjectRegistry()
-      ScalaModelTransformer.registerObject(identitypresentation)
-      ScalaModelTransformer.registerObject(userprofile)
+      val scalacontext = ScalaModel.Context.fromObjects(
+        Vector(identitypresentation, userprofile)
+      )
 
       When("the Scala entity family is generated")
-      val artifacts = new Scala3EntityFamilyGenerator().generate(userprofile).take
+      val artifacts = new Scala3EntityFamilyGenerator(scalacontext).generate(userprofile).take
       val query = artifacts.slots
         .find(_.path.contains("entity/query/UserProfile.scala"))
         .getOrElse(fail("query source missing"))
@@ -149,13 +148,13 @@ final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers wit
       stateMachines = Nil
     )
 
-    ScalaModelTransformer.clearObjectRegistry()
-    ScalaModelTransformer.registerObject(userprofile)
+    val scalacontext = ScalaModel.Context.fromObjects(Vector(address, userprofile))
 
     When("the entity read model is generated")
     val tx = new EntityValueReadScalaModelTransformer()
-    val result = tx((userprofile, ScalaModelTransformer.Purpose.Read))
-    val generated = result.take.head
+    val generated = ScalaModel.Context.withContext(scalacontext) {
+      tx((userprofile, ScalaModelTransformer.Purpose.Read)).take.head
+    }
     val addressparam = generated.parameterSequence.parameters.find(_.name.name == "address").getOrElse(fail("address parameter missing"))
 
     Then("the generated parameter uses the registered value class")
@@ -191,14 +190,13 @@ final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers wit
       stateMachines = Nil
     )
 
-    ScalaModelTransformer.clearObjectRegistry()
-    ScalaModelTransformer.registerObject(tenantcode)
-    ScalaModelTransformer.registerObject(account)
+    val scalacontext = ScalaModel.Context.fromObjects(Vector(tenantcode, account))
 
     When("the entity read model is generated")
     val tx = new EntityValueReadScalaModelTransformer()
-    val result = tx((account, ScalaModelTransformer.Purpose.Read))
-    val generated = result.take.head
+    val generated = ScalaModel.Context.withContext(scalacontext) {
+      tx((account, ScalaModelTransformer.Purpose.Read)).take.head
+    }
     val tenantcodeparam = generated.parameterSequence.parameters.find(_.name.name == "tenantCode").getOrElse(fail("tenantCode parameter missing"))
 
     Then("the generated parameter keeps the external component package")
@@ -240,12 +238,10 @@ final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers wit
       stateMachines = Nil
     )
 
-    ScalaModelTransformer.clearObjectRegistry()
-    ScalaModelTransformer.registerObject(externalref)
-    ScalaModelTransformer.registerObject(account)
+    val scalacontext = ScalaModel.Context.fromObjects(Vector(externalref, account))
 
     When("the Scala entity family is generated")
-    val family = new Scala3EntityFamilyGenerator()
+    val family = new Scala3EntityFamilyGenerator(scalacontext)
     val artifacts = family.generate(account).take
     val source = artifacts.slots.map(_.content).mkString("\n")
     val readerstart = source.indexOf("private def _record_get_vector_as_c")
@@ -296,12 +292,10 @@ final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers wit
       stateMachines = Nil
     )
 
-    ScalaModelTransformer.clearObjectRegistry()
-    ScalaModelTransformer.registerObject(tag)
-    ScalaModelTransformer.registerObject(account)
+    val scalacontext = ScalaModel.Context.fromObjects(Vector(tag, account))
 
     When("the Scala entity family is generated")
-    val family = new Scala3EntityFamilyGenerator()
+    val family = new Scala3EntityFamilyGenerator(scalacontext)
     val artifacts = family.generate(account).take
     val source = artifacts.slots.map(_.content).mkString("\n")
 
@@ -343,11 +337,10 @@ final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers wit
       stateMachines = Nil
     )
 
-    ScalaModelTransformer.clearObjectRegistry()
-    ScalaModelTransformer.registerObject(account)
+    val scalacontext = ScalaModel.Context.fromObjects(Vector(account))
 
     When("the Scala entity family is generated")
-    val family = new Scala3EntityFamilyGenerator()
+    val family = new Scala3EntityFamilyGenerator(scalacontext)
     val artifacts = family.generate(account).take
     val source = artifacts.slots.map(_.content).mkString("\n")
 

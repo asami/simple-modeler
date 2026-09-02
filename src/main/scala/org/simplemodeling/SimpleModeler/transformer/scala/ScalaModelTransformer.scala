@@ -97,7 +97,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
     if (visited.contains(key))
       p.attributes
     else {
-      val baseattrs = p.base.flatMap(ScalaModelTransformer.resolveObject(_, p)).
+      val baseattrs = p.base.flatMap(ScalaModel.Context.current.resolveObject(_, p)).
         map(_collect_effective_attributes(_, visited + key)).
         getOrElse(Nil)
       _merge_attributes(baseattrs, p.attributes)
@@ -412,7 +412,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
           map(_.trim).
           filterNot(_.isEmpty).
           filterNot(_.equalsIgnoreCase("string")).
-          flatMap(x => if (p.resolveDeclaredType) ScalaModelTransformer.resolveDeclaredType(x, _current_package_name.map(_.name).getOrElse("")) else None).
+          flatMap(x => if (p.resolveDeclaredType) ScalaModel.Context.current.resolveDeclaredType(x, _current_package_name.map(_.name).getOrElse("")) else None).
           map(_to_declared_typename)
       case _ =>
         None
@@ -448,7 +448,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   }
 
   final protected def to_typename(o: MObjectRef): TypeName =
-    ScalaModelTransformer.resolveDeclaredType(o, _current_package_name.map(_.name).getOrElse("")).
+    ScalaModel.Context.current.resolveDeclaredType(o, _current_package_name.map(_.name).getOrElse("")).
       map(_to_declared_typename).
       getOrElse(TypeName.create(o.packageName, o.objectName))
 
@@ -488,105 +488,6 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
 }
 
 object ScalaModelTransformer {
-  private val _object_registry =
-    scala.collection.concurrent.TrieMap.empty[String, MObject]
-  private val _object_registry_by_name =
-    scala.collection.concurrent.TrieMap.empty[String, Vector[MObject]]
-
-  def clearObjectRegistry(): Unit = synchronized {
-    _object_registry.clear()
-    _object_registry_by_name.clear()
-  }
-
-  def registerObject(p: MObject): Unit = synchronized {
-    _object_registry.update(p.qualifiedName, p)
-    val xs = _object_registry_by_name.getOrElse(p.name, Vector.empty)
-    val ys = (xs.filterNot(_.qualifiedName == p.qualifiedName) :+ p)
-    _object_registry_by_name.update(p.name, ys)
-  }
-
-  def resolveObject(ref: MObjectRef, scope: MObject): Option[MObject] = {
-    val qnamecandidates = _qualified_name_candidates(ref, scope)
-    qnamecandidates.toStream.flatMap(_object_registry.get).headOption.orElse {
-      _resolve_by_name(ref.objectName, ref.packageName, scope.packageName)
-    }
-  }
-
-  def resolveDeclaredType(name: String, scopepackage: String): Option[MObject] = {
-    val ref = MObjectRef.create(name)
-    resolveDeclaredType(ref, scopepackage)
-  }
-
-  def resolveDeclaredType(ref: MObjectRef, scopepackage: String): Option[MObject] = {
-    val qnamecandidates = Vector(
-      _qualified_name(scopepackage, ref.objectName),
-      _qualified_name(ref.packageName, ref.objectName),
-      ref.objectName
-    ).distinct
-    qnamecandidates.toStream.flatMap(_object_registry.get).headOption.orElse {
-      _resolve_by_name(ref.objectName, ref.packageName, scopepackage)
-    }.orElse {
-      _resolve_default_model_declared_type(ref)
-    }.filter(_is_declared_type)
-  }
-
-  private def _is_declared_type(p: MObject): Boolean = p match {
-    case _: MEntity => true
-    case _: MValue => true
-    case _: MDataType => true
-    case _ => false
-  }
-
-  private def _resolve_default_model_declared_type(ref: MObjectRef): Option[MObject] =
-    if (ref.packageName.nonEmpty)
-      None
-    else {
-      Vector(
-        s"org.simplemodeling.model.value.${ref.objectName}",
-        s"org.simplemodeling.model.datatype.${ref.objectName}"
-      ).toStream.flatMap(_object_registry.get).headOption.orElse {
-        Some(_default_declared_type_stub(ref.objectName))
-      }
-    }
-
-  private def _default_declared_type_stub(name: String): MObject =
-    org.simplemodeling.model.domain.MDomainValue(
-      description = org.smartdox.Description.name(name),
-      affiliation = MPackageRef("org.simplemodeling.model.value"),
-      stereotypes = Nil,
-      base = None,
-      traits = Nil,
-      powertypes = Nil,
-      attributes = Nil,
-      operations = Nil
-    )
-
-  private def _qualified_name_candidates(ref: MObjectRef, scope: MObject): Vector[String] = {
-    val local = _qualified_name(scope.packageName, ref.objectName)
-    val target = _qualified_name(ref.packageName, ref.objectName)
-    Vector(local, target, ref.objectName).distinct
-  }
-
-  private def _qualified_name(pkg: String, name: String): String =
-    if (pkg == null || pkg.isEmpty)
-      name
-    else
-      s"$pkg.$name"
-
-  private def _resolve_by_name(
-    name: String,
-    targetPackage: String,
-    scopepackage: String
-  ): Option[MObject] =
-    _object_registry_by_name.get(name).flatMap {
-      case Vector(single) =>
-        Some(single)
-      case xs =>
-        xs.find(_.packageName == scopepackage).
-          orElse(xs.find(_.packageName == targetPackage)).
-          orElse(xs.headOption)
-    }
-
   sealed trait Purpose
   object Purpose {
     val elements = Vector(

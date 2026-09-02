@@ -17,7 +17,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala.ComponentScalaModelTr
  */
 class Scala3ComponentFamilyGenerator(
   context: ScalaModel.Context = ScalaModel.Context.default
-) extends Scala3ClassFamilyGeneratorBase[MComponent]{
+) extends Scala3ClassFamilyGeneratorBase[MComponent] {
   override protected val scala_context = context
 
   protected def scala_model_transformers: Vector[ScalaModelTransformer] =
