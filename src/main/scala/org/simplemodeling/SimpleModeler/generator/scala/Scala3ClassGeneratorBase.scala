@@ -235,7 +235,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     else if (is_entity_value_create)
       List("EntityPersistableCreate")
     else if (classkind == ClassKind.Component)
-      List("CollectionTransitionRuleProvider")
+      List("CollectionTransitionRuleProvider", "CmlStateMachineDefinitionProvider")
     else if (is_entity_value)
       List("EntityPersistable", "EntityDisplayable", "org.goldenport.record.RecordPresentable")
     else if (is_value)

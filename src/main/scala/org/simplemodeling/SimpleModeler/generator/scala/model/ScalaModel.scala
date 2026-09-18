@@ -1171,7 +1171,8 @@ object SComponent {
     states: Vector[String] = Vector.empty,
     events: Vector[String] = Vector.empty,
     historyFieldName: Option[String] = None,
-    historyComposites: Vector[StateMachineHistoryComposite] = Vector.empty
+    historyComposites: Vector[StateMachineHistoryComposite] = Vector.empty,
+    normalization: Option[MComponent.StateMachineNormalization] = None
   )
 
   final case class EventReceptionDefinition(

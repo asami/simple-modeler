@@ -3,6 +3,7 @@ package org.simplemodeling.SimpleModeler.generator.scala
 import scalaz._, Scalaz._
 import model._
 import Generator.{State => GState, _}
+import org.simplemodeling.model.MComponent
 import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
 
 /*
@@ -236,7 +237,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"states = ${_string_vector_expr(p.states)},")
       _ <- println(s"events = ${_string_vector_expr(p.events)},")
       _ <- println(s"historyFieldName = ${_option_string_literal(p.historyFieldName)},")
-      _ <- println(s"historyComposites = ${_history_composite_vector_expr(p.historyComposites)}")
+      _ <- println(s"historyComposites = ${_history_composite_vector_expr(p.historyComposites)}${_normalized_state_machine_arg(p.normalization)}")
       _ <- outdent
       _ <- println(")")
     } yield ()
@@ -1352,6 +1353,258 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     p.map { composite =>
       s"org.goldenport.cncf.statemachine.CmlHistoryCompositeDefinition(name = ${_string_literal(composite.name)}, directLeaves = ${_string_vector_expr(composite.directLeaves)}, fallbackLeaf = ${_option_string_literal(composite.fallbackLeaf)})"
     }.mkString("Vector(", ", ", ")")
+
+  private def _normalized_state_machine_arg(
+    p: Option[MComponent.StateMachineNormalization]
+  ): String =
+    p match {
+      case None => ""
+      case Some(MComponent.StateMachineNormalization.Accepted(value)) =>
+        s",\nnormalized = Some(${_cml_normalized_state_machine_expr(value)})"
+      case Some(MComponent.StateMachineNormalization.Rejected(_)) =>
+        throw new IllegalArgumentException("Rejected StateMachine normalization cannot be lowered")
+    }
+
+  private def _cml_normalized_state_machine_expr(
+    p: MComponent.NormalizedStateMachine
+  ): String = {
+    val machine = _cml_machine_identity_expr(p.identity)
+    val initial = p.initialState.getOrElse(
+      throw new IllegalArgumentException(s"Accepted StateMachine normalization missing initial state: ${p.identity.qualifiedName}")
+    )
+    val transitions = p.transitions.sortBy(_.identity.declarationOrder)
+    val terminalidentities = transitions.collect {
+      case transition if transition.target == MComponent.StateMachineTransitionTarget.Final =>
+        transition.identity
+    }
+    val historyfield = p.historyFieldName
+      .map(name => s"Some(org.goldenport.cncf.statemachine.CmlStateMachineHistoryIdentity($machine, ${_string_literal(name)}))")
+      .getOrElse("None")
+    s"""org.goldenport.cncf.statemachine.CmlNormalizedStateMachine(identity = $machine, version = org.goldenport.cncf.statemachine.CmlStateMachineVersion(${p.version}), initialState = ${_cml_state_identity_expr(initial)}, states = ${_cml_state_definition_vector_expr(p)}, transitions = ${_cml_transition_vector_expr(transitions, p)}, terminalTransitions = ${_cml_transition_identity_vector_expr(terminalidentities)}, topology = ${_cml_topology_expr(p)}, historyField = $historyfield)"""
+  }
+
+  private def _cml_machine_identity_expr(
+    p: MComponent.StateMachineIdentity
+  ): String =
+    s"org.goldenport.cncf.statemachine.CmlStateMachineIdentity(${_string_literal(p.qualifiedName)})"
+
+  private def _cml_state_identity_expr(
+    p: MComponent.StateMachineStateIdentity
+  ): String =
+    s"org.goldenport.cncf.statemachine.CmlStateMachineStateIdentity(${_cml_machine_identity_expr(p.machine)}, org.goldenport.cncf.statemachine.CmlStateMachineStatePath(${_string_vector_expr(p.path)}))"
+
+  private def _cml_state_definition_vector_expr(
+    p: MComponent.NormalizedStateMachine
+  ): String = {
+    val composites = p.topology.composites.map(_.identity).toSet
+    p.states.map { state =>
+      val kind =
+        if (composites.contains(state))
+          "org.goldenport.cncf.statemachine.CmlStateMachineStateKind.Composite"
+        else
+          "org.goldenport.cncf.statemachine.CmlStateMachineStateKind.Leaf"
+      val parent =
+        if (state.path.size <= 1)
+          "None"
+        else {
+          val value = MComponent.StateMachineStateIdentity(state.machine, state.path.dropRight(1))
+          s"Some(${_cml_state_identity_expr(value)})"
+        }
+      s"org.goldenport.cncf.statemachine.CmlStateMachineStateDefinition(identity = ${_cml_state_identity_expr(state)}, kind = $kind, parent = $parent)"
+    }.mkString("Vector(", ", ", ")")
+  }
+
+  private def _cml_transition_identity_expr(
+    p: MComponent.StateMachineTransitionIdentity
+  ): String =
+    s"org.goldenport.cncf.statemachine.CmlStateMachineTransitionIdentity(${_cml_machine_identity_expr(p.machine)}, ${p.declarationOrder})"
+
+  private def _cml_transition_identity_vector_expr(
+    p: Vector[MComponent.StateMachineTransitionIdentity]
+  ): String =
+    p.map(_cml_transition_identity_expr).mkString("Vector(", ", ", ")")
+
+  private def _cml_transition_vector_expr(
+    transitions: Vector[MComponent.NormalizedStateMachineTransition],
+    normalized: MComponent.NormalizedStateMachine
+  ): String =
+    transitions.map(_cml_transition_expr(_, normalized)).mkString("Vector(", ", ", ")")
+
+  private def _cml_transition_expr(
+    p: MComponent.NormalizedStateMachineTransition,
+    normalized: MComponent.NormalizedStateMachine
+  ): String = {
+    val source = p.source.getOrElse(
+      throw new IllegalArgumentException(s"Accepted StateMachine normalization missing transition source: ${p.identity.declarationOrder}")
+    )
+    val identity = _cml_transition_identity_expr(p.identity)
+    val trigger = _cml_trigger_expr(p.trigger, normalized.version)
+    s"""org.goldenport.cncf.statemachine.CmlStateMachineTransition(identity = $identity, source = ${_cml_state_identity_expr(source)}, target = ${_cml_transition_target_expr(p.target)}, trigger = $trigger, priority = ${p.priority.value}, guard = ${_cml_guard_expr(p.guard, p.identity, p.trigger)}, actions = ${_cml_action_vector_expr(p.actions)}, historyWrites = ${_cml_history_write_vector_expr(p.historyWrites, normalized)}, sourceLocation = org.goldenport.cncf.statemachine.CmlStateMachineSourceLocation(${_cml_machine_identity_expr(p.identity.machine)}, ${_string_vector_expr(p.sourceLocation.declarationPath)}))"""
+  }
+
+  private def _cml_transition_target_expr(
+    p: MComponent.StateMachineTransitionTarget
+  ): String =
+    p match {
+      case MComponent.StateMachineTransitionTarget.State(identity) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachineTransitionTarget.State(${_cml_state_identity_expr(identity)})"
+      case MComponent.StateMachineTransitionTarget.ShallowHistory(composite, Some(fallback)) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachineTransitionTarget.ShallowHistory(org.goldenport.cncf.statemachine.CmlStateMachineShallowHistoryTarget(${_cml_state_identity_expr(composite)}, ${_cml_state_identity_expr(fallback)}))"
+      case MComponent.StateMachineTransitionTarget.ShallowHistory(_, None) =>
+        throw new IllegalArgumentException("Accepted StateMachine normalization shallow-history target missing fallback leaf")
+      case MComponent.StateMachineTransitionTarget.Final =>
+        "org.goldenport.cncf.statemachine.CmlStateMachineTransitionTarget.Final"
+    }
+
+  private def _cml_trigger_expr(
+    p: MComponent.StateMachineTriggerIdentity,
+    version: Int
+  ): String = {
+    val identity = _cml_trigger_identity_expr(p)
+    val context = s"org.goldenport.cncf.statemachine.CmlStateMachineTriggerContextIdentity($identity)"
+    val fields = Vector("eventName", "targetIdentifier", "currentState", "candidateState").map { name =>
+      s"org.goldenport.cncf.statemachine.CmlStateMachineTriggerContextField(org.goldenport.cncf.statemachine.CmlStateMachineTriggerContextFieldIdentity($context, ${_string_literal(name)}), org.goldenport.cncf.statemachine.CmlStateMachineScalarType.StringValue)"
+    }.mkString("Vector(", ", ", ")")
+    s"org.goldenport.cncf.statemachine.CmlStateMachineTrigger(identity = $identity, context = org.goldenport.cncf.statemachine.CmlStateMachineTriggerContext(identity = $context, version = org.goldenport.cncf.statemachine.CmlStateMachineVersion($version), fields = $fields))"
+  }
+
+  private def _cml_trigger_identity_expr(
+    p: MComponent.StateMachineTriggerIdentity
+  ): String =
+    s"org.goldenport.cncf.statemachine.CmlStateMachineTriggerIdentity(${_cml_machine_identity_expr(p.machine)}, ${_string_literal(p.eventName)})"
+
+  private def _cml_guard_expr(
+    p: MComponent.StateMachineGuardProgram,
+    transition: MComponent.StateMachineTransitionIdentity,
+    trigger: MComponent.StateMachineTriggerIdentity
+  ): String =
+    p match {
+      case MComponent.StateMachineGuardProgram.Predicate(program) =>
+        val name = s"predicate-${transition.declarationOrder}"
+        s"org.goldenport.cncf.statemachine.CmlStateMachineGuardProgram.Predicate(${_cml_guard_identity_expr(transition, name)}, ${_cml_predicate_program_expr(program, trigger)})"
+      case MComponent.StateMachineGuardProgram.Named(identity) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachineGuardProgram.Named(${_cml_guard_identity_expr(identity.transition, identity.name)}, ${_string_literal(identity.name)})"
+    }
+
+  private def _cml_guard_identity_expr(
+    transition: MComponent.StateMachineTransitionIdentity,
+    name: String
+  ): String =
+    s"org.goldenport.cncf.statemachine.CmlStateMachineGuardIdentity(${_cml_transition_identity_expr(transition)}, ${_string_literal(name)})"
+
+  private def _cml_predicate_program_expr(
+    p: MComponent.PredicateProgram,
+    trigger: MComponent.StateMachineTriggerIdentity
+  ): String =
+    s"org.goldenport.cncf.statemachine.CmlStateMachinePredicateProgram(org.goldenport.cncf.statemachine.CmlStateMachineVersion(${p.version}), ${_cml_predicate_expr(p.expression, trigger)})"
+
+  private def _cml_predicate_expr(
+    p: MComponent.StateMachinePredicate,
+    trigger: MComponent.StateMachineTriggerIdentity
+  ): String =
+    p match {
+      case MComponent.StateMachinePredicate.Always =>
+        "org.goldenport.cncf.statemachine.CmlStateMachinePredicate.Literal(true)"
+      case MComponent.StateMachinePredicate.Literal(MComponent.StateMachinePredicateValue.Bool(value)) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachinePredicate.Literal($value)"
+      case MComponent.StateMachinePredicate.Equals(field, value) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachinePredicate.Equal(${_cml_predicate_field_value_expr(field, trigger)}, ${_cml_predicate_value_expr(value)})"
+      case MComponent.StateMachinePredicate.NotEquals(field, value) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachinePredicate.NotEqual(${_cml_predicate_field_value_expr(field, trigger)}, ${_cml_predicate_value_expr(value)})"
+      case MComponent.StateMachinePredicate.IsPresent(field) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachinePredicate.Present(${_cml_predicate_field_identity_expr(field, trigger)})"
+      case MComponent.StateMachinePredicate.All(terms) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachinePredicate.All(${terms.map(_cml_predicate_expr(_, trigger)).mkString("Vector(", ", ", ")")})"
+      case MComponent.StateMachinePredicate.Any(terms) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachinePredicate.Any(${terms.map(_cml_predicate_expr(_, trigger)).mkString("Vector(", ", ", ")")})"
+      case MComponent.StateMachinePredicate.Not(term) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachinePredicate.Not(${_cml_predicate_expr(term, trigger)})"
+    }
+
+  private def _cml_predicate_field_value_expr(
+    field: MComponent.StateMachinePredicateField,
+    trigger: MComponent.StateMachineTriggerIdentity
+  ): String =
+    s"org.goldenport.cncf.statemachine.CmlStateMachinePredicateValue.Field(${_cml_predicate_field_identity_expr(field, trigger)})"
+
+  private def _cml_predicate_field_identity_expr(
+    field: MComponent.StateMachinePredicateField,
+    trigger: MComponent.StateMachineTriggerIdentity
+  ): String = {
+    val name = field match {
+      case MComponent.StateMachinePredicateField.EventName => "eventName"
+      case MComponent.StateMachinePredicateField.TargetIdentifier => "targetIdentifier"
+      case MComponent.StateMachinePredicateField.CurrentState => "currentState"
+      case MComponent.StateMachinePredicateField.CandidateState => "candidateState"
+    }
+    s"org.goldenport.cncf.statemachine.CmlStateMachineTriggerContextFieldIdentity(org.goldenport.cncf.statemachine.CmlStateMachineTriggerContextIdentity(${_cml_trigger_identity_expr(trigger)}), ${_string_literal(name)})"
+  }
+
+  private def _cml_predicate_value_expr(
+    p: MComponent.StateMachinePredicateValue
+  ): String =
+    p match {
+      case MComponent.StateMachinePredicateValue.Text(value) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachinePredicateValue.StringLiteral(${_string_literal(value)})"
+      case MComponent.StateMachinePredicateValue.Bool(value) =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachinePredicateValue.BooleanLiteral($value)"
+    }
+
+  private def _cml_action_vector_expr(
+    p: MComponent.NormalizedStateMachineActionPlan
+  ): String = {
+    val actions = Vector(
+      p.exit.sortBy(_.identity.declarationOrder).map(action => _cml_action_expr(action, "Exit")),
+      p.transition.sortBy(_.identity.declarationOrder).map(action => _cml_action_expr(action, "Transition")),
+      p.entry.sortBy(_.identity.declarationOrder).map(action => _cml_action_expr(action, "Entry"))
+    ).flatten
+    actions.mkString("Vector(", ", ", ")")
+  }
+
+  private def _cml_action_expr(
+    p: MComponent.NormalizedStateMachineAction,
+    phase: String
+  ): String =
+    s"org.goldenport.cncf.statemachine.CmlStateMachineActionBinding(org.goldenport.cncf.statemachine.CmlStateMachineActionIdentity(${_cml_transition_identity_expr(p.identity.transition)}, org.goldenport.cncf.statemachine.CmlStateMachineActionPhase.$phase, ${p.identity.declarationOrder}), ${_string_literal(p.reference)})"
+
+  private def _cml_history_write_vector_expr(
+    p: Vector[MComponent.StateMachineHistoryWrite],
+    normalized: MComponent.NormalizedStateMachine
+  ): String =
+    if (p.isEmpty)
+      "Vector.empty"
+    else {
+      val name = normalized.historyFieldName.getOrElse(
+        throw new IllegalArgumentException(s"Accepted StateMachine normalization history writes missing history field: ${normalized.identity.qualifiedName}")
+      )
+      val history = s"org.goldenport.cncf.statemachine.CmlStateMachineHistoryIdentity(${_cml_machine_identity_expr(normalized.identity)}, ${_string_literal(name)})"
+      p.map { write =>
+        s"org.goldenport.cncf.statemachine.CmlStateMachineHistoryWrite($history, ${_cml_state_identity_expr(write.composite)}, ${_cml_state_identity_expr(write.leaf)})"
+      }.mkString("Vector(", ", ", ")")
+    }
+
+  private def _cml_topology_expr(
+    p: MComponent.NormalizedStateMachine
+  ): String = {
+    val targets = p.transitions.flatMap { transition =>
+      transition.target match {
+        case MComponent.StateMachineTransitionTarget.ShallowHistory(composite, Some(fallback)) =>
+          Vector(composite -> s"org.goldenport.cncf.statemachine.CmlStateMachineShallowHistoryTarget(${_cml_state_identity_expr(composite)}, ${_cml_state_identity_expr(fallback)})")
+        case MComponent.StateMachineTransitionTarget.ShallowHistory(_, None) =>
+          throw new IllegalArgumentException("Accepted StateMachine normalization shallow-history target missing fallback leaf")
+        case _ => Vector.empty
+      }
+    }
+    val composites = p.topology.composites.map { composite =>
+      val histories = targets.collect {
+        case (identity, target) if identity == composite.identity => target
+      }.distinct
+      if (histories.size > 1)
+        throw new IllegalArgumentException(s"Accepted StateMachine normalization has multiple shallow-history targets for ${composite.identity.path.mkString("/")}")
+      s"org.goldenport.cncf.statemachine.CmlStateMachineCompositeTopology(${_cml_state_identity_expr(composite.identity)}, ${composite.directLeaves.map(_cml_state_identity_expr).mkString("Vector(", ", ", ")")}, ${histories.mkString("Vector(", ", ", ")")})"
+    }
+    s"org.goldenport.cncf.statemachine.CmlStateMachineTopology(${composites.mkString("Vector(", ", ", ")")})"
+  }
 
   private def _history_record_write_vector_expr(
     p: Vector[SComponent.StateMachineHistoryRecordWrite]

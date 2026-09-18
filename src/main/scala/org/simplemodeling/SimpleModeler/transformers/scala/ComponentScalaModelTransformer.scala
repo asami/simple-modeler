@@ -172,7 +172,14 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
 
     private def _to_state_machine_definition(
       p: MComponent.StateMachineDefinition
-    ): SComponent.StateMachineDefinition =
+    ): SComponent.StateMachineDefinition = {
+      val normalization = p.normalization match {
+        case Some(value @ MComponent.StateMachineNormalization.Accepted(_)) => Some(value)
+        case Some(MComponent.StateMachineNormalization.Rejected(_)) =>
+          throw new IllegalArgumentException(s"StateMachine normalization rejected for ${p.name}")
+        case None =>
+          throw new IllegalArgumentException(s"StateMachine normalization missing for ${p.name}")
+      }
       SComponent.StateMachineDefinition(
         name = p.name,
         states = p.states,
@@ -184,8 +191,10 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
             directLeaves = composite.directLeaves,
             fallbackLeaf = composite.fallbackLeaf
           )
-        }
+        },
+        normalization = normalization
       )
+    }
 
     private def _to_event_reception_definitions(
       ps: Vector[MComponent.EventReceptionDefinition]
