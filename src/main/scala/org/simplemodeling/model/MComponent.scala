@@ -11,14 +11,254 @@ import org.simplemodeling.model._
  *  version Feb.  9, 2026
  *  version May.  8, 2026
  *  version Jul. 25, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Sep. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
   def entities: Vector[MEntity]
 }
 
-object MComponent {
+object MComponent extends MStateMachinePredicateProgram {
+  sealed trait StateMachineGuardProgram
+  object StateMachineGuardProgram {
+    final case class Predicate(program: PredicateProgram) extends StateMachineGuardProgram
+    final case class Named(identity: StateMachineGuardIdentity) extends StateMachineGuardProgram
+
+    def validate(program: StateMachineGuardProgram): Either[PredicateProgramFailure, Unit] =
+      program match {
+        case Predicate(value) => PredicateProgram.validate(value)
+        case Named(identity) =>
+          if (!identity.name.matches("^[A-Za-z_][A-Za-z0-9_\\.]*$"))
+            Left(PredicateProgramFailure.InvalidBindingName)
+          else if (identity.name.getBytes("UTF-8").length <= PredicateProgram.MAXIMUM_TEXT_BYTES)
+            Right(())
+          else
+            Left(PredicateProgramFailure.TextLimitExceeded(identity.name.getBytes("UTF-8").length))
+      }
+  }
+
+  /**
+   * Pure runtime-facing contract for an admitted named guard.  Normalization
+   * records the binding identity only and never invokes this resolver.
+   */
+  trait StateMachineGuardBindingResolver {
+    def evaluate(
+      binding: StateMachineGuardIdentity,
+      context: StateMachineTriggerContext
+    ): StateMachineGuardBindingResult
+  }
+
+  sealed trait StateMachineGuardBindingResult
+  object StateMachineGuardBindingResult {
+    case object Matched extends StateMachineGuardBindingResult
+    case object NotMatched extends StateMachineGuardBindingResult
+    final case class Failed(code: String) extends StateMachineGuardBindingResult
+  }
+
+  sealed trait StateMachineTransitionTarget
+  object StateMachineTransitionTarget {
+    final case class State(
+      identity: StateMachineStateIdentity
+    ) extends StateMachineTransitionTarget
+    final case class ShallowHistory(
+      composite: StateMachineStateIdentity,
+      fallbackLeaf: Option[StateMachineStateIdentity]
+    ) extends StateMachineTransitionTarget
+    case object Final extends StateMachineTransitionTarget
+  }
+
+  final case class StateMachineTransitionPriority(value: Int) {
+    require(value >= 0, "StateMachine transition priority must be non-negative.")
+  }
+  object StateMachineTransitionPriority {
+    val default = StateMachineTransitionPriority(0)
+  }
+
+  final case class StateMachineCompositeTopology(
+    identity: StateMachineStateIdentity,
+    directLeaves: Vector[StateMachineStateIdentity]
+  )
+
+  final case class StateMachineTopology(
+    composites: Vector[StateMachineCompositeTopology] = Vector.empty,
+    terminalTransitions: Vector[StateMachineTransitionIdentity] = Vector.empty
+  )
+
+  final case class StateMachineHistoryWrite(
+    composite: StateMachineStateIdentity,
+    leaf: StateMachineStateIdentity
+  )
+
+  final case class NormalizedStateMachineAction(
+    identity: StateMachineActionIdentity,
+    reference: String
+  ) {
+    require(reference.matches("^[A-Za-z_][A-Za-z0-9_\\.]*$"), "Normalized StateMachine action requires a named local binding reference.")
+    require(reference.getBytes("UTF-8").length <= PredicateProgram.MAXIMUM_TEXT_BYTES, "Normalized StateMachine action reference exceeds the UTF-8 byte limit.")
+  }
+
+  final case class NormalizedStateMachineActionPlan(
+    exit: Vector[NormalizedStateMachineAction] = Vector.empty,
+    transition: Vector[NormalizedStateMachineAction] = Vector.empty,
+    entry: Vector[NormalizedStateMachineAction] = Vector.empty
+  )
+
+  final case class NormalizedStateMachineTransition(
+    identity: StateMachineTransitionIdentity,
+    source: Option[StateMachineStateIdentity],
+    target: StateMachineTransitionTarget,
+    trigger: StateMachineTriggerIdentity,
+    sourceLocation: StateMachineSourceLocation,
+    priority: StateMachineTransitionPriority = StateMachineTransitionPriority.default,
+    guard: StateMachineGuardProgram = StateMachineGuardProgram.Predicate(PredicateProgram()),
+    actions: NormalizedStateMachineActionPlan = NormalizedStateMachineActionPlan(),
+    historyWrites: Vector[StateMachineHistoryWrite] = Vector.empty
+  ) {
+    require(source.forall(_.machine == identity.machine), "StateMachine transition source must belong to its machine.")
+    require(trigger.machine == identity.machine, "StateMachine transition trigger must belong to its machine.")
+    require(_target_machines(target).forall(_ == identity.machine), "StateMachine transition target must belong to its machine.")
+    require(_guard_is_admitted(guard), "StateMachine transition guard must be an admitted program or a binding for this transition.")
+    require(_action_identities(actions).forall(_.transition == identity), "StateMachine action must belong to its transition.")
+    require(_actions_have_phase(actions.exit, StateMachineActionPhase.Exit), "StateMachine exit action must have exit phase.")
+    require(_actions_have_phase(actions.transition, StateMachineActionPhase.Transition), "StateMachine transition action must have transition phase.")
+    require(_actions_have_phase(actions.entry, StateMachineActionPhase.Entry), "StateMachine entry action must have entry phase.")
+    require(_actions_have_unique_declaration_order(actions.exit), "StateMachine exit action declaration order must be unique.")
+    require(_actions_have_unique_declaration_order(actions.transition), "StateMachine transition action declaration order must be unique.")
+    require(_actions_have_unique_declaration_order(actions.entry), "StateMachine entry action declaration order must be unique.")
+    require(historyWrites.forall(_.composite.machine == identity.machine), "StateMachine history write composite must belong to its machine.")
+    require(historyWrites.forall(_.leaf.machine == identity.machine), "StateMachine history write leaf must belong to its machine.")
+
+    private def _target_machines(target: StateMachineTransitionTarget): Vector[StateMachineIdentity] =
+      target match {
+        case StateMachineTransitionTarget.State(value) => Vector(value.machine)
+        case StateMachineTransitionTarget.ShallowHistory(composite, fallbackleaf) =>
+          Vector(composite.machine) ++ fallbackleaf.map(_.machine)
+        case StateMachineTransitionTarget.Final => Vector.empty
+      }
+
+    private def _action_identities(plan: NormalizedStateMachineActionPlan): Vector[StateMachineActionIdentity] =
+      plan.exit.map(_.identity) ++ plan.transition.map(_.identity) ++ plan.entry.map(_.identity)
+
+    private def _actions_have_phase(
+      values: Vector[NormalizedStateMachineAction],
+      phase: StateMachineActionPhase
+    ): Boolean =
+      values.forall(_.identity.phase == phase)
+
+    private def _actions_have_unique_declaration_order(
+      values: Vector[NormalizedStateMachineAction]
+    ): Boolean =
+      values.map(_.identity.declarationOrder).distinct.size == values.size
+
+    private def _guard_is_admitted(value: StateMachineGuardProgram): Boolean =
+      value match {
+        case StateMachineGuardProgram.Predicate(program) =>
+          PredicateProgram.validate(program).isRight
+        case StateMachineGuardProgram.Named(binding) =>
+          binding.transition == identity && StateMachineGuardProgram.validate(value).isRight
+      }
+  }
+
+  final case class NormalizedStateMachine(
+    identity: StateMachineIdentity,
+    version: Int = 1,
+    initialState: Option[StateMachineStateIdentity] = None,
+    states: Vector[StateMachineStateIdentity] = Vector.empty,
+    transitions: Vector[NormalizedStateMachineTransition] = Vector.empty,
+    historyFieldName: Option[String] = None,
+    topology: StateMachineTopology = StateMachineTopology()
+  ) {
+    require(version > 0, "Normalized StateMachine version must be positive.")
+    require(initialState.nonEmpty, "Normalized StateMachine requires an explicit initial state.")
+    require(initialState.forall(_.machine == identity), "Normalized initial state must belong to its machine.")
+    require(states.forall(_.machine == identity), "Normalized state must belong to its machine.")
+    require(states.distinct.size == states.size, "Normalized StateMachine state identity is duplicated.")
+    require(initialState.forall(states.contains), "Normalized initial state must be declared by its machine.")
+    require(transitions.forall(_.identity.machine == identity), "Normalized transition must belong to its machine.")
+    require(transitions.map(_.identity).distinct.size == transitions.size, "Normalized StateMachine transition identity is duplicated.")
+    require(transitions.map(_.identity.declarationOrder).distinct.size == transitions.size, "Normalized StateMachine declaration order is duplicated.")
+    require(transitions.forall(_.source.forall(states.contains)), "Normalized transition source state must be declared by its machine.")
+    require(transitions.forall(_target_state(_).forall(states.contains)), "Normalized transition target state must be declared by its machine.")
+    require(topology.composites.forall(_.identity.machine == identity), "Normalized composite topology must belong to its machine.")
+    require(topology.composites.map(_.identity).distinct.size == topology.composites.size, "Normalized composite topology identity is duplicated.")
+    require(topology.composites.forall(composite => states.contains(composite.identity)), "Normalized composite topology state must be declared by its machine.")
+    require(topology.composites.forall(_.directLeaves.forall(states.contains)), "Normalized composite topology leaves must be declared by its machine.")
+    require(topology.composites.forall(composite => composite.directLeaves.forall(_is_direct_leaf(composite.identity, _))), "Normalized composite topology leaf must be an immediate path child of its composite.")
+    require(topology.composites.forall(composite => composite.directLeaves.forall(leaf => !topology.composites.map(_.identity).contains(leaf))), "Normalized composite topology leaf must not itself be a declared composite.")
+    require(topology.composites.forall(composite => composite.directLeaves.distinct.size == composite.directLeaves.size), "Normalized composite topology leaf identity is duplicated.")
+    require(transitions.forall(_history_target_is_admitted), "Normalized shallow-history target must name an admitted composite and direct fallback leaf.")
+    require(transitions.forall(_history_writes_are_admitted), "Normalized history write must name an admitted composite and direct leaf.")
+    require(topology.terminalTransitions.forall(_.machine == identity), "Normalized terminal transition must belong to its machine.")
+    require(topology.terminalTransitions.distinct.size == topology.terminalTransitions.size, "Normalized terminal transition identity is duplicated.")
+    require(topology.terminalTransitions.forall(transitions.map(_.identity).contains), "Normalized terminal transition must be declared by its machine.")
+    require(topology.terminalTransitions.forall(_is_final_transition), "Normalized terminal transition must target final state.")
+
+    private def _target_state(
+      transition: NormalizedStateMachineTransition
+    ): Option[StateMachineStateIdentity] =
+      transition.target match {
+        case StateMachineTransitionTarget.State(value) => Some(value)
+        case _ => None
+      }
+
+    private def _history_target_is_admitted(
+      transition: NormalizedStateMachineTransition
+    ): Boolean =
+      transition.target match {
+        case StateMachineTransitionTarget.ShallowHistory(composite, fallbackleaf) =>
+          _topology_for(composite).exists { topology =>
+            fallbackleaf.forall(topology.directLeaves.contains)
+          }
+        case _ => true
+      }
+
+    private def _history_writes_are_admitted(
+      transition: NormalizedStateMachineTransition
+    ): Boolean =
+      transition.historyWrites.forall { write =>
+        _topology_for(write.composite).exists(_.directLeaves.contains(write.leaf))
+      }
+
+    private def _topology_for(
+      composite: StateMachineStateIdentity
+    ): Option[StateMachineCompositeTopology] =
+      topology.composites.find(_.identity == composite)
+
+    private def _is_direct_leaf(
+      composite: StateMachineStateIdentity,
+      leaf: StateMachineStateIdentity
+    ): Boolean =
+      leaf.path.size == composite.path.size + 1 && leaf.path.startsWith(composite.path)
+
+    private def _is_final_transition(
+      transitionidentity: StateMachineTransitionIdentity
+    ): Boolean =
+      transitions.find(_.identity == transitionidentity).exists { transition =>
+        transition.target == StateMachineTransitionTarget.Final
+      }
+  }
+
+  final case class StateMachineNormalizationDiagnostic(
+    code: String,
+    message: String,
+    machine: StateMachineIdentity,
+    sourceLocation: StateMachineSourceLocation,
+    transition: Option[StateMachineTransitionIdentity] = None
+  )
+
+  sealed trait StateMachineNormalization
+  object StateMachineNormalization {
+    final case class Accepted(
+      value: NormalizedStateMachine
+    ) extends StateMachineNormalization
+    final case class Rejected(
+      diagnostics: Vector[StateMachineNormalizationDiagnostic]
+    ) extends StateMachineNormalization {
+      require(diagnostics.nonEmpty, "StateMachine normalization rejection requires at least one diagnostic.")
+    }
+  }
+
   sealed trait TransitionTrigger
   object TransitionTrigger {
     case object Save extends TransitionTrigger
@@ -78,7 +318,8 @@ object MComponent {
     states: Vector[String] = Vector.empty,
     events: Vector[String] = Vector.empty,
     historyFieldName: Option[String] = None,
-    historyComposites: Vector[StateMachineHistoryComposite] = Vector.empty
+    historyComposites: Vector[StateMachineHistoryComposite] = Vector.empty,
+    normalization: Option[StateMachineNormalization] = None
   )
 
   final case class EventReceptionDefinition(
