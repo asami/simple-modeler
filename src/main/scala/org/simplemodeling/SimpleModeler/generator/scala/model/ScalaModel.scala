@@ -1162,8 +1162,10 @@ object SComponent {
     historyCompositeName: Option[String] = None,
     historyFieldName: Option[String] = None,
     historyDirectLeaves: Vector[String] = Vector.empty,
+    historyDirectLeafValues: Map[String, Int] = Map.empty,
     historyFallbackLeaf: Option[String] = None,
-    expectedHistoryRecordWrites: Vector[StateMachineHistoryRecordWrite] = Vector.empty
+    expectedHistoryRecordWrites: Vector[StateMachineHistoryRecordWrite] = Vector.empty,
+    binding: Option[MComponent.StateMachineTransitionBinding] = None
   )
 
   final case class StateMachineDefinition(

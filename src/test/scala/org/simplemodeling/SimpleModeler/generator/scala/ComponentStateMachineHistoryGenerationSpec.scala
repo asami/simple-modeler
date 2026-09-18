@@ -25,9 +25,13 @@ final class ComponentStateMachineHistoryGenerationSpec
     "emit defaulted named shallow-history metadata" in {
       Given("an SComponent carrying a Review history transition and definition")
       val component = _component
+      val context = ScalaModel.Context.Default(
+        componentNamespace = Some("org.example.fixture"),
+        componentLocalId = Some("Sales")
+      )
 
       When("the Scala component adapter is generated")
-      val source = new Scala3ComponentGenerator(ScalaModel.Context.default)
+      val source = new Scala3ComponentGenerator(context)
         .generate(component)
         .take
         .slots
@@ -38,9 +42,13 @@ final class ComponentStateMachineHistoryGenerationSpec
       source should include("historyCompositeName = Some(\"Review\")")
       source should include("historyFieldName = Some(\"lifecycleHistory\")")
       source should include("historyDirectLeaves = Vector(\"Pending\", \"Approved\")")
+      source should include("historyDirectLeafValues = Map(\"Approved\" -> 3, \"Pending\" -> 2)")
       source should include("historyFallbackLeaf = Some(\"Pending\")")
       source should include("HistoryRecordWrite(compositeName = \"Review\", leafName = \"Approved\")")
       source should include("CmlHistoryCompositeDefinition(name = \"Review\"")
+      source should include("binding = Some(org.goldenport.cncf.statemachine.CmlTransitionBinding(")
+      source should include("componentId = org.goldenport.cncf.component.ComponentId(\"org.example.fixture.Sales\")")
+      source should include("entityType = example.Person.collectionId")
     }
 
     "lower an accepted normalized MComponent definition without changing its canonical identity" in {
@@ -240,7 +248,20 @@ final class ComponentStateMachineHistoryGenerationSpec
     MComponent.StateMachineStateIdentity(machine, path.toVector)
 
   private def _component: SComponent =
-    SComponent(
+    {
+      val transition = _normalized.transitions.head
+      val binding = MComponent.StateMachineTransitionBinding(
+        entityName = "Person",
+        machine = _normalized.identity,
+        version = _normalized.version,
+        transition = transition.identity,
+        source = transition.source.getOrElse(
+          throw new IllegalArgumentException("test binding requires a transition source")
+        ),
+        target = transition.target,
+        trigger = transition.trigger
+      )
+      SComponent(
       core = ClassCore(
         packageName = PackageName("example"),
         declaration = ClassDeclaration.Control,
@@ -249,20 +270,25 @@ final class ComponentStateMachineHistoryGenerationSpec
       componentCore = SComponent.ComponentCore(
         componentName = "example",
         services = Nil,
+        entityRuntimeDescriptors = Vector(
+          SComponent.EntityRuntimeDescriptor("Person", PackageName("example"))
+        ),
         stateMachineTransitionRules = Vector(
           SComponent.StateMachineTransitionRule(
             collectionName = "person",
             trigger = SComponent.TransitionTrigger.Update,
-            eventName = "resume",
+            eventName = "submit",
             machineName = Some("lifecycle"),
             stateFieldName = Some("status"),
-            fromState = Some("Suspended"),
+            fromState = Some("Draft"),
             toState = Some("Pending"),
             historyCompositeName = Some("Review"),
             historyFieldName = Some("lifecycleHistory"),
             historyDirectLeaves = Vector("Pending", "Approved"),
+            historyDirectLeafValues = Map("Pending" -> 2, "Approved" -> 3),
             historyFallbackLeaf = Some("Pending"),
-            expectedHistoryRecordWrites = Vector(SComponent.StateMachineHistoryRecordWrite("Review", "Approved"))
+            expectedHistoryRecordWrites = Vector(SComponent.StateMachineHistoryRecordWrite("Review", "Approved")),
+            binding = Some(binding)
           )
         ),
         stateMachineDefinitions = Vector(
@@ -275,5 +301,6 @@ final class ComponentStateMachineHistoryGenerationSpec
           )
         )
       )
-    )
+      )
+    }
 }

@@ -292,6 +292,29 @@ object MComponent extends MStateMachinePredicateProgram {
     fallbackLeaf: Option[String] = None
   )
 
+  /*
+   * Generated-code input for one exact normalized CML transition.  The
+   * component generator supplies the component and EntityCollection identity;
+   * this model deliberately retains the transition identity rather than
+   * asking a runtime to recover it from an operation, a state field, or a
+   * proposed record.
+   */
+  final case class StateMachineTransitionBinding(
+    entityName: String,
+    machine: StateMachineIdentity,
+    version: Int,
+    transition: StateMachineTransitionIdentity,
+    source: StateMachineStateIdentity,
+    target: StateMachineTransitionTarget,
+    trigger: StateMachineTriggerIdentity
+  ) {
+    require(entityName.trim.nonEmpty, "StateMachine transition binding entity name must be nonempty.")
+    require(version > 0, "StateMachine transition binding version must be positive.")
+    require(transition.machine == machine, "StateMachine transition binding transition must belong to its machine.")
+    require(source.machine == machine, "StateMachine transition binding source must belong to its machine.")
+    require(trigger.machine == machine, "StateMachine transition binding trigger must belong to its machine.")
+  }
+
   final case class StateMachineTransitionRule(
     collectionName: String,
     trigger: TransitionTrigger,
@@ -309,8 +332,10 @@ object MComponent extends MStateMachinePredicateProgram {
     historyCompositeName: Option[String] = None,
     historyFieldName: Option[String] = None,
     historyDirectLeaves: Vector[String] = Vector.empty,
+    historyDirectLeafValues: Map[String, Int] = Map.empty,
     historyFallbackLeaf: Option[String] = None,
-    expectedHistoryRecordWrites: Vector[StateMachineHistoryRecordWrite] = Vector.empty
+    expectedHistoryRecordWrites: Vector[StateMachineHistoryRecordWrite] = Vector.empty,
+    binding: Option[StateMachineTransitionBinding] = None
   )
 
   final case class StateMachineDefinition(

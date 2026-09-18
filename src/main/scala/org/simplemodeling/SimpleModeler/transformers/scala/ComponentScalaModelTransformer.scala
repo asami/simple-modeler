@@ -156,13 +156,15 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         historyCompositeName = p.historyCompositeName,
         historyFieldName = p.historyFieldName,
         historyDirectLeaves = p.historyDirectLeaves,
+        historyDirectLeafValues = p.historyDirectLeafValues,
         historyFallbackLeaf = p.historyFallbackLeaf,
         expectedHistoryRecordWrites = p.expectedHistoryRecordWrites.map { write =>
           SComponent.StateMachineHistoryRecordWrite(
             compositeName = write.compositeName,
             leafName = write.leafName
           )
-        }
+        },
+        binding = p.binding
       )
 
     private def _to_state_machine_definitions(

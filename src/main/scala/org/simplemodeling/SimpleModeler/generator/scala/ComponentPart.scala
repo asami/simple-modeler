@@ -41,7 +41,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           _ <- outdent
           _ <- outdent
           _ <- println("}")
-          _ <- _state_machine_rules_method(s.stateMachineTransitionRules)
+          _ <- _state_machine_rules_method(s)
           _ <- _state_machine_definitions_method(s.stateMachineDefinitions)
           _ <- _event_reception_definitions_method(s.eventReceptionDefinitions)
           _ <- _event_routing_definitions_method(s.eventRoutingDefinitions)
@@ -162,8 +162,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
   }
 
   private def _state_machine_rules_method(
-    rules: Vector[SComponent.StateMachineTransitionRule]
-  ): GenM[Unit] =
+    component: SComponent
+  ): GenM[Unit] = {
+    val rules = component.stateMachineTransitionRules
     if (rules.isEmpty) {
       println("override def stateMachineTransitionRules: Vector[CollectionTransitionRule[Any]] = Vector.empty")
     } else {
@@ -173,7 +174,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- rules.zipWithIndex.foldLeft(unit) { case (z, (r, i)) =>
           z.flatMap { _ =>
             for {
-              _ <- _state_machine_rule_expr(r)
+              _ <- _state_machine_rule_expr(r, component)
               _ <- if (i < rules.length - 1) println(",") else unit
             } yield ()
           }
@@ -182,6 +183,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _ <- println(")")
       } yield ()
     }
+  }
 
   private def _event_reception_definitions_method(
     defs: Vector[SComponent.EventReceptionDefinition]
@@ -1186,6 +1188,16 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         case (key, values) => s"${_string_literal(key)} -> ${_string_vector_expr(values)}"
       }.mkString("Map(", ", ", ")")
 
+  private def _string_int_map_expr(
+    p: Map[String, Int]
+  ): String =
+    if (p.isEmpty)
+      "Map.empty"
+    else
+      p.toVector.sortBy(_._1).map {
+        case (key, value) => s"${_string_literal(key)} -> $value"
+      }.mkString("Map(", ", ", ")")
+
   private def _string_map_record_expr(
     p: Map[String, String]
   ): String =
@@ -1226,7 +1238,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     }
 
   private def _state_machine_rule_expr(
-    p: SComponent.StateMachineTransitionRule
+    p: SComponent.StateMachineTransitionRule,
+    component: SComponent
   ): GenM[Unit] = {
     val f = p.trigger match {
       case SComponent.TransitionTrigger.Save => "saveRule"
@@ -1246,16 +1259,36 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"historyCompositeName = ${_option_string_literal(p.historyCompositeName)},")
       _ <- println(s"historyFieldName = ${_option_string_literal(p.historyFieldName)},")
       _ <- println(s"historyDirectLeaves = ${_string_vector_expr(p.historyDirectLeaves)},")
+      _ <- println(s"historyDirectLeafValues = ${_string_int_map_expr(p.historyDirectLeafValues)},")
       _ <- println(s"historyFallbackLeaf = ${_option_string_literal(p.historyFallbackLeaf)},")
       _ <- println(s"expectedHistoryRecordWrites = ${_history_record_write_vector_expr(p.expectedHistoryRecordWrites)},")
       _ <- println(s"priority = ${p.priority},")
       _ <- println(s"declarationOrder = ${p.declarationOrder},")
       _ <- println(s"guard = ${_guard_expr(p.guard)},")
+      _ <- println(s"binding = ${_cml_transition_binding_expr(p.binding, component)},")
       _ <- _plan_expr(p.plan)
       _ <- outdent
       _ <- println(")")
     } yield ()
   }
+
+  private def _cml_transition_binding_expr(
+    p: Option[MComponent.StateMachineTransitionBinding],
+    component: SComponent
+  ): String =
+    p.map { binding =>
+      val entityobjectname = component.entityRuntimeDescriptors
+        .find(_.entityName == binding.entityName)
+        .map(_.entityObjectName)
+        .getOrElse(throw new IllegalArgumentException(
+          s"StateMachine transition binding references unknown entity '${binding.entityName}'."
+        ))
+      val componentid = (scala_context.componentNamespace, scala_context.componentLocalId) match {
+        case (Some(namespace), Some(localid)) => s"$namespace.$localid"
+        case _ => component.componentName
+      }
+      s"""Some(org.goldenport.cncf.statemachine.CmlTransitionBinding(componentId = org.goldenport.cncf.component.ComponentId(${_string_literal(componentid)}), entityType = ${entityobjectname}.collectionId, machine = ${_cml_machine_identity_expr(binding.machine)}, version = org.goldenport.cncf.statemachine.CmlStateMachineVersion(${binding.version}), transition = ${_cml_transition_identity_expr(binding.transition)}, source = ${_cml_state_identity_expr(binding.source)}, target = ${_cml_transition_target_expr(binding.target)}, trigger = ${_cml_trigger_identity_expr(binding.trigger)}))"""
+    }.getOrElse("None")
 
   private def _plan_expr(
     p: SComponent.RulePlan
