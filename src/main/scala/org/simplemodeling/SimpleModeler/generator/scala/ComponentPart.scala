@@ -1244,7 +1244,13 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     val f = p.trigger match {
       case SComponent.TransitionTrigger.Save => "saveRule"
       case SComponent.TransitionTrigger.Update => "updateRule"
+      case SComponent.TransitionTrigger.Operation => "operationRule"
     }
+    val binding = _cml_transition_binding_expr(
+      p.binding,
+      component,
+      required = p.trigger == SComponent.TransitionTrigger.Operation
+    )
     for {
       _ <- println(s"StateMachineRuleBuilder.${f}[Any](")
       _ <- indent
@@ -1265,7 +1271,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println(s"priority = ${p.priority},")
       _ <- println(s"declarationOrder = ${p.declarationOrder},")
       _ <- println(s"guard = ${_guard_expr(p.guard)},")
-      _ <- println(s"binding = ${_cml_transition_binding_expr(p.binding, component)},")
+      _ <- println(s"binding = ${binding},")
       _ <- _plan_expr(p.plan)
       _ <- outdent
       _ <- println(")")
@@ -1274,7 +1280,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
   private def _cml_transition_binding_expr(
     p: Option[MComponent.StateMachineTransitionBinding],
-    component: SComponent
+    component: SComponent,
+    required: Boolean = false
   ): String =
     p.map { binding =>
       val entityobjectname = component.entityRuntimeDescriptors
@@ -1287,8 +1294,21 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         case (Some(namespace), Some(localid)) => s"$namespace.$localid"
         case _ => component.componentName
       }
-      s"""Some(org.goldenport.cncf.statemachine.CmlTransitionBinding(componentId = org.goldenport.cncf.component.ComponentId(${_string_literal(componentid)}), entityType = ${entityobjectname}.collectionId, machine = ${_cml_machine_identity_expr(binding.machine)}, version = org.goldenport.cncf.statemachine.CmlStateMachineVersion(${binding.version}), transition = ${_cml_transition_identity_expr(binding.transition)}, source = ${_cml_state_identity_expr(binding.source)}, target = ${_cml_transition_target_expr(binding.target)}, trigger = ${_cml_trigger_identity_expr(binding.trigger)}))"""
-    }.getOrElse("None")
+      val operation = binding.operation.map { value =>
+        s"Some(org.goldenport.cncf.statemachine.CmlStateMachineOperationIdentity(service = ${_string_literal(value.service)}, operation = ${_string_literal(value.operation)}))"
+      }.getOrElse("None")
+      val triggercontext = binding.operation.map { _ =>
+        s"Some(${_cml_trigger_context_expr(binding.trigger, binding.version)})"
+      }.getOrElse("None")
+      s"""org.goldenport.cncf.statemachine.CmlTransitionBinding(componentId = org.goldenport.cncf.component.ComponentId(${_string_literal(componentid)}), entityType = ${entityobjectname}.collectionId, machine = ${_cml_machine_identity_expr(binding.machine)}, version = org.goldenport.cncf.statemachine.CmlStateMachineVersion(${binding.version}), transition = ${_cml_transition_identity_expr(binding.transition)}, source = ${_cml_state_identity_expr(binding.source)}, target = ${_cml_transition_target_expr(binding.target)}, trigger = ${_cml_trigger_identity_expr(binding.trigger)}, operation = $operation, triggerContext = $triggercontext)"""
+    }.map { binding =>
+      if (required) binding else s"Some($binding)"
+    }.getOrElse {
+      if (required)
+        throw new IllegalArgumentException("Operation state-machine transition rule requires an explicit CML transition binding.")
+      else
+        "None"
+    }
 
   private def _plan_expr(
     p: SComponent.RulePlan
@@ -1494,11 +1514,19 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     version: Int
   ): String = {
     val identity = _cml_trigger_identity_expr(p)
+    s"org.goldenport.cncf.statemachine.CmlStateMachineTrigger(identity = $identity, context = ${_cml_trigger_context_expr(p, version)})"
+  }
+
+  private def _cml_trigger_context_expr(
+    p: MComponent.StateMachineTriggerIdentity,
+    version: Int
+  ): String = {
+    val identity = _cml_trigger_identity_expr(p)
     val context = s"org.goldenport.cncf.statemachine.CmlStateMachineTriggerContextIdentity($identity)"
     val fields = Vector("eventName", "targetIdentifier", "currentState", "candidateState").map { name =>
       s"org.goldenport.cncf.statemachine.CmlStateMachineTriggerContextField(org.goldenport.cncf.statemachine.CmlStateMachineTriggerContextFieldIdentity($context, ${_string_literal(name)}), org.goldenport.cncf.statemachine.CmlStateMachineScalarType.StringValue)"
     }.mkString("Vector(", ", ", ")")
-    s"org.goldenport.cncf.statemachine.CmlStateMachineTrigger(identity = $identity, context = org.goldenport.cncf.statemachine.CmlStateMachineTriggerContext(identity = $context, version = org.goldenport.cncf.statemachine.CmlStateMachineVersion($version), fields = $fields))"
+    s"org.goldenport.cncf.statemachine.CmlStateMachineTriggerContext(identity = $context, version = org.goldenport.cncf.statemachine.CmlStateMachineVersion($version), fields = $fields)"
   }
 
   private def _cml_trigger_identity_expr(

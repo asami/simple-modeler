@@ -24,7 +24,7 @@ final class ComponentStateMachineHistoryGenerationSpec
   "Component state-machine Scala generation" should {
     "emit defaulted named shallow-history metadata" in {
       Given("an SComponent carrying a Review history transition and definition")
-      val component = _component
+      val component = _component_with_rule(SComponent.TransitionTrigger.Update, _component.componentCore.stateMachineTransitionRules.head.binding)
       val context = ScalaModel.Context.Default(
         componentNamespace = Some("org.example.fixture"),
         componentLocalId = Some("Sales")
@@ -49,6 +49,72 @@ final class ComponentStateMachineHistoryGenerationSpec
       source should include("binding = Some(org.goldenport.cncf.statemachine.CmlTransitionBinding(")
       source should include("componentId = org.goldenport.cncf.component.ComponentId(\"org.example.fixture.Sales\")")
       source should include("entityType = example.Person.collectionId")
+    }
+
+    "emit an explicit operation binding with its versioned typed trigger context" in {
+      Given("an SComponent transition bound to entity.updateSalesOrder")
+      val component = _component
+      val context = ScalaModel.Context.Default(
+        componentNamespace = Some("org.example.fixture"),
+        componentLocalId = Some("Sales")
+      )
+
+      When("the Scala component adapter is generated")
+      val source = new Scala3ComponentGenerator(context)
+        .generate(component)
+        .take
+        .slots
+        .map(_.content)
+        .mkString("\n")
+
+      Then("the generated ABI carries a typed operation identity and the closed trigger-context schema")
+      source should include("StateMachineRuleBuilder.operationRule[Any](")
+      source should include("binding = org.goldenport.cncf.statemachine.CmlTransitionBinding(")
+      source should not include("binding = Some(org.goldenport.cncf.statemachine.CmlTransitionBinding(")
+      source should include("CmlStateMachineOperationIdentity(service = \"entity\", operation = \"updateSalesOrder\")")
+      source should include("triggerContext = Some(org.goldenport.cncf.statemachine.CmlStateMachineTriggerContext(")
+      source should include("version = org.goldenport.cncf.statemachine.CmlStateMachineVersion(1)")
+      source should include("\"eventName\"")
+      source should include("\"targetIdentifier\"")
+      source should include("\"currentState\"")
+      source should include("\"candidateState\"")
+    }
+
+    "retain optional CML bindings for Save and Update rules" in {
+      Given("SComponent Save and Update rules with no transition binding")
+      val savecomponent = _component_with_rule(SComponent.TransitionTrigger.Save, None)
+      val updatecomponent = _component_with_rule(SComponent.TransitionTrigger.Update, None)
+      val context = ScalaModel.Context.Default(
+        componentNamespace = Some("org.example.fixture"),
+        componentLocalId = Some("Sales")
+      )
+
+      When("the Scala component adapters are generated")
+      val savesource = new Scala3ComponentGenerator(context).generate(savecomponent).take.slots.map(_.content).mkString("\n")
+      val updatesource = new Scala3ComponentGenerator(context).generate(updatecomponent).take.slots.map(_.content).mkString("\n")
+
+      Then("both generated rule calls preserve an explicit absent optional binding")
+      savesource should include("StateMachineRuleBuilder.saveRule[Any](")
+      savesource should include("binding = None")
+      updatesource should include("StateMachineRuleBuilder.updateRule[Any](")
+      updatesource should include("binding = None")
+    }
+
+    "reject an Operation rule without its required CML binding" in {
+      Given("an SComponent Operation rule with no transition binding")
+      val component = _component_with_rule(SComponent.TransitionTrigger.Operation, None)
+      val context = ScalaModel.Context.Default(
+        componentNamespace = Some("org.example.fixture"),
+        componentLocalId = Some("Sales")
+      )
+
+      When("the Scala component adapter generation is attempted")
+      val error = the[IllegalArgumentException] thrownBy {
+        new Scala3ComponentGenerator(context).generate(component).take
+      }
+
+      Then("generation fails closed instead of emitting an optional Operation binding")
+      error.getMessage should include("Operation state-machine transition rule requires an explicit CML transition binding.")
     }
 
     "lower an accepted normalized MComponent definition without changing its canonical identity" in {
@@ -175,6 +241,7 @@ final class ComponentStateMachineHistoryGenerationSpec
       source = Some(draft),
       target = MComponent.StateMachineTransitionTarget.ShallowHistory(review, Some(pending)),
       trigger = MComponent.StateMachineTriggerIdentity(machine, "submit"),
+      operation = Some(MComponent.StateMachineOperationIdentity("entity", "updateSalesOrder")),
       sourceLocation = MComponent.StateMachineSourceLocation(Vector("states", "Draft", "on", "submit")),
       priority = MComponent.StateMachineTransitionPriority(3),
       guard = MComponent.StateMachineGuardProgram.Predicate(
@@ -259,7 +326,8 @@ final class ComponentStateMachineHistoryGenerationSpec
           throw new IllegalArgumentException("test binding requires a transition source")
         ),
         target = transition.target,
-        trigger = transition.trigger
+        trigger = transition.trigger,
+        operation = transition.operation
       )
       SComponent(
       core = ClassCore(
@@ -276,8 +344,8 @@ final class ComponentStateMachineHistoryGenerationSpec
         stateMachineTransitionRules = Vector(
           SComponent.StateMachineTransitionRule(
             collectionName = "person",
-            trigger = SComponent.TransitionTrigger.Update,
-            eventName = "submit",
+            trigger = SComponent.TransitionTrigger.Operation,
+            eventName = "operation:entity.updateSalesOrder",
             machineName = Some("lifecycle"),
             stateFieldName = Some("status"),
             fromState = Some("Draft"),
@@ -303,4 +371,17 @@ final class ComponentStateMachineHistoryGenerationSpec
       )
       )
     }
+
+  private def _component_with_rule(
+    trigger: SComponent.TransitionTrigger,
+    binding: Option[MComponent.StateMachineTransitionBinding]
+  ): SComponent = {
+    val component = _component
+    val rule = component.componentCore.stateMachineTransitionRules.head
+    component.copy(
+      componentCore = component.componentCore.copy(
+        stateMachineTransitionRules = Vector(rule.copy(trigger = trigger, binding = binding))
+      )
+    )
+  }
 }

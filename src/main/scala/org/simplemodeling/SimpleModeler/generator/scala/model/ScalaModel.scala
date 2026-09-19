@@ -1116,6 +1116,7 @@ object SComponent {
   object TransitionTrigger {
     case object Save extends TransitionTrigger
     case object Update extends TransitionTrigger
+    case object Operation extends TransitionTrigger
   }
 
   sealed trait RuleGuard

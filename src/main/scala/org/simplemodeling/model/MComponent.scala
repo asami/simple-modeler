@@ -90,6 +90,23 @@ object MComponent extends MStateMachinePredicateProgram {
     leaf: StateMachineStateIdentity
   )
 
+  /**
+   * The generated operation selected by an explicit StateMachine trigger.
+   * This is deliberately a two-part identity rather than a rendered selector:
+   * the component prefix belongs to the generated component binding while the
+   * service and operation remain independently typed here.
+   */
+  final case class StateMachineOperationIdentity(
+    service: String,
+    operation: String
+  ) {
+    require(_is_segment(service), "StateMachine operation service must be one nonempty segment.")
+    require(_is_segment(operation), "StateMachine operation name must be one nonempty segment.")
+
+    private def _is_segment(value: String): Boolean =
+      Option(value).exists(x => x.trim.nonEmpty && !x.contains("."))
+  }
+
   final case class NormalizedStateMachineAction(
     identity: StateMachineActionIdentity,
     reference: String
@@ -109,6 +126,7 @@ object MComponent extends MStateMachinePredicateProgram {
     source: Option[StateMachineStateIdentity],
     target: StateMachineTransitionTarget,
     trigger: StateMachineTriggerIdentity,
+    operation: Option[StateMachineOperationIdentity] = None,
     sourceLocation: StateMachineSourceLocation,
     priority: StateMachineTransitionPriority = StateMachineTransitionPriority.default,
     guard: StateMachineGuardProgram = StateMachineGuardProgram.Predicate(PredicateProgram()),
@@ -263,6 +281,7 @@ object MComponent extends MStateMachinePredicateProgram {
   object TransitionTrigger {
     case object Save extends TransitionTrigger
     case object Update extends TransitionTrigger
+    case object Operation extends TransitionTrigger
   }
 
   sealed trait RuleGuard
@@ -306,7 +325,8 @@ object MComponent extends MStateMachinePredicateProgram {
     transition: StateMachineTransitionIdentity,
     source: StateMachineStateIdentity,
     target: StateMachineTransitionTarget,
-    trigger: StateMachineTriggerIdentity
+    trigger: StateMachineTriggerIdentity,
+    operation: Option[StateMachineOperationIdentity] = None
   ) {
     require(entityName.trim.nonEmpty, "StateMachine transition binding entity name must be nonempty.")
     require(version > 0, "StateMachine transition binding version must be positive.")

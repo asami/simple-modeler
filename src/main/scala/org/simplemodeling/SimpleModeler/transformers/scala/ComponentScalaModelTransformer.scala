@@ -653,6 +653,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       p match {
         case MComponent.TransitionTrigger.Save => SComponent.TransitionTrigger.Save
         case MComponent.TransitionTrigger.Update => SComponent.TransitionTrigger.Update
+        case MComponent.TransitionTrigger.Operation => SComponent.TransitionTrigger.Operation
       }
 
     private def _to_rule_guard(
