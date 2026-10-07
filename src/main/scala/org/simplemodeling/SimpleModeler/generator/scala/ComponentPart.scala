@@ -13,7 +13,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version May. 15, 2026
  *  version Jun. 27, 2026
  *  version Jul. 25, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Oct.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -1715,6 +1716,12 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       flatMap(x => _first_sentence(x).orElse(_first_non_empty_line(x))).
       filter(_.nonEmpty)
 
+  private def _description_builder_suffix(p: Option[String]): String = {
+    val summary = _summary_text(p).map(x => s".summary(${_string_literal(x)})").getOrElse("")
+    val description = _normalize_text(p).map(x => s".description(${_string_literal(x)})").getOrElse("")
+    summary + description
+  }
+
   private def _doc_method_name(name: String): String =
     s"doc${name.capitalize}"
 
@@ -1967,7 +1974,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
                 block("def useCaseRecords: Vector[Record] =") {
                   println(_use_case_vector_expr(service.useCases))
                 }
-            _ <- block(s"""val specification = ServiceDefinition.Specification.Builder("${servicename}").""") {
+            _ <- block(s"""val specification = ServiceDefinition.Specification.Builder("${servicename}")${_description_builder_suffix(service.description)}.""") {
               for {
                 _ <- ops.toList match {
                   case Nil => println("build()")
@@ -2005,6 +2012,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
               for {
                 _ <- println("copy(")
                 _ <- indent
+                _ <- println(s"content = org.goldenport.value.BaseContent.Builder(${_string_literal(operationname)})${_description_builder_suffix(op.description)},")
                 _ <- println(s"request = ${_request_definition_expr(op)},")
                 _ <- println(s"""response = ResponseDefinition(result = List(org.goldenport.schema.DataType.Named("${outputtype}")))""")
                 _ <- outdent
