@@ -19,7 +19,8 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Feb. 27, 2026
  *  version Apr. 19, 2026
  *  version May. 23, 2026
- * @version Jul. 15, 2026
+ *  version Jul. 15, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -61,7 +62,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       val attrs = effective_attributes(p)
       val concreteattrs = attrs.filterNot(_.isDerived)
       val derivedattrs = to_attributes(attrs.filter(_.isDerived)).attributes
-      val parameters = to_parameters(concreteattrs)
+      val parameters = _capture_store_declarations(to_parameters(concreteattrs), concreteattrs)
       val fields = to_fields(concreteattrs)
       val methods = to_methods(p.operations)
       val receptions = ReceptionCompartment.empty // TODO
@@ -84,6 +85,23 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       _current_object_name = previousObject
       _current_package_name = previousPackage
     }
+  }
+
+  private def _capture_store_declarations(
+    parameters: ParameterSequence,
+    attributes: List[MAttribute]
+  ): ParameterSequence = {
+    val attributesbyname = attributes.map(attribute => attribute.name -> attribute).toMap
+    parameters.copy(parameters = parameters.parameters.map { parameter =>
+      attributesbyname.get(parameter.name.name) match {
+        case Some(attribute) => {
+          parameter.copy(storeDeclaration = Some(EntityStoreDeclaration(
+            to_typename(attribute), attribute.multiplicity
+          )))
+        }
+        case None => { parameter }
+      }
+    })
   }
 
   protected def effective_attributes(p: MObject): List[MAttribute] =
@@ -177,7 +195,8 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       externalName = externalname,
       derived = p.derived,
       web = to_web_attribute(p),
-      typeConstraints = to_constraints(p.typeConstraints)
+      typeConstraints = to_constraints(p.typeConstraints),
+      storeDeclaration = Some(EntityStoreDeclaration(typename, p.multiplicity))
     )
   }
 
@@ -299,13 +318,17 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
   private def _typename_ranges(p: MAttributeType): TypeName =
     _typename_zeromore(p) // TODO
 
-  private def _to_typename(p: MAttributeType): TypeName =
+  private def _to_typename(p: MAttributeType): TypeName = {
     p match {
+      case m: MBuiltinStructuredDataType => {
+        TypeName.create(m)
+      }
       case m: MDataType => to_typename(m)
       case m: MObjectAttributeType => to_typename(m.ref)
       case m: MObject => to_typename(m)
       case m: MObjectRef => to_typename(m)
     }
+  }
 
   final protected def to_methods(ps: List[MOperation]): MethodCompartment = {
     val xs = ps.toVector.map(to_method)

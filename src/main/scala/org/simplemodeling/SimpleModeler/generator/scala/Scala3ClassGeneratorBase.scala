@@ -7,7 +7,7 @@ import org.goldenport.record.v2._
 import org.goldenport.util.StringUtils
 import org.goldenport.scalaz.FoldTraverseUtil
 import org.simplemodeling.SimpleModeler.generator.SourceArtifacts
-import org.simplemodeling.model.{MDataType, MValue}
+import org.simplemodeling.model.{MBuiltinStructuredDataType, MDataType, MValue}
 import model._
 import Generator.{State => GState, _}
 
@@ -23,7 +23,8 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -379,6 +380,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- if (is_aggregate) separator.flatMap(_ => aggregate_instance_hook_methods) else unit
       _ <- to_view_record_method
       _ <- to_data_store_method
+      _ <- _logical_store_record_method
       _ <- value_convert_methods
     } yield ()
 
@@ -1130,6 +1132,96 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     )(_to_data_store)
   }
 
+  private def _has_declared_store_mapping: Boolean = {
+    !is_query && (is_update || is_entity_value)
+  }
+
+  private def _logical_store_attributes: Vector[Attribute] = {
+    if (_is_simple_entity_parent) {
+      attributes_vector.filterNot(p => _simple_object_attribute_names.contains(p.name.name))
+    } else {
+      attributes_vector
+    }
+  }
+
+  private def _logical_store_framework_properties: Vector[(String, String, String)] = {
+    if (_is_simple_entity_parent) {
+      _to_data_store_simple_entity_properties
+    } else {
+      Vector.empty
+    }
+  }
+
+  private def _logical_store_record_method: GenM[Unit] = {
+    if (_has_declared_store_mapping) {
+      val ordinary = _logical_store_attributes.map { attribute =>
+        val key = EntityStoreMappingProjection.stringLiteral(attribute.name.name)
+        s"org.goldenport.record.Field($key, org.goldenport.record.Field.Value.Single(${attribute.name.name}))"
+      }
+      val framework = _logical_store_framework_properties.map { case (key, value, converter) =>
+        val converted = if (converter.isEmpty) { value } else { s"$converter($value)" }
+        s"org.goldenport.record.Field(${EntityStoreMappingProjection.stringLiteral(key)}, org.goldenport.record.Field.Value.Single($converted))"
+      }
+      for {
+        _ <- println("private def _logical_store_record: Record = {")
+        _ <- indent
+        _ <- println("Record(Vector(")
+        _ <- indent
+        _ <- FoldTraverseUtil.intercalateTraverseWithEnd_(ordinary ++ framework, println(","), println())(print(_))
+        _ <- outdent
+        _ <- println("))")
+        _ <- outdent
+        _ <- println("}")
+      } yield ()
+    } else {
+      unit
+    }
+  }
+
+  private def _declared_store_mapping: GenM[Unit] = {
+    val plans = EntityStoreMappingProjection.project(
+      _logical_store_attributes, is_entity_value_create, is_update, schema_datatype_expr
+    )
+    val frameworkkeys = _logical_store_framework_properties.map(_._1)
+    if (frameworkkeys.distinct.size != frameworkkeys.size || plans.exists { plan =>
+      frameworkkeys.contains(plan.logicalName) || frameworkkeys.contains(plan.storageName)
+    }) {
+      RAISE.syntaxErrorFault(s"Entity store declaration ${clazz.className.name}: colliding framework field")
+    }
+    val physical = frameworkkeys.map(EntityStoreMappingProjection.stringLiteral).mkString("Set(", ", ", ")")
+    for {
+      _ <- println("private val _store_row_mapping: EntityStoreRowMapping = EntityStoreRowMapping(")
+      _ <- indent
+      _ <- println("fields = Vector(")
+      _ <- indent
+      _ <- FoldTraverseUtil.intercalateTraverseWithEnd_(plans, println(","), println()) { plan =>
+        print("EntityStoreField(", EntityStoreMappingProjection.stringLiteral(plan.logicalName), ", ",
+          EntityStoreMappingProjection.stringLiteral(plan.storageName), ", org.goldenport.schema.ValueDomain(",
+          plan.datatypeExpression, ", ", plan.multiplicityExpression, "), ", plan.bindingExpression, ")")
+      }
+      _ <- outdent
+      _ <- println("),")
+      _ <- println(s"physicalFields = $physical")
+      _ <- outdent
+      _ <- println(")")
+    } yield ()
+  }
+
+  private def _declared_store_hooks(name: String, persistent: Boolean): GenM[Unit] = {
+    for {
+      _ <- println("  override def storeRowMapping: Option[EntityStoreRowMapping] = { Some(_store_row_mapping) }")
+      _ <- println(s"  override def toLogicalStoreRecord(e: $name): Consequence[Record] = { Consequence.success(e._logical_store_record) }")
+      _ <- if (persistent) {
+        for {
+          _ <- println("  override def admitLogicalStoreRecord(r: Record): Consequence[Record] = { Consequence.success(r) }")
+          _ <- println(s"  override def decodeAdmittedLogicalStoreRecord(r: Record): Consequence[$name] = { createC(r) }")
+        } yield ()
+      } else {
+        unit
+      }
+    } yield ()
+  }
+
   private def _to_data_store_attribute(p: Attribute): (String, String, String) = {
     val key = p.dbColumnName.getOrElse(p.name.name)
     (key, p.name.name, "_to_data_store_value")
@@ -1678,6 +1770,15 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected final def schema_datatype_expr(p: TypeName): String = {
     val base = _schema_base_type(p)
     base match {
+      case TypeName.Structured(MBuiltinStructuredDataType.Json) => {
+        "org.goldenport.schema.XJson"
+      }
+      case TypeName.Structured(MBuiltinStructuredDataType.SemiStructuredData) => {
+        "org.goldenport.schema.XSemiStructuredData"
+      }
+      case TypeName.Plain(pkg, "Record", _) if pkg.name == "org.goldenport.record" => {
+        "org.goldenport.schema.XSemiStructuredData"
+      }
       case m: TypeName.Primitive => _schema_datatype_expr_by_name(m.datatype.name)
       case m: TypeName.Plain => _schema_datatype_expr_by_name(m.name)
       case _ => "org.goldenport.schema.XString"
@@ -1721,7 +1822,6 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "charset" => s"${schema}XCharset"
       case "contentbody" | "content_body" => s"${schema}XContentBody"
       case "contentmarkup" | "content_markup" => s"${schema}XContentMarkup"
-      case "record" => _named_("record")
       case "date" => _named_("date")
       case "localdate" => _named_("localDate")
       case "time" => _named_("time")
@@ -1753,7 +1853,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected final def schema_parameter_multiplicity_expr(p: Parameter): String =
     p.typeName match {
-      case m: TypeName.Container if m.isCollection => schema_multiplicity_expr(m)
+      case m: TypeName.Container if m.isCollection || _is_seq_container(m) => {
+        schema_multiplicity_expr(m)
+      }
       case _ if !p.isRequired => "org.goldenport.schema.Multiplicity.ZeroOne"
       case _ => schema_multiplicity_expr(p.typeName)
     }
@@ -1766,6 +1868,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         case "scala.Vector" => true
         case "scala.collection.immutable.Vector" => true
         case "scala.Seq" => true
+        case "scala.collection.Seq" => {
+          true
+        }
         case "scala.collection.immutable.Seq" => true
         case "scala.Set" => true
         case "scala.collection.immutable.Set" => true
@@ -2066,8 +2171,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected def to_builder_parameter(p: Attribute): Parameter =
     Parameter(ParameterName(p.name.name), to_optionable_type(p.typeName), true, true)
 
-  protected def to_optionable_type(p: TypeName): TypeName =
+  protected def to_optionable_type(p: TypeName): TypeName = {
     p match {
+      case m: TypeName.Structured => {
+        TypeName.option(m)
+      }
       case m: TypeName.Primitive => TypeName.option(m)
       case m: TypeName.Plain => TypeName.option(m)
       case m: TypeName.Container if is_condition_type(m) => TypeName.option(m)
@@ -2077,6 +2185,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case m: TypeName.Function => RAISE.notImplementedYetDefect("Function")
       case m: TypeName.Unit => RAISE.notImplementedYetDefect("Unit")
     }
+  }
 
   protected final def is_condition_type(p: TypeName): Boolean = p match {
     case m: TypeName.Container =>
@@ -2460,7 +2569,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
               println("copy(", propname, " = Some(", propname, "), _failures = _failures)")
             }
           } yield ()
-        case m: TypeName.Container if m.isList || m.isVector || m.isSet =>
+        case m: TypeName.Container if m.isList || m.isVector || m.isSet || _is_seq_container(m) => {
           for {
             _ <- define_method(_method_name_, builder_type, raw_parameter(p)) {
               println("copy(", propname, " = ", _container_wrap_expression(propname, m), ", _failures = _failures)")
@@ -2469,6 +2578,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
               println("copy(", propname, " = ", propname, ", _failures = _failures)")
             }
           } yield ()
+        }
         case _ =>
           for {
             _ <- define_method(_method_name_, builder_type, raw_parameter(p)) {
@@ -2554,7 +2664,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _is_collection_type(p: TypeName): Boolean = p match {
-    case m: TypeName.Container => m.isCollection
+    case m: TypeName.Container => {
+      m.isCollection || _is_seq_container(m)
+    }
     case _ => false
   }
 
@@ -2567,6 +2679,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       s"Set($name)"
     else if (p.isNonEmptyVector)
       s"NonEmptyVector.one($name)"
+    else if (_is_seq_container(p)) {
+      p.container.fullName + "(" + name + ")"
+    }
     else
       name
 
@@ -2899,6 +3014,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       s"Consequence.success(${p.name.name})"
     else if (container.isVector)
       s"Consequence.success(${p.name.name})"
+    else if (_is_seq_container(container)) {
+      s"Consequence.success(${p.name.name})"
+    }
     else if (container.isSet)
       s"Consequence.success(${p.name.name})"
     else if (container.isNonEmptyVector)
@@ -3333,28 +3451,46 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _build_param_or_var_container(
     p: Parameter,
     container: TypeName.Container
-  )(param: => GenM[Unit]): GenM[Unit] =
-    if (container.isOption)
+  )(param: => GenM[Unit]): GenM[Unit] = {
+    if (container.isOption) {
       for {
         _ <- param
         _ <- print(".map(_  orElse ", p.name.name, ")")
       } yield ()
-    else if (is_condition_type(container))
+    } else if (is_condition_type(container)) {
       _build_param_or_var_condition(p, container)
-    else if (is_update_type(container))
+    } else if (is_update_type(container)) {
       _build_param_or_var_update(p, container)
-    else if (container.isNonEmptyVector)
+    } else if (container.isNonEmptyVector) {
       _build_param_or_var_non_empty_vector(p, container)
-    else if (_is_record_type(container.containee))
+    } else if (_is_record_type(container.containee)) {
       _build_param_or_var_record_collection(p, container)
-    else if (_is_model_record_decodable_object_container(container))
+    } else if (_is_model_record_decodable_object_container(container)) {
       _build_param_or_var_object_collection(p, container)
-    else if (_is_value_readable_object_container(container))
+    } else if (_is_value_readable_object_container(container)) {
       _build_param_or_var_value_collection(p, container)
-    else if (container.isList || container.isVector || container.isSet)
+    } else if (container.isList || container.isVector || container.isSet || _is_seq_container(container)) {
       _build_param_or_var_value_collection(p, container)
-    else
+    } else {
       RAISE.noReachDefect
+    }
+  }
+
+  private def _is_seq_container(container: TypeName.Container): Boolean = {
+    Set("scala.Seq", "scala.collection.Seq", "scala.collection.immutable.Seq").contains(container.container.fullName)
+  }
+
+  private def _restore_vector_container(container: TypeName.Container): String = {
+    if (container.isList) {
+      ".map(_.map(_.toList))"
+    } else if (container.isSet) {
+      ".map(_.map(_.toSet))"
+    } else if (_is_seq_container(container)) {
+      ".map(_.map(_.toSeq))"
+    } else {
+      ""
+    }
+  }
 
   private def _build_param_or_var_non_empty_vector(
     p: Parameter,
@@ -3380,7 +3516,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     p: Parameter,
     container: TypeName.Container
   ): GenM[Unit] = {
-    val lifted = if (container.isList) ".map(_.toList)" else if (container.isSet) ".map(_.toSet)" else ""
+    val lifted = _restore_vector_container(container)
     for {
       _ <- print("_record_get_vector_of_record_c(record, ", input_keys_name(p.name.name), ")((r: Record) => Consequence.success(r))", lifted, ".flatMap {")
       _ <- println()
@@ -3398,10 +3534,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _is_model_record_decodable_object_container(p: TypeName.Container): Boolean =
     (p.isList || p.isVector || p.isSet) && _is_model_record_decodable_object_type(p.containee)
 
-  private def _is_value_readable_object_container(p: TypeName.Container): Boolean =
-    (p.isList || p.isVector || p.isSet) &&
+  private def _is_value_readable_object_container(p: TypeName.Container): Boolean = {
+    (p.isList || p.isVector || p.isSet || _is_seq_container(p)) &&
       _is_value_readable_object_type(p.containee) &&
       !_is_model_record_decodable_object_type(p.containee)
+  }
 
   private def _is_value_readable_object_type(p: TypeName): Boolean =
     _is_record_decodable_object_type(p) || (p match {
@@ -3463,7 +3600,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     p: Parameter,
     container: TypeName.Container
   ): GenM[Unit] = {
-    val lifted = if (container.isList) ".map(_.toList)" else if (container.isSet) ".map(_.toSet)" else ""
+    val lifted = _restore_vector_container(container)
     _builder_default_expression_raw(p.name.name) match {
       case Some(expr) =>
         print("_record_get_vector_as_c[", container.containee.fullName, "](record, ", input_keys_name(p.name.name), ")", lifted, ".map(_.getOrElse(", p.name.name, ".getOrElse(", expr, ")))")
@@ -3485,7 +3622,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     container: TypeName.Container
   ): GenM[Unit] = {
     val decode = s"(r: Record) => ${container.containee.fullName}.createC(r)"
-    val lifted = if (container.isList) ".map(_.toList)" else if (container.isSet) ".map(_.toSet)" else ""
+    val lifted = _restore_vector_container(container)
     _builder_default_expression_raw(p.name.name) match {
       case Some(expr) =>
         print("_record_get_vector_of_record_c(record, ", input_keys_name(p.name.name), ")(", decode, ")", lifted, ".map(_.getOrElse(", p.name.name, ".getOrElse(", expr, ")))")
@@ -3530,9 +3667,9 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
           _ <- outdent
           _ <- print("}")
         } yield ()
-      case inner: TypeName.Container if _is_value_readable_object_container(inner) =>
+      case inner: TypeName.Container if _is_value_readable_object_container(inner) => {
         for {
-          _ <- print("_record_get_vector_as_c[", inner.containee.fullName, "](record, ", keyname, ").flatMap {")
+          _ <- print("_record_get_vector_as_c[", inner.containee.fullName, "](record, ", keyname, ")", _restore_vector_container(inner), ".flatMap {")
           _ <- println()
           _ <- indent
           _ <- println("case Some(s) => Consequence.success(Condition.is(s))")
@@ -3540,6 +3677,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
           _ <- outdent
           _ <- print("}")
         } yield ()
+      }
       case _ =>
         for {
           _ <- print("_record_get_as_c[", container.containee.name, "](record, ", keyname, ").flatMap {")
@@ -3960,14 +4098,14 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _has_id_parameter: Boolean =
     clazz.parameterSequence.parameters.exists(_.name.name == "id")
 
-  private def _value_reader(name: String): GenM[Unit] =
+  private def _value_reader(name: String): GenM[Unit] = {
     if (is_value) {
       for {
         _ <- println(s"given org.goldenport.convert.ValueReader[$name] with")
         _ <- println(s"  def readC(v: Any): Consequence[$name] = v match")
-        _ <- if (is_nominal_scalar)
+        _ <- if (is_nominal_scalar) {
           _scalar_value_reader(name)
-        else if (is_powertype)
+        } else if (is_powertype) {
           for {
             _ <- println(s"    case m: $name => Consequence.success(m)")
             _ <- println(s"    case n: Int => fromDbValue(n).map(Consequence.success).getOrElse(Consequence.valueInvalid(v, org.goldenport.schema.XInt))")
@@ -3976,17 +4114,20 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
             _ <- println(s"    case m: Record => createC(m)")
             _ <- println(s"    case _ => Consequence.valueInvalid(v, org.goldenport.schema.XString)")
           } yield ()
-        else if (_single_scalar_value_parameter.nonEmpty)
+        } else if (_single_scalar_value_parameter.nonEmpty) {
           _scalar_value_reader(name)
-        else
+        } else {
           for {
+            _ <- println(s"    case m: $name => { Consequence.success(m) }")
             _ <- println(s"    case m: Record => createC(m)")
             _ <- println(s"    case _ => Consequence.valueInvalid(v, org.goldenport.schema.XString)")
           } yield ()
+        }
       } yield ()
     } else {
       unit
     }
+  }
 
   private def _scalar_value_reader(name: String): GenM[Unit] =
     _single_scalar_value_parameter match {
@@ -4052,7 +4193,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } yield ()
   }
 
-  private def _entity(name: String): GenM[Unit] =
+  private def _entity(name: String): GenM[Unit] = {
     if (is_query) {
       for {
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
@@ -4060,8 +4201,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       } yield ()
     } else if (is_update) {
       for {
+        _ <- _declared_store_mapping
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
         _ <- println(s"given EntityPersistentUpdate[$name] with")
+        _ <- _declared_store_hooks(name, persistent = false)
         _ <- println(s"  def toRecord(e: $name): Record = e.toRecord()")
         _ <- println(s"  def fromRecord(r: Record): Consequence[$name] = createC(r)")
         _ <- println(s"  override def toStoreRecord(e: $name): Record = e.toDataStore()")
@@ -4070,8 +4213,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       } yield ()
     } else if (is_entity_value_create) {
       for {
+        _ <- _declared_store_mapping
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
         _ <- println(s"given EntityPersistentCreate[$name] with")
+        _ <- _declared_store_hooks(name, persistent = false)
         _ <- println(s"  def id(e: $name): Option[EntityId] = e.id")
         _ <- println(s"  def collection(e: $name): EntityCollectionId = collectionId")
         _ <- println(s"  def toRecord(e: $name): Record = e.toRecord()")
@@ -4079,10 +4224,12 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       } yield ()
     } else if (is_entity_value) {
       for {
+        _ <- _declared_store_mapping
         _ <- _store_record_projection_metadata
         _ <- _store_record_collection_compatibility
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
         _ <- println(s"given EntityPersistent[$name] with")
+        _ <- _declared_store_hooks(name, persistent = true)
         _ <- println(s"  def id(e: $name): EntityId = e.id")
         _ <- println(s"  def toRecord(e: $name): Record = e.toRecord()")
         _ <- println(s"  def fromRecord(r: Record): Consequence[$name] = createC(r)")
@@ -4092,6 +4239,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     } else {
       unit
     }
+  }
 
   private def _store_record_projection_metadata: GenM[Unit] = {
     val attributes = attributes_vector.filter(x => _is_store_scalar_string_type(x.typeName))
