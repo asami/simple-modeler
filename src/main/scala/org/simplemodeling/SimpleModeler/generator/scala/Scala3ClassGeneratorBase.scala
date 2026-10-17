@@ -23,7 +23,8 @@ import Generator.{State => GState, _}
  *  version May. 23, 2026
  *  version May. 26, 2026
  *  version Jun. 27, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Oct. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1471,7 +1472,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   }
 
   private def _record_input_keys(p: Attribute): Vector[String] = {
-    (p.externalName.toVector ++ Vector(p.name.name)).filterNot(_.isEmpty).distinct
+    (p.externalName.toVector ++ Vector(p.name.name, StringUtils.camelToUnderscore(p.name.name))).filterNot(_.isEmpty).distinct
   }
 
   private def _record_external_key(p: Attribute): String =
