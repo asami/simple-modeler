@@ -14,7 +14,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Jun. 27, 2026
  *  version Jul. 25, 2026
  *  version Aug. 14, 2026
- * @version Oct.  7, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -2048,21 +2048,66 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       if (fields.nonEmpty) {
         val fieldnames = fields.map(x => _operation_contract_name(x.name)).toSet
         val additions = _request_parameters(op).filterNot(x => fieldnames.contains(_operation_contract_name(x.name.name)))
+        val typedinputs = _operation_schema_parameters(op)
         val definitions =
-          fields.map(_operation_field_parameter_definition_expr) ++ additions.map(_parameter_definition_expr)
+          fields.map(x => _operation_field_parameter_definition_expr(x, typedinputs)) ++ additions.map(_parameter_definition_expr)
         s"RequestDefinition(parameters = List(${definitions.mkString(", ")}))"
       }
       else {
         val params = _request_parameters(op)
-        if (params.isEmpty)
+        if (params.isEmpty) {
           "RequestDefinition.empty"
-        else
+        }
+        else {
           s"RequestDefinition(parameters = List(${params.map(_parameter_definition_expr).mkString(", ")}))"
+        }
       }
     }
 
     private def _operation_contract_name(p: String): String =
       Option(p).getOrElse("").filter(_.isLetterOrDigit).toLowerCase(java.util.Locale.ROOT)
+
+    private def _operation_schema_parameters(op: SMethod): Vector[Parameter] = {
+      def _flatten_(p: Parameter): Vector[Parameter] = {
+        p.value match {
+          case Some(v) => {
+            Vector(p) ++ v.parameterSequence.parameters.flatMap(_flatten_)
+          }
+          case None => {
+            Vector(p)
+          }
+        }
+      }
+      op.parameters.parameters.flatMap(_flatten_)
+    }
+
+    private def _is_operation_structured_type(p: TypeName): Boolean = {
+      p match {
+        case TypeName.Container(_, child) => {
+          _is_operation_structured_type(child)
+        }
+        case _: TypeName.Structured => {
+          true
+        }
+        case TypeName.Plain(pkg, "Record", _) if pkg.name == "org.goldenport.record" => {
+          true
+        }
+        case _ => {
+          false
+        }
+      }
+    }
+
+    private def _is_operation_custom_structured_name(typename: TypeName, spelling: String): Boolean = {
+      typename match {
+        case TypeName.Container(_, child) => _is_operation_custom_structured_name(child, spelling)
+        case TypeName.Plain(pkg, name, _) =>
+          pkg.name.nonEmpty && Set("Json", "Record").contains(name) &&
+            !(pkg.name == "org.goldenport.record" && name == "Record") &&
+            Option(spelling).exists(_.trim.equalsIgnoreCase(name))
+        case _ => false
+      }
+    }
 
     private def _request_parameters(op: SMethod): Vector[Parameter] = {
       def flatten(p: Parameter): Vector[Parameter] =
@@ -2116,10 +2161,17 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         .map(v => s"org.goldenport.schema.DataConfidentiality.getOrPublic(Some(${_string_literal(v)}))")
         .getOrElse("org.goldenport.schema.DataConfidentiality.Public")
 
-    private def _operation_field_parameter_definition_expr(p: SComponent.OperationField): String = {
+    private def _operation_field_parameter_definition_expr(
+      p: SComponent.OperationField,
+      typedinputs: Vector[Parameter]
+    ): String = {
       val name = _string_literal(p.name)
       val multiplicity = _schema_multiplicity_expr(p.multiplicity)
-      val datatype = _schema_datatype_expr(p.datatype)
+      val datatype = typedinputs
+        .find(x => _operation_contract_name(x.name.name) == _operation_contract_name(p.name))
+        .filter(x => _is_operation_structured_type(x.typeName) || _is_operation_custom_structured_name(x.typeName, p.datatype))
+        .map(x => schema_datatype_expr(x.typeName))
+        .getOrElse(_schema_datatype_expr(p.datatype))
       val web = _operation_field_web_column_expr(p)
       s"ParameterDefinition(content = org.goldenport.value.BaseContent.simple($name), kind = ParameterDefinition.Kind.Property, domain = org.goldenport.schema.ValueDomain(datatype = $datatype, multiplicity = $multiplicity), web = $web, confidentiality = ${_operation_field_confidentiality_expr(p)})"
     }
@@ -2193,7 +2245,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         case "datetime" | "dateTime" => "org.goldenport.schema.XDateTime"
         case "localdatetime" | "localDateTime" => "org.goldenport.schema.XLocalDateTime"
         case "entityid" => """org.goldenport.schema.DataType.Named("entityid")"""
-        case "record" => """org.goldenport.schema.DataType.Named("record")"""
+        case declared if org.simplemodeling.model.MBuiltinStructuredDataType.get(declared).isDefined =>
+          org.goldenport.RAISE.syntaxErrorFault(s"Operation structured datatype requires semantic input: $declared")
         case other => s"""org.goldenport.schema.DataType.Named(${_string_literal(other)})"""
       }
 

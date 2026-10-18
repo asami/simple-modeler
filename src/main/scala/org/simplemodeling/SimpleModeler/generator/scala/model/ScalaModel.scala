@@ -28,7 +28,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version May.  8, 2026
  *  version Jul. 25, 2026
  *  version Aug. 30, 2026
- * @version Sep.  2, 2026
+ *  version Sep.  2, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -309,7 +310,11 @@ object TypeName {
     override val isString: Boolean = false,
     override val isNumber: Boolean = false
   ) extends TypeName {
-    val name = StringUtils.makeTitle(datatype.name)
+    val name = datatype match {
+      case XInteger => "BigInt"
+      case XDecimal => "BigDecimal"
+      case _ => StringUtils.makeTitle(datatype.name)
+    }
     def fullName = name
     def isRequired = true
     override def isPrimitive: Boolean = true
@@ -357,6 +362,21 @@ object TypeName {
     }
 
     def create(name: String): Primitive = ???
+  }
+
+  case class Structured(datatype: MBuiltinStructuredDataType) extends TypeName {
+    def name: String = {
+      datatype.runtimeClassName
+    }
+    def fullName: String = {
+      s"${datatype.runtimePackageName}.${datatype.runtimeClassName}"
+    }
+    def isRequired: Boolean = {
+      true
+    }
+    override def isPlatform: Boolean = {
+      true
+    }
   }
 
   case class Plain(
@@ -452,7 +472,7 @@ object TypeName {
 
   def failureVector = Container.vector(consequenceFailure)
 
-  val record = Plain(PackageName.orgSimplemodelingRecord, "Record")
+  val record = Structured(MBuiltinStructuredDataType.SemiStructuredData)
 
 //  def apply(name: String): TypeName = Primitive(name)
 
@@ -460,6 +480,10 @@ object TypeName {
 
   def create(pkg: String, name: String): TypeName = Plain(PackageName(pkg), name)
   def create(p: SClassBase): TypeName = Plain(p)
+
+  def create(p: MBuiltinStructuredDataType): TypeName = {
+    Structured(p)
+  }
 
   def create(p: DataType): TypeName = Primitive.createOption(p).getOrElse {
     val key = Option(p.name).getOrElse("").trim.toLowerCase(java.util.Locale.ROOT)
@@ -577,6 +601,11 @@ object TypeName {
   }
 }
 
+case class EntityStoreDeclaration(
+  typeName: TypeName,
+  multiplicity: org.simplemodeling.model.MMultiplicity
+)
+
 case class Parameter(
   name: ParameterName,
   typeName: TypeName,
@@ -591,7 +620,8 @@ case class Parameter(
   derived: Option[String] = None,
   web: WebAttribute = WebAttribute.empty,
   confidentiality: Option[String] = None,
-  typeConstraints: Vector[PConstraint] = Vector.empty
+  typeConstraints: Vector[PConstraint] = Vector.empty,
+  storeDeclaration: Option[EntityStoreDeclaration] = None
 ) {
   def isRequired: Boolean = typeName.isRequired
   def titleName = name.toTitle
@@ -632,7 +662,8 @@ case class ParameterSequence(
           m.web,
           m.constraints,
           m.web.confidentiality,
-          m.typeConstraints
+          m.typeConstraints,
+          m.storeDeclaration
         )
       )
       case _ => None
@@ -656,7 +687,8 @@ case class Attribute(
   web: WebAttribute = WebAttribute.empty,
   constraints: Vector[PConstraint] = Vector.empty,
   confidentiality: Option[String] = None,
-  typeConstraints: Vector[PConstraint] = Vector.empty
+  typeConstraints: Vector[PConstraint] = Vector.empty,
+  storeDeclaration: Option[EntityStoreDeclaration] = None
 ) {
   def isDerived: Boolean = derived.nonEmpty
 }
@@ -931,12 +963,17 @@ case class ClassCore(
 
       def add(p: Option[TypeName]): Z = p.fold(this)(add)
 
-      def add(p: TypeName): Z = p match {
+      def add(p: TypeName): Z = {
+        p match {
         case m: TypeName.Primitive => _add(_fqname_primitive(m.name))
+        case m: TypeName.Structured => {
+          add(TypeName.Plain.create(m.datatype.runtimePackageName, m.datatype.runtimeClassName))
+        }
         case m: TypeName.Plain => _add(VectorMap(m.packageName -> Set(m)))
         case m: TypeName.Container => add(m.container).add(m.containee)
         case m: TypeName.Function => add(m.in).add(m.out)
         case m: TypeName.Unit => this
+        }
       }
 
       def add(p: ParameterSequence): Z =
@@ -969,7 +1006,7 @@ case class ClassCore(
   }
 }
 object ClassCore {
-  val builtInTypes = Set("String", "Int", "Long", "Boolean", "Double", "Float", "Short", "Byte", "Char")
+  val builtInTypes = Set("String", "Int", "Long", "Boolean", "Double", "Float", "Short", "Byte", "Char", "BigInt", "BigDecimal")
 
   trait Holder {
     def core: ClassCore
@@ -1652,8 +1689,11 @@ object SComponent {
     final protected def action_call_class_name(op: SMethod): String =
       make_title(operation_name(op)) + "ActionCall"
 
-    final protected def typename_relative_name(p: TypeName): String =
+    final protected def typename_relative_name(p: TypeName): String = {
       p match {
+        case m: TypeName.Structured => {
+          m.fullName
+        }
         case TypeName.Plain(pkg, name, _) => _relative_plain_name(pkg, name)
         case TypeName.Container(container, containee) =>
           s"${typename_relative_name(container)}[${typename_relative_name(containee)}]"
@@ -1661,6 +1701,7 @@ object SComponent {
           s"${typename_relative_name(in)} => ${typename_relative_name(out)}"
         case _ => p.name
       }
+    }
 
     private def _relative_plain_name(pkg: PackageName, name: String): String = {
       if (!_is_component_subpackage(pkg))

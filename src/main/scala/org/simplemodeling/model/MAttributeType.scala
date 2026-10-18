@@ -10,7 +10,8 @@ package org.simplemodeling.model
  *  version Nov.  4, 2019
  *  version Jan.  5, 2020
  *  version May. 16, 2020
- * @version Feb. 10, 2026
+ *  version Feb. 10, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MAttributeType extends MElement {
@@ -24,5 +25,7 @@ trait MAttributeType extends MElement {
 }
 
 object MAttributeType {
-  def create(p: String): MAttributeType = MDataType.create(p)
+  def create(p: String): MAttributeType = {
+    MBuiltinStructuredDataType.get(p).getOrElse(MDataType.create(p))
+  }
 }

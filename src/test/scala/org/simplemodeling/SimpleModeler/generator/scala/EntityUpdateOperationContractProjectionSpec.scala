@@ -1,14 +1,14 @@
 package org.simplemodeling.SimpleModeler.generator.scala
 
-import org.goldenport.record.v2.{XEntityId, XInt}
+import org.goldenport.record.v2.{XEntityId, XInt, XString}
 import org.goldenport.values.Designation
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.smartdox.Description
 import org.simplemodeling.model._
-import org.simplemodeling.model.domain.{MDomainComponent, MDomainResource}
-import org.simplemodeling.SimpleModeler.generator.scala.model.{SComponent, ScalaModel}
+import org.simplemodeling.model.domain.{MDomainComponent, MDomainResource, MDomainValue}
+import org.simplemodeling.SimpleModeler.generator.scala.model.{SComponent, ScalaModel, TypeName}
 import org.simplemodeling.SimpleModeler.generators.scala.Scala3ComponentGenerator
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.Purpose
@@ -16,7 +16,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala.ComponentScalaModelTr
 
 /*
  * @since   Jul. 25, 2026
- * @version Jul. 25, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class EntityUpdateOperationContractProjectionSpec
@@ -80,6 +80,201 @@ final class EntityUpdateOperationContractProjectionSpec
       inspectionblock should not include
         "ResponseDefinition(result = List(org.goldenport.schema.DataType.Named(\"Record\")))"
     }
+
+    "structured request fields" which {
+      "select nested typed inputs while retaining both update contracts and their metadata" in {
+        Given("canonical Json and Record fields, legacy Record, optional and repeated inputs, and an extra revision")
+        val entity = _request_entity(List(
+          _attribute("originalProposal", MDataType.string, MOne),
+          _attribute("payload", MBuiltinStructuredDataType.Json, MOne),
+          _attribute("evidence", MBuiltinStructuredDataType.SemiStructuredData, MOne),
+          _attribute("legacyEvidence", MObjectAttributeType(MObjectRef.record), MOne),
+          _attribute("optionalPayload", MBuiltinStructuredDataType.Json, MZeroOne),
+          _attribute("optionalEvidence", MBuiltinStructuredDataType.SemiStructuredData, MZeroOne),
+          _attribute("payloads", MBuiltinStructuredDataType.Json, MZeroMore),
+          _attribute("evidences", MBuiltinStructuredDataType.SemiStructuredData, MZeroMore)
+        ))
+        val fields = Vector(
+          MComponent.OperationField("originalProposal", "string"),
+          MComponent.OperationField("payload", "json", multiplicity = "?",
+            controlType = Some("textarea"), placeholder = Some("payload hint"),
+            help = Some("declared payload"), required = Some(false),
+            confidentiality = Some("private"), constraints = List(LiteralConstraint("max-length", 240)),
+            update = Some(MComponent.OperationUpdateField("1", false))),
+          MComponent.OperationField("evidence", "semistructureddata", multiplicity = "?"),
+          MComponent.OperationField("legacyEvidence", "record", multiplicity = "?"),
+          MComponent.OperationField("optionalPayload", "json", multiplicity = "?"),
+          MComponent.OperationField("optionalEvidence", "record", multiplicity = "?"),
+          MComponent.OperationField("payloads", "json", multiplicity = "*"),
+          MComponent.OperationField("evidences", "semistructureddata", multiplicity = "*")
+        )
+        val component = _request_component(entity, fields)
+
+        When("the actual component is transformed and its Scala operation adapters are generated")
+        val (transformed, source) = _generate_request_component(entity, component)
+
+        Then("each update variant selects canonical datatypes per field and preserves String and the extra revision")
+        Vector("UpdateProposal", "UpdateProposalRecord").foreach { name =>
+          val block = _operation_block(source, name)
+          Vector("payload", "optionalPayload", "payloads").foreach { field =>
+            _request_field(block, field) should include("datatype = org.goldenport.schema.XJson,")
+          }
+          Vector("evidence", "legacyEvidence", "optionalEvidence", "evidences").foreach { field =>
+            _request_field(block, field) should include("datatype = org.goldenport.schema.XSemiStructuredData,")
+          }
+          _request_field(block, "originalProposal") should include("datatype = org.goldenport.schema.XString,")
+          _request_field(block, "cncfRevision") should include("datatype = org.goldenport.schema.XLong,")
+          block should include("cncfRevision: Long")
+          block should include("successOrRecordNotFound[Long](\"cncfRevision\"")
+          _request_field(block, "optionalPayload") should include("multiplicity = org.goldenport.schema.Multiplicity.ZeroOne")
+          _request_field(block, "optionalEvidence") should include("multiplicity = org.goldenport.schema.Multiplicity.ZeroOne")
+          _request_field(block, "payloads") should include("multiplicity = org.goldenport.schema.Multiplicity.ZeroMore")
+          _request_field(block, "evidences") should include("multiplicity = org.goldenport.schema.Multiplicity.ZeroMore")
+          val payload = _request_field(block, "payload")
+          payload should include("multiplicity = org.goldenport.schema.Multiplicity.ZeroOne")
+          payload should include("controlType = Some(\"textarea\")")
+          payload should include("placeholder = Some(\"payload hint\")")
+          payload should include("help = Some(\"declared payload\")")
+          payload should include("required = Some(false)")
+          payload should include("maxLength = Some(240)")
+          payload should include("DataConfidentiality.getOrPublic(Some(\"private\"))")
+        }
+
+        And("operation metadata remains authoritative and the Record variant keeps its explicit response")
+        transformed.services.flatMap(_.methods).foreach { method =>
+          val types = method.parameters.parameters.find(_.name.name == "action").flatMap(_.value).get
+            .parameterSequence.parameters.find(_.name.name == "entity").flatMap(_.value).get
+            .parameterSequence.parameters.map(x => x.name.name -> x.typeName).toMap
+          _type_leaf(types("payload")) shouldBe TypeName.Structured(MBuiltinStructuredDataType.Json)
+          _type_leaf(types("evidence")) shouldBe TypeName.Structured(MBuiltinStructuredDataType.SemiStructuredData)
+          _type_leaf(types("legacyEvidence")) shouldBe TypeName.Plain.create("org.goldenport.record", "Record")
+          _type_leaf(types("optionalEvidence")) shouldBe TypeName.Structured(MBuiltinStructuredDataType.SemiStructuredData)
+          _type_leaf(types("evidences")) shouldBe TypeName.Structured(MBuiltinStructuredDataType.SemiStructuredData)
+        }
+        transformed.operationDefinitions.foreach { operation =>
+          operation.parameters.map(_.name) shouldBe fields.map(_.name)
+          operation.parameters.map(_.multiplicity) shouldBe fields.map(_.multiplicity)
+          val payload = operation.parameters.find(_.name == "payload").get
+          payload.datatype shouldBe "json"
+          payload.controlType shouldBe Some("textarea")
+          payload.confidentiality shouldBe Some("private")
+          payload.required shouldBe Some(false)
+          payload.update shouldBe Some(SComponent.OperationUpdateField("1", false))
+        }
+        source should include("CmlOperationUpdateField(sourceMultiplicity = \"1\", nullAllowed = false)")
+        _operation_block(source, "UpdateProposalRecord") should include(
+          "ResponseDefinition(result = List(org.goldenport.schema.DataType.Named(\"Record\")))"
+        )
+      }
+
+      "retain custom Json and Record declarations and ordinary scalar metadata fallback" in {
+        Given("registered custom Json and Record values backed by XString and an ordinary metadata-only revision")
+        val values = Vector("Json", "Record").map { name =>
+          MDomainValue(
+            description = Description.name(name), affiliation = MPackageRef("org.example.custom"),
+            stereotypes = Nil, base = None, traits = Nil, powertypes = Nil,
+            attributes = List(_attribute("value", MDataType.string, MOne)), operations = Nil
+          )
+        }
+        val entity = _request_entity(List(
+          _attribute("customJson", MDataType(Designation("Json"), XString, MPackageRef("org.example.custom")), MZeroOne),
+          _attribute("customRecord", MDataType(Designation("Record"), XString, MPackageRef("org.example.custom")), MZeroMore),
+          _attribute("originalProposal", MDataType.string, MOne)
+        ))
+        val fields = Vector(
+          MComponent.OperationField("customJson", "Json", multiplicity = "?"),
+          MComponent.OperationField("customRecord", "Record", multiplicity = "*"),
+          MComponent.OperationField("originalProposal", "string"),
+          MComponent.OperationField("metadataRevision", "long")
+        )
+        val component = _request_component(entity, fields)
+
+        When("the actual registered model is transformed and generated")
+        val (transformed, source) = _generate_request_component(entity, component, values)
+
+        Then("custom names follow their semantic class declarations and the untyped ordinary revision retains scalar fallback")
+        transformed.services.flatMap(_.methods).foreach { method =>
+          val types = method.parameters.parameters.find(_.name.name == "action").flatMap(_.value).get
+            .parameterSequence.parameters.find(_.name.name == "entity").flatMap(_.value).get
+            .parameterSequence.parameters.map(x => x.name.name -> x.typeName).toMap
+          _type_leaf(types("customJson")) shouldBe TypeName.Plain.create("org.example.custom", "Json")
+          _type_leaf(types("customRecord")) shouldBe TypeName.Plain.create("org.example.custom", "Record")
+        }
+        Vector("UpdateProposal", "UpdateProposalRecord").foreach { name =>
+          val block = _operation_block(source, name)
+          _request_field(block, "customJson") should include("datatype = org.goldenport.schema.DataType.Named(\"Json\")")
+          _request_field(block, "customRecord") should include("datatype = org.goldenport.schema.DataType.Named(\"Record\")")
+          block should not include "DataType.Named(\"json\")"
+          block should not include "DataType.Named(\"record\")"
+          fields.foreach { field =>
+            val expression = _request_field(block, field.name)
+            expression should not include "org.goldenport.schema.XJson"
+            expression should not include "org.goldenport.schema.XSemiStructuredData"
+          }
+          _request_field(block, "originalProposal") should include("datatype = org.goldenport.schema.XString,")
+          _request_field(block, "metadataRevision") should include("datatype = org.goldenport.schema.XLong,")
+        }
+      }
+    }
+  }
+
+  private def _type_leaf(typename: TypeName): TypeName = {
+    typename match {
+      case TypeName.Container(_, child) => {
+        _type_leaf(child)
+      }
+      case leaf => {
+        leaf
+      }
+    }
+  }
+
+  private def _request_field(block: String, field: String): String = {
+    val request = block.linesIterator.find(_.contains("request = RequestDefinition(")).getOrElse(fail("request schema missing"))
+    request.split("ParameterDefinition\\(content = ").find(
+      _.startsWith(s"""org.goldenport.value.BaseContent.simple("$field")""")
+    ).getOrElse(fail(s"request field missing: $field"))
+  }
+
+  private def _generate_request_component(
+    entity: MDomainResource,
+    component: MDomainComponent,
+    values: Vector[MDomainValue] = Vector.empty
+  ): (SComponent, String) = {
+    val context = ScalaModel.Context.fromObjects(values ++ Vector(entity, component))
+    val transformed = ScalaModel.Context.withContext(context) {
+      new ComponentScalaModelTransformer().apply((component, Purpose.Plain)).take
+        .collectFirst { case m: SComponent => m }.getOrElse(fail("generated component model missing"))
+    }
+    val source = new Scala3ComponentGenerator(context).generate(transformed).take.slots.map(_.content).mkString("\n")
+    (transformed, source)
+  }
+
+  private def _request_component(entity: MDomainResource, fields: Vector[MComponent.OperationField]): MDomainComponent = {
+    val pkg = MPackage("example", MPackageRef.default, Vector.empty)
+    val operations = Vector("updateProposal", "updateProposalRecord").map { name =>
+      MOperation.command(name, List(
+        MParameter("entity", MEntityValue.update(entity)),
+        MParameter("cncfRevision", MDataType.create("long"))
+      ), if (name == "updateProposalRecord") { MResult(MObjectRef.record) } else { MResult.unit })
+    }
+    MDomainComponent(
+      Description.name("Example"),
+      MObject.Core(MPackageRef("example"), services = List(MService(pkg, "Entity", operations))),
+      MComponent.Core(entities = Vector(entity), operationDefinitions = operations.map { operation =>
+        MComponent.OperationDefinition(name = operation.name, kind = "COMMAND", inputType = "Proposal",
+          outputType = if (operation.name == "updateProposalRecord") { "Record" } else { "unit" },
+          inputValueKind = "command", parameters = fields)
+      })
+    )
+  }
+
+  private def _attribute(name: String, datatype: MAttributeType, multiplicity: MMultiplicity): MAttribute = {
+    MAttribute(Designation(name), datatype, multiplicity, Nil, None)
+  }
+
+  private def _request_entity(attributes: List[MAttribute]): MDomainResource = {
+    _entity.copy(description = Description.name("Proposal"), attributes = _entity.attributes.take(1) ++ attributes)
   }
 
   private def _operation_block(content: String, operation: String): String = {
@@ -137,7 +332,7 @@ final class EntityUpdateOperationContractProjectionSpec
     )
   }
 
-  private def _entity: MDomainResource =
+  private def _entity: MDomainResource = {
     MDomainResource(
       description = Description.name("Person"),
       affiliation = MPackageRef("example"),
@@ -171,4 +366,5 @@ final class EntityUpdateOperationContractProjectionSpec
       operations = Nil,
       stateMachines = Nil
     )
+  }
 }
