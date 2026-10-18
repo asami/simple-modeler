@@ -29,7 +29,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Jul. 25, 2026
  *  version Aug. 30, 2026
  *  version Sep.  2, 2026
- * @version Oct. 18, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -159,11 +159,26 @@ object ScalaModel {
       resolveDeclaredType(MObjectRef.create(name), scopePackage)
 
     def resolveDeclaredType(ref: MObjectRef, scopePackage: String): Option[MObject] =
-      _resolve_by_qualified_name(scopePackage, ref.objectName).
-        orElse(_resolve_by_qualified_name(ref.packageName, ref.objectName)).
-        orElse(_resolve_short_name(ref.objectName)).
-        orElse(_resolve_default_model_declared_type(ref)).
-        filter(_is_declared_type)
+      _resolve_powertype(ref, scopePackage).orElse {
+        _resolve_by_qualified_name(scopePackage, ref.objectName).
+          orElse(_resolve_by_qualified_name(ref.packageName, ref.objectName)).
+          orElse(_resolve_short_name(ref.objectName)).
+          orElse(_resolve_default_model_declared_type(ref)).
+          filter(_is_declared_type)
+      }
+
+    private def _resolve_powertype(ref: MObjectRef, scopepackage: String): Option[MPowertype] = {
+      val declaration =
+        if (ref.packageName.nonEmpty)
+          _resolve_by_qualified_name(ref.packageName, ref.objectName)
+        else
+          _resolve_by_qualified_name(scopepackage, ref.objectName).orElse {
+            _object_by_name.get(ref.objectName).collect {
+              case Vector(single) => single
+            }
+          }
+      declaration.collect { case powertype: MPowertype => powertype }
+    }
 
     private def _resolve_by_qualified_name(
       pkg: String,
@@ -323,7 +338,7 @@ object TypeName {
   object Primitive {
     val boolean = Primitive(XBoolean)
     val string = Primitive(XString, isString = true)
-    val short = Primitive(XInt, isNumber = true)
+    val short = Primitive(XShort, isNumber = true)
     val int = Primitive(XInt, isNumber = true)
     val long = Primitive(XLong, isNumber = true)
     val float = Primitive(XFloat, isNumber = true)

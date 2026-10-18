@@ -2,14 +2,14 @@ package org.simplemodeling.SimpleModeler.generator.scala
 
 import org.goldenport.RAISE
 import org.goldenport.record.v2._
-import org.simplemodeling.model.{MBuiltinStructuredDataType, MRange, MRanges}
+import org.simplemodeling.model.{MBuiltinStructuredDataType, MPowertype, MRange, MRanges}
 import model._
 
 /*
  * Explicit declaration projection into the accepted CNCF persistence ABI.
  *
  * @since   Oct.  5, 2026
- * @version Oct. 18, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 object EntityStoreMappingProjection {
@@ -25,7 +25,8 @@ object EntityStoreMappingProjection {
     attributes: Vector[Attribute],
     isCreate: Boolean,
     isUpdate: Boolean,
-    schemaDatatype: TypeName => String
+    schemaDatatype: TypeName => String,
+    context: ScalaModel.Context = ScalaModel.Context.current
   ): Vector[FieldPlan] = {
     attributes.map { attribute =>
       attribute.storeDeclaration.foreach { declaration =>
@@ -43,7 +44,7 @@ object EntityStoreMappingProjection {
       } else {
         attribute.storeDeclaration.map(_.typeName).getOrElse(attribute.typeName)
       }
-      val (datatype, binding) = _binding(attribute, declaredtype, schemaDatatype)
+      val (datatype, binding) = _binding(attribute, declaredtype, schemaDatatype, context)
       FieldPlan(attribute.name.name, attribute.dbColumnName.getOrElse(attribute.name.name),
         datatype, _multiplicity(attribute, declaredtype), binding)
     }
@@ -82,7 +83,7 @@ object EntityStoreMappingProjection {
     "java.net.URI", "java.net.URL", "java.nio.charset.Charset"
   )
   private val _numeric_types = Map(
-    "Byte" -> "XInt", "Short" -> "XInt", "Int" -> "XInt", "Long" -> "XLong",
+    "Byte" -> "XInt", "Short" -> "XShort", "Int" -> "XInt", "Long" -> "XLong",
     "Float" -> "XFloat", "Double" -> "XDouble", "BigInt" -> "XInteger", "BigDecimal" -> "XDecimal"
   )
 
@@ -107,17 +108,18 @@ object EntityStoreMappingProjection {
   private def _binding(
     attribute: Attribute,
     typename: TypeName,
-    schemadatatype: TypeName => String
+    schemadatatype: TypeName => String,
+    context: ScalaModel.Context
   ): (String, String) = {
     typename match {
       case TypeName.Container(wrapper, child) if wrapper.fullName == "scala.Option" => {
         child match {
           case _: TypeName.Container => { _unsupported(attribute, typename, "optional collection/container") }
-          case _ => { _binding(attribute, child, schemadatatype) }
+          case _ => { _binding(attribute, child, schemadatatype, context) }
         }
       }
       case TypeName.Container(wrapper, child) if _ordered_containers.contains(wrapper.fullName) => {
-        val (datatype, binding) = _binding(attribute, child, schemadatatype)
+        val (datatype, binding) = _binding(attribute, child, schemadatatype, context)
         (datatype, s"${_binding_prefix}array($binding)")
       }
       case _: TypeName.Container => { _unsupported(attribute, typename, "unsupported container/order") }
@@ -159,12 +161,37 @@ object EntityStoreMappingProjection {
         _native_binding(plain.fullName, schemadatatype(plain), "Text")
       }
       case plain: TypeName.Plain => {
-        val classname = plain.fullName
-        (_schema_prefix + "DataType.Named(" + stringLiteral(classname) + ")",
-          s"${_binding_prefix}application[$classname](${stringLiteral("declared:" + classname)})${_captures(classname)}")
+        context.resolveDeclaredType(plain.fullName, plain.packageName.name) match {
+          case Some(powertype: MPowertype) => { _powertype_binding(attribute, plain, powertype) }
+          case _ => {
+            val classname = plain.fullName
+            (_schema_prefix + "DataType.Named(" + stringLiteral(classname) + ")",
+              s"${_binding_prefix}application[$classname](${stringLiteral("declared:" + classname)})${_captures(classname)}")
+          }
+        }
       }
       case _ => { _unsupported(attribute, typename, "unsupported declaration") }
     }
+  }
+
+  private def _powertype_binding(attribute: Attribute, typename: TypeName.Plain, powertype: MPowertype): (String, String) = {
+    val codes = powertype.kinds.map { kind =>
+      val reason = s"POWERTYPE ${powertype.qualifiedName} kind ${kind.name} requires an explicit signed base-10 XShort persistence code in -32768..32767"
+      val code = kind.value.flatMap { value =>
+        Option(value).filter(_.matches("[+-]?[0-9]+")).flatMap(value => scala.util.Try(value.toInt).toOption)
+          .filter(value => value >= Short.MinValue.toInt && value <= Short.MaxValue.toInt)
+      }.getOrElse(_unsupported(attribute, typename, reason))
+      (kind.name, code)
+    }
+    codes.groupBy(_._2).collectFirst { case (code, kinds) if kinds.size > 1 =>
+      _unsupported(attribute, typename,
+        s"POWERTYPE ${powertype.qualifiedName} kinds ${kinds.map(_._1).mkString(", ")} have duplicate persistence code $code")
+    }
+    val classname = typename.fullName
+    val datatype = _schema_prefix + "XShort"
+    val codec = s"$classname.numericCodeCodec.jsonCodec"
+    (datatype, s"${_binding_prefix}nativeScalar[$classname]($datatype, EntityStoreScalarRepresentation.Number, " +
+      stringLiteral("declared:" + classname) + s")(using summon[scala.reflect.ClassTag[$classname]], $codec, $codec)")
   }
 
   private def _native_binding(classname: String, datatype: String, representation: String): (String, String) = {

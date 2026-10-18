@@ -24,7 +24,7 @@ import Generator.{State => GState, _}
  *  version May. 26, 2026
  *  version Jun. 27, 2026
  *  version Jul. 28, 2026
- * @version Oct. 18, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -1228,7 +1228,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         s"EntityStoreFieldBinding.array(EntityStoreFieldBinding.application[$classname](${literal("framework:" + classname)})$captures)")
     }
     val plans = EntityStoreMappingProjection.project(
-      _logical_store_attributes, is_entity_value_create, is_update, schema_datatype_expr
+      _logical_store_attributes, is_entity_value_create, is_update, schema_datatype_expr, scala_context
     ) ++ frameworkarrays
     val frameworkkeys = _logical_store_framework_properties.map(_._1).filterNot(key => frameworkarrays.exists(_.logicalName == key))
     if (frameworkkeys.distinct.size != frameworkkeys.size || plans.exists { plan =>
@@ -1862,7 +1862,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case "string" => s"${schema}XString"
       case "boolean" => s"${schema}XBoolean"
       case "byte" => s"${schema}XInt"
-      case "short" => s"${schema}XInt"
+      case "short" => s"${schema}XShort"
       case "int" => s"${schema}XInt"
       case "long" => s"${schema}XLong"
       case "float" => s"${schema}XFloat"
@@ -4219,6 +4219,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- println("  val trimmed = value.trim")
       _ <- println("  _by_db_value.collectFirst { case (k, v) if v.value == trimmed => k }")
       _ <- println("}")
+      _ <- println(s"given numericCodeCodec: org.goldenport.convert.NumericCodeCodec[$name] = org.goldenport.convert.NumericCodeCodec.instance(value => dbValueOf(value.value), fromDbValue)")
       _ <- println("""def labelOf(value: String): String = _labels.getOrElse(value.trim, value.trim)""")
     } yield ()
   }

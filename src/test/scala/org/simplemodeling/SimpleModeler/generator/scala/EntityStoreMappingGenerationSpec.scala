@@ -15,7 +15,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala.{EntityValueReadScala
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct. 18, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -158,6 +158,7 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
       val entity = _entity(List(
         _attribute("name", MAttributeType.create("name"), MOne),
         _attribute("quantity", MAttributeType.create("int"), MOne),
+        _attribute("smallQuantity", MAttributeType.create("short"), MOne),
         _attribute("active", MAttributeType.create("boolean"), MOne),
         _attribute("amount", MAttributeType.create("decimal"), MOne),
         _attribute("summary", MObjectAttributeType(MObjectRef.create("org.example.proposal.value.Summary")), MOne),
@@ -176,6 +177,7 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
         _field(source, "name") should include("nativeScalar[org.goldenport.datatype.Name]")
         _field(source, "name") should include("EntityStoreScalarRepresentation.Text")
         _field(source, "quantity") should include("nativeScalar[Int](org.goldenport.schema.XInt, EntityStoreScalarRepresentation.Number")
+        _field(source, "smallQuantity") should include("nativeScalar[Short](org.goldenport.schema.XShort, EntityStoreScalarRepresentation.Number")
         _field(source, "active") should include("nativeScalar[Boolean](org.goldenport.schema.XBoolean, EntityStoreScalarRepresentation.Boolean")
         _field(source, "amount") should include("nativeScalar[BigDecimal](org.goldenport.schema.XDecimal, EntityStoreScalarRepresentation.Number")
         _field(source, "summary") should include("DataType.Named(\"org.example.proposal.value.Summary\")")
@@ -568,6 +570,206 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
       }
       written.foreach(path => java.nio.file.Files.isRegularFile(path) shouldBe true)
     }
+  }
+
+  "E13 Declared POWERTYPE numeric persistence" should {
+    "capture fixed numeric codecs for required, optional and ordered fields in every persistence family" in {
+      Given("a resolved POWERTYPE with explicit codes and direct, Option, Vector and NonEmptyVector uses")
+      val powertype = _preparation_state(List(
+        MPowertypeKind("prepared", Some("0")), MPowertypeKind("unprepared", Some("+20")),
+        MPowertypeKind("minimum", Some(Short.MinValue.toString)), MPowertypeKind("maximum", Some(Short.MaxValue.toString))))
+      val datatype = MObjectAttributeType(MObjectRef.create(powertype.qualifiedName))
+      val entity = _entity(List(
+        _attribute("state", datatype, MOne),
+        _attribute("optionalState", datatype, MZeroOne),
+        _attribute("states", datatype, MZeroMore),
+        _attribute("requiredStates", datatype, MOneMore)))
+
+      When("the actual entity family uses its explicit declaration context")
+      val products = _family(entity, Vector(powertype))
+
+      Then("all persistence families capture the same declared numeric codec and native XShort domain")
+      val classname = powertype.qualifiedName
+      val binding = s"EntityStoreFieldBinding.nativeScalar[$classname](org.goldenport.schema.XShort, EntityStoreScalarRepresentation.Number, " +
+        EntityStoreMappingProjection.stringLiteral("declared:" + classname) +
+        s")(using summon[scala.reflect.ClassTag[$classname]], $classname.numericCodeCodec.jsonCodec, $classname.numericCodeCodec.jsonCodec)"
+      _persistent_products(products).foreach { source =>
+        Vector("state", "optionalState", "states", "requiredStates").foreach { name =>
+          _field(source, name) should include(binding)
+          _field(source, name) should not include s"application[$classname]"
+          _field(source, name) should not include s"summon[io.circe.Encoder[$classname]]"
+        }
+        _field(source, "state") should include("Multiplicity.One")
+        _field(source, "optionalState") should include("Multiplicity.ZeroOne")
+        _field(source, "states") should include("Multiplicity.ZeroMore")
+        _field(source, "requiredStates") should include("Multiplicity.OneMore")
+        _field(source, "states") should include(s"EntityStoreFieldBinding.array($binding)")
+        _field(source, "requiredStates") should include(s"EntityStoreFieldBinding.array($binding)")
+        source should include("org.simplemodeling.model.value.ModelValueEncoder.encodeC(v).TAKE")
+      }
+      And("Query retains its existing external projection and has no persistence mapping")
+      val query = _source(products, "/entity/query/Proposal.scala")
+      query should include("org.simplemodeling.model.value.ModelValueEncoder.encodeC(v).TAKE")
+      query should not include "_store_row_mapping"
+      query should not include "numericCodeCodec.jsonCodec"
+    }
+  }
+
+  "E14 Persisted POWERTYPE declarations require complete unique Short codes" should {
+    "reject missing, malformed, null, overflowing and duplicate codes through every admitted wrapper" in {
+      Given("invalid resolved POWERTYPE declarations and direct, Option, Vector and NonEmptyVector uses")
+      val invalidkinds = Vector(
+        List(MPowertypeKind("prepared", None)),
+        List(MPowertypeKind("prepared", Some("prepared"))),
+        List(MPowertypeKind("prepared", Some("1.0"))),
+        List(MPowertypeKind("prepared", Some("0x10"))),
+        List(MPowertypeKind("prepared", Some(null))),
+        List(MPowertypeKind("prepared", Some("2147483648"))),
+        List(MPowertypeKind("prepared", Some("-2147483649"))),
+        List(MPowertypeKind("prepared", Some("32768"))),
+        List(MPowertypeKind("prepared", Some("-32769"))),
+        List(MPowertypeKind("prepared", Some("1")), MPowertypeKind("unprepared", Some("+01"))))
+      val multiplicities = Vector[MMultiplicity](MOne, MZeroOne, MZeroMore, MOneMore)
+
+      When("the real entity family attempts to generate each invalid persistent declaration")
+      val failures = for {
+        kinds <- invalidkinds
+        multiplicity <- multiplicities
+      } yield {
+        val powertype = _preparation_state(kinds)
+        val entity = _entity(List(_attribute("state",
+          MObjectAttributeType(MObjectRef.create(powertype.qualifiedName)), multiplicity)))
+        intercept[Exception] { _family(entity, Vector(powertype)) }
+      }
+
+      Then("generation fails with the persistent attribute, owning type and kind before yielding usable products")
+      failures.foreach { failure =>
+        failure.getMessage should include("state")
+        failure.getMessage should include("ProposalPreparationState")
+        failure.getMessage should include("prepared")
+      }
+    }
+  }
+
+  "E15 Ordinary Scala Short declarations retain their numeric width" should {
+    "select XShort for a plain Scala Short leaf and XInt for a plain Scala Int leaf" in {
+      Given("an actual read-family AST with an explicitly selected Scala numeric leaf")
+      val entity = _entity(List(_attribute("payload", MAttributeType.create("short"), MOne)))
+      val context = ScalaModel.Context.fromObjects(Vector(entity))
+      val ast = ScalaModel.Context.withContext(context) {
+        new EntityValueReadScalaModelTransformer().apply(entity).take.head.asInstanceOf[SCaseClass]
+      }
+
+      When("the real generator receives primitive Short and plain Scala Short or Int declarations")
+      val primitive = _generate_ast(ast, context)
+      val shortsource = _generate_ast(_replace_payload(ast, TypeName.Plain.create("scala", "Short")), context)
+      val intsource = _generate_ast(_replace_payload(ast, TypeName.Plain.create("scala", "Int")), context)
+
+      Then("ordinary Short uses the same signed16 declaration as a POWERTYPE and Int retains its own domain")
+      _field(primitive, "payload") should include("nativeScalar[Short](org.goldenport.schema.XShort, EntityStoreScalarRepresentation.Number")
+      _field(shortsource, "payload") should include("nativeScalar[scala.Short](org.goldenport.schema.XShort, EntityStoreScalarRepresentation.Number")
+      _field(intsource, "payload") should include("nativeScalar[scala.Int](org.goldenport.schema.XInt, EntityStoreScalarRepresentation.Number")
+    }
+  }
+
+  "E16 POWERTYPE selection preserves declared type identity" should {
+    "retain an unresolved qualified application type beside coded or uncoded local vocabularies" in {
+      Given("an explicit external.State attribute and unrelated local State declarations")
+      val entity = _entity(List(_attribute("state", MObjectAttributeType(MObjectRef.create("external.State")), MOne)))
+      val scenarios = Vector(None, Some("7")).flatMap { code =>
+        val local = MPowertype(Description.name("State"), MPackageRef(entity.packageName),
+          List(MPowertypeKind("ready", code)))
+        Vector(Vector[MObject](entity, local), Vector[MObject](local, entity)).map(ScalaModel.Context.fromObjects)
+      }
+
+      When("the actual read transformation and entity family consume each declaration context")
+      val observations = scenarios.map { context =>
+        val ast = ScalaModel.Context.withContext(context) {
+          new EntityValueReadScalaModelTransformer().apply(entity).take.head
+        }
+        val products = new Scala3EntityFamilyGenerator(context).generate(entity).take.slots.map(slot => slot.path -> slot.content).toMap
+        (ast.attributeSequence.attributes.find(_.name.name == "state").get.typeName, products)
+      }
+
+      Then("neither context order nor a local code assignment rewrites the explicit foreign type")
+      observations.foreach { case (typename, products) =>
+        typename.fullName shouldBe "external.State"
+        _persistent_products(products).foreach { source =>
+          _field(source, "state") should include("EntityStoreFieldBinding.application[external.State]")
+          _field(source, "state") should not include "numericCodeCodec"
+          _field(source, "state") should not include "org.goldenport.schema.XShort"
+        }
+      }
+    }
+
+    "select a resolved imported vocabulary ahead of another scoped State for every declaration ordering" in {
+      Given("an explicit imported.State attribute, its coded declaration and an uncoded scoped State")
+      val entity = _entity(List(_attribute("state", MObjectAttributeType(MObjectRef.create("imported.State")), MOne)))
+      val imported = MPowertype(Description.name("State"), MPackageRef("imported"), List(MPowertypeKind("ready", Some("3"))))
+      val local = MPowertype(Description.name("State"), MPackageRef(entity.packageName), List(MPowertypeKind("local", None)))
+      val contexts = Vector[MObject](entity, local, imported).permutations.map(ScalaModel.Context.fromObjects).toVector
+
+      When("semantic transformation and actual entity generation run for all model permutations")
+      val observations = contexts.map { context =>
+        val ast = ScalaModel.Context.withContext(context) {
+          new EntityValueReadScalaModelTransformer().apply(entity).take.head
+        }
+        val products = new Scala3EntityFamilyGenerator(context).generate(entity).take.slots.map(slot => slot.path -> slot.content).toMap
+        (ast.attributeSequence.attributes.find(_.name.name == "state").get.typeName, products)
+      }
+
+      Then("the generated type and every persisted binding retain the authoritative imported identity")
+      observations should have size 6
+      observations.foreach { case (typename, products) =>
+        typename.fullName shouldBe "imported.State"
+        _persistent_products(products).foreach { source =>
+          _field(source, "state") should include("nativeScalar[imported.State](org.goldenport.schema.XShort")
+          _field(source, "state") should include("imported.State.numericCodeCodec.jsonCodec")
+          _field(source, "state") should not include s"${entity.packageName}.State"
+        }
+      }
+    }
+
+    "respect unqualified scope and preserve non-POWERTYPE shadowing without choosing ambiguous vocabularies" in {
+      Given("an unqualified State attribute and scoped, unique imported, ambiguous or application declarations")
+      val entity = _entity(List(_attribute("state", MObjectAttributeType(MObjectRef.create("State")), MOne)))
+      val scoped = MPowertype(Description.name("State"), MPackageRef(entity.packageName), List(MPowertypeKind("ready", Some("1"))))
+      val first = scoped.copy(affiliation = MPackageRef("first"))
+      val second = scoped.copy(affiliation = MPackageRef("second"))
+      val application = _summary.copy(description = Description.name("State"), affiliation = MPackageRef(entity.packageName))
+      val contexts = Vector(
+        ScalaModel.Context.fromObjects(Vector(entity, scoped, first)),
+        ScalaModel.Context.fromObjects(Vector(entity, first)),
+        ScalaModel.Context.fromObjects(Vector(entity, first, second)),
+        ScalaModel.Context.fromObjects(Vector(entity, application, first)))
+
+      When("the real semantic and persistence generators resolve the four contexts")
+      val observations = contexts.map { context =>
+        val ast = ScalaModel.Context.withContext(context) {
+          new EntityValueReadScalaModelTransformer().apply(entity).take.head
+        }
+        val products = new Scala3EntityFamilyGenerator(context).generate(entity).take.slots.map(slot => slot.path -> slot.content).toMap
+        (ast.attributeSequence.attributes.find(_.name.name == "state").get.typeName, _field(_source(products, "/entity/Proposal.scala"), "state"))
+      }
+
+      Then("scoped and unique vocabularies use their own codec while ambiguous names remain unresolved")
+      observations(0)._1.fullName shouldBe scoped.qualifiedName
+      observations(0)._2 should include(s"nativeScalar[${scoped.qualifiedName}](org.goldenport.schema.XShort")
+      observations(1)._1.fullName shouldBe first.qualifiedName
+      observations(1)._2 should include("nativeScalar[first.State](org.goldenport.schema.XShort")
+      observations(2)._1.fullName shouldBe "State"
+      observations(2)._2 should include("EntityStoreFieldBinding.application[State]")
+      observations(2)._2 should not include "numericCodeCodec"
+
+      And("an existing scoped application value keeps its legacy non-POWERTYPE selection")
+      observations(3)._1.fullName shouldBe application.qualifiedName
+      observations(3)._2 should include(s"EntityStoreFieldBinding.application[${application.qualifiedName}]")
+      observations(3)._2 should not include "numericCodeCodec"
+    }
+  }
+
+  private def _preparation_state(kinds: List[MPowertypeKind]): MPowertype = {
+    MPowertype(Description.name("ProposalPreparationState"), MPackageRef("org.example.proposal"), kinds)
   }
 
   private def _attribute(name: String, datatype: MAttributeType, multiplicity: MMultiplicity): MAttribute = {

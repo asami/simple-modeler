@@ -1,5 +1,24 @@
 # EntityStore mapping generation
 
+## Subsequent POWERTYPE persistence-code contract — 2026-10-19
+
+Adopt [CML fixed persistence codes](../../../cozy/docs/spec/cml-powertype-persistence-code.md)
+for persistent finite POWERTYPE declarations. All kinds require explicit unique
+integer codes; missing/malformed declarations fail before successful generation.
+Display-only/transient vocabularies may omit codes. Do not derive codes from
+ordinal/order or silently fall back to textual storage.
+
+The [connected implementation plan](../../../cozy/docs/phase/powertype-persistence-code-plan.md)
+assigns the generic typed bidirectional contract to Core, fixed mappings to each
+generated POWERTYPE and codec selection to the declared persistence boundary.
+External ModelValueEncoder projection remains separate. Implement generated
+mapping, inverse and persistent-use diagnostics as a coherent route with the
+Workbench Phase 1 STEP-2 consumer. This amendment is accepted under local binding
+`tkw-step2-connected-acceptance-commit-20261019-01@1`; historical results below do not prove the new contract
+and are not retroactively reclassified.
+
+## Historical acceptance
+
 HISTORICAL prerequisite validation snapshot — 2026-10-05/06:
 
 Status: SGEN01–05 source and E1–E6 executable specifications authored on
@@ -77,7 +96,7 @@ projection, with no codec registry, reflection-based inference or payload guess.
 | Built-in semi-structured data or exact legacy Record | `XSemiStructuredData` | `semiStructuredData` |
 | Supported native text type, including Core Name | Existing canonical schema datatype, including `DataType.Named("name")` | `nativeScalar[A](datatype, Text, identity)` |
 | Boolean | `XBoolean` | `nativeScalar[A](datatype, Boolean, identity)` |
-| Byte/Short/Int, Long, Float, Double, BigInt, BigDecimal | `XInt`, `XLong`, `XFloat`, `XDouble`, `XInteger`, `XDecimal`, respectively | `nativeScalar[A](datatype, Number, identity)` |
+| Byte/Int, Short, Long, Float, Double, BigInt, BigDecimal | `XInt`, `XShort`, `XLong`, `XFloat`, `XDouble`, `XInteger`, `XDecimal`, respectively | `nativeScalar[A](datatype, Number, identity)` |
 | Declared application class | `DataType.Named(fullClassName)` | `application[A](identity)` |
 | Supported ordered collection | Child datatype | Recursive `array(childBinding)` |
 
@@ -443,3 +462,50 @@ record the four selected full gates and retained history. Closure takes effect
 through the local release commit containing `phase115-final-closure-20261018-01@1`.
 Earlier dated receipts
 above remain applicable only to their original scopes.
+
+
+## Current POWERTYPE numeric binding producer — 2026-10-19
+
+The actual declared-type resolver admits semantic `MPowertype` declarations.
+Persistent, Create and Update mapping projection receives the generator's actual
+Scala model context and carries it through Option and ordered collection children.
+A resolved POWERTYPE leaf uses `XShort`, native Number representation and identity
+`declared:<fullClassName>`. Its ClassTag is captured explicitly; both captured
+JSON directions use that companion's `numericCodeCodec.jsonCodec`, independently
+of the default external Circe object codec. Other application declarations retain
+their existing application binding.
+
+POWERTYPE selection respects the actual declaration identity in both semantic
+type transformation and persistence projection. An explicitly qualified reference
+selects only the matching qualified POWERTYPE. An unqualified reference first
+respects its owning scope, including a non-POWERTYPE declaration that shadows a
+foreign name; without a scoped declaration, only one unambiguous actual declaration
+may supply the POWERTYPE. An unresolved external reference and an ambiguous short
+reference do not acquire a local numeric binding. This new POWERTYPE selection is
+separate from the existing non-POWERTYPE/default-model resolution behavior.
+
+Each generated POWERTYPE companion exposes a typed Core `NumericCodeCodec[A]`
+using its explicit `dbValueOf` and `fromDbValue` maps. Kind name remains symbolic;
+label remains presentation. There is no ordinal assignment or generic external
+encoder branch. Standalone omission remains `None`. Explicit codes must use signed
+base-10 Int syntax; malformed, null, overflowing and duplicate explicit codes fail
+with type/kind context even for standalone vocabularies. Persistent direct,
+optional, Vector and NonEmptyVector uses additionally require every kind's code,
+within signed16 `-32768..32767`, with the persistent attribute included in the
+diagnostic before usable generation. Ordinary primitive and Scala Short fields
+declare the same `XShort` domain. The shared CNCF bridge emits Scala Short and
+retains it through SQL transport: PostgreSQL/MySQL select signed `SMALLINT`,
+SQLite uses `INTEGER` with shared range admission. The model's Int correspondence
+APIs remain independent of this physical-width selection. Transient Int-valued
+codes outside Short remain valid until used in persistence; arbitrary-precision
+integer and decimal contracts are unchanged.
+
+E13/E14 in `EntityStoreMappingGenerationSpec` specify the direct and wrapped
+mapping and rejection boundary. E16 specifies qualified identity, scoped shadowing
+and ambiguous-name isolation through actual semantic transformation and generation.
+`PowertypeConsequenceGenerationSpec` specifies
+fixed maps, reordered/relabeled code correspondence, symbolic external derivation,
+standalone omission and invalid explicit declarations. These are authored source
+specifications; this amendment records no execution result. Cozy's separately
+coordinated nested persisted-value validation and actual compiled generated
+Workbench SQL write/read/reopen integration remain acceptance obligations.
