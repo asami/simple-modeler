@@ -1,5 +1,7 @@
 # EntityStore mapping generation
 
+HISTORICAL prerequisite validation snapshot — 2026-10-05/06:
+
 Status: SGEN01–05 source and E1–E6 executable specifications authored on
 October 5, 2026; current declared-store focused validation has passed:
 SimpleModeler 26/26 in six suites, exact unchanged 1.1.26-SNAPSHOT local refresh,
@@ -354,7 +356,8 @@ Phase 115's current delegation contract supersedes earlier descriptions of
 manual generated collection conversion and external-value matching. All dated
 Phase 100 evidence, ownership and pending integration gates above remain
 retained. Current selected focused validation is recorded at the end of this
-section; it neither rewrites a historical counterexample nor accepts a Phase.
+section; earlier focused results do not rewrite a historical counterexample.
+Final Phase 115 acceptance is recorded separately below.
 
 The generator projects semantic declarations into types, cardinality, field
 names, ordered aliases and explicit storage bindings. Its scalar Record helper
@@ -426,8 +429,17 @@ order and duplicates. Its ScalarCode115 DATATYPE is the actual generated nominal
 scalar witness, separate from structured VALUE products. This is current migration
 evidence for the Phase 100-to-115 handoff; the original static List Query finding
 and prior negative source evidence remain historical. Independent complete protected
-focused RCP-CONSUMERS Step review passed. Local commits, all four affected
-repository full tests, the sole comprehensive Phase 115 review and final release
-remain pending; all five RCP obligations remain OPEN and Phase 115 IN_PROGRESS.
+focused RCP-CONSUMERS Step review passed.
+Phase 115 adoption is CLOSED and all five RCP obligations are DONE. Both
+connected Steps were independently reviewed and committed locally; the sole
+original Phase full review, Modeler repair1 focused closure and combined
+repair2–6 focused closure passed. The selected Modeler full gate passed
+118 tests in 21 suites, zero failed/ignored/pending/aborted, with 3 existing
+canceled cases. Its original 117/118 full result remains a failure; the existing
+delimiter oracle repair changed no generator behavior. The
+[Phase acceptance](../../../cloud-native-component-framework/docs/phase/phase-115.md#final-phase-acceptance--2026-10-18)
+and [checklist](../../../cloud-native-component-framework/docs/phase/phase-115-checklist.md)
+record the four selected full gates and retained history. Closure takes effect
+through the local release commit containing `phase115-final-closure-20261018-01@1`.
 Earlier dated receipts
 above remain applicable only to their original scopes.

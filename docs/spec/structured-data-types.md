@@ -1,5 +1,7 @@
 # Built-in structured data types
 
+HISTORICAL prerequisite validation snapshot — 2026-10-05:
+
 Status: authored and focused generator validation passed on October 5, 2026;
 independent complete producer review pending.
 Scope: the Phase 78 declaration producer for CNCF Phase 100 mapping rules R1,
@@ -67,7 +69,7 @@ admission path and canonical reader where already selected. JSON receives no
 invented `createC` or `fromRecord` method. The generator source imports no
 Scala 3 Core implementation; emitted Scala 3 symbols reference canonical Core.
 
-## Executable specification and pending acceptance
+## Executable specification and historical prerequisite acceptance — 2026-10-05
 
 [StructuredDataGenerationSpec](../../src/test/scala/org/simplemodeling/SimpleModeler/transformers/scala/StructuredDataGenerationSpec.scala)
 authors Given/When/Then behavior for aliases and fallback, actual semantic
@@ -183,10 +185,19 @@ runs now cover ordinary CML regeneration, generated compilation/persistence and
 actual `Query.createC`/Condition Vector application reconstruction. The runtime
 `Phase115GeneratedCollectionPolicySpec` also covers an actual generated
 ScalarCode115 DATATYPE; earlier CountryCode/PostalCode VALUE products do not
-prove nominal scalar semantics. These selected focused results do not close a
-Phase or the historical comparison finding. Independent complete protected focused
-RCP-CONSUMERS Step review passed. Local commits, all four affected repository
-full tests, the sole comprehensive Phase 115 review and final release remain
-pending; all five RCP obligations remain OPEN and Phase 115 IN_PROGRESS.
+prove nominal scalar semantics. These selected focused results retain their
+original scopes and do not retroactively close the historical comparison finding.
+Independent complete protected focused RCP-CONSUMERS Step review passed.
+Phase 115 adoption is CLOSED and all five RCP obligations are DONE. Both
+connected Steps were independently reviewed and committed locally; the sole
+original Phase full review, Modeler repair1 focused closure and combined
+repair2–6 focused closure passed. The selected Modeler full gate passed
+118 tests in 21 suites, zero failed/ignored/pending/aborted, with 3 existing
+canceled cases. Its original 117/118 full result remains a failure; the existing
+delimiter oracle repair changed no generator behavior. The
+[Phase acceptance](../../../cloud-native-component-framework/docs/phase/phase-115.md#final-phase-acceptance--2026-10-18)
+and [checklist](../../../cloud-native-component-framework/docs/phase/phase-115-checklist.md)
+record the four selected full gates and retained history. Closure takes effect
+through the local release commit containing `phase115-final-closure-20261018-01@1`.
 Earlier dated pending/execution receipts retain their
 historical subjects.

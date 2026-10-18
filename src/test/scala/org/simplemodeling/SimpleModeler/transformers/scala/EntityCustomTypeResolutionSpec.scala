@@ -15,7 +15,8 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3EntityFamilyGener
 /*
  * @since   Apr.  9, 2026
  *  version May. 23, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -245,7 +246,7 @@ final class EntityCustomTypeResolutionSpec extends AnyWordSpec with Matchers wit
     val artifacts = family.generate(account).take
     val source = artifacts.slots.map(_.content).mkString("\n")
     val readerstart = source.indexOf("private def _record_get_vector_as_c")
-    val readerend = source.indexOf("private def _record_get_vector_of_record_c", readerstart)
+    val readerend = source.indexOf("private def _record_get_vector_as_context_c", readerstart)
     val requestreader = source.substring(readerstart, readerend)
 
     Then("the generated decoder delegates each supplied value to ValueReader without inventing comma syntax")
