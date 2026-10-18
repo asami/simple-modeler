@@ -15,7 +15,8 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3ValueFamilyGenera
 /*
  * @since   Mar. 25, 2026
  *  version May. 23, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ValueScalaModelTransformerSpec
@@ -106,24 +107,29 @@ final class ValueScalaModelTransformerSpec
           "_record_get_record(record, INPUT_KEYS_OPTIONAL_PAYLOAD).map(_ orElse optionalPayload)"
         )
         source should include(
-          "_record_get_vector_of_record_c(record, INPUT_KEYS_RECORDS)((r: Record) => Consequence.success(r))"
+          "_record_get_as_c[scala.Vector[org.goldenport.record.Record]](record, INPUT_KEYS_RECORDS)"
         )
         source should include(
           "_record_get_vector_as_c[String](record, INPUT_KEYS_TAGS)"
         )
         source should include(
-          "case m: cats.data.NonEmptyVector[?] => m.toVector.map(_to_external_value)"
+          "org.simplemodeling.model.value.ModelValueEncoder.encodeC(v).TAKE"
         )
         source should include(
           "case m: cats.data.NonEmptyVector[?] => m.toVector.map(_to_data_store_value)"
         )
         source should include(
-          "case Some(xs) => Consequence.successOrPropertyNotFound("
+          "case Some(value) => Consequence.success(value)"
         )
         source should include(
-          "_record_get_vector_of_record_c(record, INPUT_KEYS_REQUIRED_RECORDS)((r: Record) => Consequence.success(r))"
+          "_record_get_as_c[cats.data.NonEmptyVector[org.goldenport.record.Record]](record, INPUT_KEYS_REQUIRED_RECORDS)"
         )
-        source should include("NonEmptyVector.fromVector(xs))")
+        source should not include "NonEmptyVector.fromVector"
+        source should include("_record_get_as_c[Record](record, keys)")
+        source should include("org.goldenport.convert.ValueReader.recordReader[RecordEnvelope]((record: Record) => createC(record)).readC(value)")
+        source should not include "private def _record_get_vector_of_record_c"
+        source should not include "case other => other.toString"
+        source should not include "m.toVector.map(_to_external_value)"
         source should include(
           "case None => Consequence.successOrPropertyNotFound("
         )
@@ -591,6 +597,7 @@ final class ValueScalaModelTransformerSpec
 
         Then("datastore storage remains record-shaped")
         source should include("def toDataStore(): Record")
+        source should include("org.goldenport.convert.ValueReader.recordReader[DisplayPeriod]((record: Record) => createC(record)).readC(value)")
         source should include("Record.dataAuto(")
         source should include("\"start\" -> _to_data_store_value(start)")
         source should include("\"end\" -> _to_data_store_value(end)")

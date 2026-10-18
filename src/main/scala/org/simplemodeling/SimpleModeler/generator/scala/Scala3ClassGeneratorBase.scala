@@ -829,60 +829,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected def value_convert_methods: GenM[Unit] =
     if (is_entity_value || is_value) {
       for {
-        _ <- println("private def _to_external_value(v: Any): Any = v match {")
-        _ <- indent
-        _ <- println("case m if java.util.Objects.isNull(m) => null")
-        _ <- println("case m: String => m")
-        _ <- println("case m: java.lang.Number => m")
-        _ <- println("case m: java.lang.Boolean => m")
-        _ <- println("case m: java.lang.Character => m.toString")
-        _ <- println("case m: org.goldenport.datatype.I18nLabel => m.toI18nString.toRecord")
-        _ <- println("case m: org.goldenport.datatype.I18nTitle => m.toI18nString.toRecord")
-        _ <- println("case m: org.goldenport.datatype.I18nBrief => m.toI18nString.toRecord")
-        _ <- println("case m: org.goldenport.datatype.I18nSummary => m.toI18nString.toRecord")
-        _ <- println("case m: org.goldenport.datatype.I18nDescription => m.toI18nString.toRecord")
-        _ <- println("case m: org.goldenport.datatype.I18nText => m.toI18nString.toRecord")
-        _ <- println("case m: org.goldenport.datatype.MimeType => m.print")
-        _ <- println("case m: java.nio.charset.Charset => m.name()")
-        _ <- println("case m: java.util.Locale => m.toLanguageTag")
-        _ <- println("case m: java.util.TimeZone => m.getID")
-        _ <- println("case m: org.goldenport.value.ContentBody => m.value")
-        _ <- println("case m: org.goldenport.value.ContentMarkup => m.value")
-        _ <- println("case m: org.goldenport.datatype.ObjectId => _to_external_value(m.id)")
-        _ <- println("case _: org.simplemodeling.model.directive.Condition.Any.type => null")
-        _ <- println("case org.simplemodeling.model.directive.Condition.Is(expected) => _to_external_value(expected)")
-        _ <- println("case org.simplemodeling.model.directive.Condition.In(candidates) => candidates.toVector.map(_to_external_value)")
-        _ <- println("case m: Record => m")
-        _ <- println("""case m: org.goldenport.value.NameAttributes => Record.dataAuto("name" -> _to_external_value(m.name), "label" -> _to_external_value(m.label), "title" -> _to_external_value(m.title))""")
-        _ <- println("""case m: org.goldenport.value.DescriptiveAttributes => Record.dataAuto("headline" -> _to_external_value(m.headline), "summary" -> _to_external_value(m.summary), "description" -> _to_external_value(m.description))""")
-        _ <- println("""case m: org.goldenport.value.ContentReferenceOccurrence => m.toRecord()""")
-        _ <- println("""case m: org.goldenport.value.ContentAttributes => m.toRecord()""")
-        _ <- println("""case m: org.simplemodeling.model.value.LifecycleAttributes => Record.dataAuto("createdAt" -> _to_external_value(m.createdAt), "updatedAt" -> _to_external_value(m.updatedAt), "createdBy" -> _to_external_value(m.createdBy), "updatedBy" -> _to_external_value(m.updatedBy), "postStatus" -> _to_external_value(m.postStatus), "aliveness" -> _to_external_value(m.aliveness))""")
-        _ <- println("""case m: org.simplemodeling.model.value.PublicationAttributes => Record.dataAuto("publishAt" -> _to_external_value(m.publishAt), "publicAt" -> _to_external_value(m.publicAt), "closeAt" -> _to_external_value(m.closeAt), "startAt" -> _to_external_value(m.startAt), "endAt" -> _to_external_value(m.endAt))""")
-        _ <- println("""case m: org.simplemodeling.model.value.SecurityAttributes => Record.dataAuto("ownerId" -> _to_external_value(m.ownerId), "groupId" -> _to_external_value(m.groupId), "rights" -> _to_external_value(m.rights), "privilegeId" -> _to_external_value(m.privilegeId))""")
-        _ <- println("""case m: org.simplemodeling.model.value.SecurityAttributes.Rights => Record.dataAuto("owner" -> _to_external_value(m.owner), "group" -> _to_external_value(m.group), "other" -> _to_external_value(m.other))""")
-        _ <- println("""case m: org.simplemodeling.model.value.SecurityAttributes.Rights.Permissions => Record.dataAuto("read" -> _to_external_value(m.read), "write" -> _to_external_value(m.write), "execute" -> _to_external_value(m.execute))""")
-        _ <- println("""case m: org.simplemodeling.model.value.ResourceAttributes => Record.dataAuto("activatedAt" -> _to_external_value(m.activatedAt), "deactivatedAt" -> _to_external_value(m.deactivatedAt), "expiresAt" -> _to_external_value(m.expiresAt), "activationStatus" -> _to_external_value(m.activationStatus))""")
-        _ <- println("""case m: org.simplemodeling.model.value.AuditAttributes => Record.empty""")
-        _ <- println("""case m: org.simplemodeling.model.value.MediaAttributes => Record.dataAuto("url" -> _to_external_value(m.url), "images" -> _to_external_value(m.images), "audios" -> _to_external_value(m.audios), "videos" -> _to_external_value(m.videos), "attachments" -> _to_external_value(m.atathments))""")
-        _ <- println("""case m: org.simplemodeling.model.value.ContextualAttributes => Record.empty""")
-        _ <- println("""case m: org.simplemodeling.model.value.SimpleObjectContent => Record.dataAuto("nameAttributes" -> _to_external_value(m.nameAttributes), "descriptiveAttributes" -> _to_external_value(m.descriptiveAttributes), "contentAttributes" -> _to_external_value(m.contentAttributes), "lifecycleAttributes" -> _to_external_value(m.lifecycleAttributes), "publicationAttributes" -> _to_external_value(m.publicationAttributes), "securityAttributes" -> _to_external_value(m.securityAttributes), "resourceAttributes" -> _to_external_value(m.resourceAttributes), "auditAttributes" -> _to_external_value(m.auditAttributes), "mediaAttributes" -> _to_external_value(m.mediaAttributes), "contextualAttribute" -> _to_external_value(m.contextualAttribute))""")
-        _ <- println("""case m: org.simplemodeling.model.value.Image => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
-        _ <- println("""case m: org.simplemodeling.model.value.Audio => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
-        _ <- println("""case m: org.simplemodeling.model.value.Video => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
-        _ <- println("""case m: org.simplemodeling.model.value.Attachment => Record.dataAuto("id" -> _to_external_value(m.id), "simpleobject" -> _to_external_value(m.simpleobject))""")
-        _ <- println("case m: org.simplemodeling.model.value.NominalScalar => _to_external_value(m.value)")
-        _ <- println("case m: org.goldenport.record.RecordPresentable => m.toRecord()")
-        _ <- println("case m: Option[?] => m.map(_to_external_value)")
-        _ <- println("case m: cats.data.NonEmptyVector[?] => m.toVector.map(_to_external_value)")
-        _ <- println("case m: Seq[?] => m.map(_to_external_value)")
-        _ <- println("case m: Set[?] => m.toVector.map(_to_external_value)")
-        _ <- println("case m: Array[?] => m.toVector.map(_to_external_value)")
-        _ <- println("""case m: Map[?, ?] => m.iterator.map { case (k, value) => k.toString -> _to_external_value(value) }.toMap""")
-        _ <- println("case m: org.goldenport.text.Presentable => m.print")
-        _ <- println("case other => other.toString")
-        _ <- outdent
-        _ <- println("}")
+        _ <- println("private def _to_external_value(v: Any): Any =")
+        _ <- println("  org.simplemodeling.model.value.ModelValueEncoder.encodeC(v).TAKE")
         _ <- println()
         _ <- println("private def _to_data_store_value(v: Any): Any = v match {")
         _ <- _generated_value_data_store_cases
@@ -966,20 +914,18 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     if (parameters_vector.exists(p => _needs_nested_reader(p.typeName))) {
       for {
       _ <- println("private def _decode_ordered_c[A](value: Any)(decode: Any => Consequence[A]): Consequence[Vector[A]] = {")
-      _ <- println("  val values = value match {")
-      _ <- println("    case xs: Seq[?] => Some(xs.toVector)")
-      _ <- println("    case xs: Array[?] => Some(xs.toVector)")
-      _ <- println("    case xs: cats.data.NonEmptyVector[?] => Some(xs.toVector)")
-      _ <- println("    case _ => None")
+      _ <- println("  val reader = new org.goldenport.convert.ValueReader[A] {")
+      _ <- println("    def readC(value: Any): Consequence[A] = decode(value)")
       _ <- println("  }")
-      _ <- println("  values match {")
-      _ <- println("    case Some(xs) => xs.foldLeft(Consequence.success(Vector.empty[A])) { (result, item) =>")
-      _ <- println("      result.flatMap(values => decode(item).map(values :+ _))")
-      _ <- println("    }")
-      _ <- println("    case None => Consequence.valueInvalid(\"Expected declared ordered collection\")")
-      _ <- println("  }")
+      _ <- println("  org.goldenport.convert.ValueReader.vector(reader).readC(value)")
       _ <- println("}")
-      _ <- println("")
+      _ <- println()
+      _ <- println("private def _decode_non_empty_ordered_c[A](value: Any)(decode: Any => Consequence[A]): Consequence[cats.data.NonEmptyVector[A]] = {")
+      _ <- println("  given org.goldenport.convert.ValueReader[A] with")
+      _ <- println("    def readC(value: Any): Consequence[A] = decode(value)")
+      _ <- println("  summon[org.goldenport.convert.ValueReader[cats.data.NonEmptyVector[A]]].readC(value)")
+      _ <- println("}")
+      _ <- println()
       _ <- println("private def _record_get_nested_c[A](record: Record, keys: List[String])(decode: Any => Consequence[A]): Consequence[Option[A]] = {")
       _ <- println("  keys.foldLeft(Consequence.success(Option.empty[A])) { (result, key) =>")
       _ <- println("    result.flatMap {")
@@ -2081,164 +2027,22 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       _ <- outdent
       _ <- println("}")
       _ <- println()
-      _ <- println("private def _record_get_record(")
-      _ <- indent
-      _ <- println("record: Record,")
-      _ <- println("keys: List[String]")
-      _ <- outdent
-      _ <- println("): Consequence[Option[Record]] = {")
-      _ <- indent
-      _ <- println("keys.foldLeft(Consequence.success(Option.empty[Record])) { (z, key) =>")
-      _ <- indent
-      _ <- println("z.flatMap {")
-      _ <- indent
-      _ <- println("case s @ Some(_) => Consequence.success(s)")
-      _ <- println("case None =>")
-      _ <- indent
-      _ <- println("record.getAny(key) match {")
-      _ <- indent
-      _ <- println("case Some(m: Record) => Consequence.success(Some(m))")
-      _ <- println("case Some(other) => Consequence.valueInvalid(other, org.goldenport.schema.XString)")
-      _ <- println("case None => Consequence.success(None)")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("}")
+      _ <- println("private def _record_get_record(record: Record, keys: List[String]): Consequence[Option[Record]] =")
+      _ <- println("  _record_get_as_c[Record](record, keys)")
       _ <- println()
       _ <- _nested_reader_methods
-      _ <- println("private def _record_get_vector_as_c[A](")
-      _ <- indent
-      _ <- println("record: Record,")
-      _ <- println("keys: List[String]")
-      _ <- outdent
-      _ <- println(")(using vr: org.goldenport.convert.ValueReader[A]): Consequence[Option[Vector[A]]] = {")
-      _ <- indent
-      _ <- println("def decode_all(xs: Seq[?]): Consequence[Vector[A]] =")
-      _ <- indent
-      _ <- println("xs.foldLeft(Consequence.success(Vector.empty[A])) { (z, x) =>")
-      _ <- indent
-      _ <- println("z.flatMap(zs => vr.readC(x).map(a => zs :+ a))")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("keys.foldLeft(Consequence.success(Option.empty[Vector[A]])) { (z, key) =>")
-      _ <- indent
-      _ <- println("z.flatMap {")
-      _ <- indent
-      _ <- println("case s @ Some(_) => Consequence.success(s)")
-      _ <- println("case None =>")
-      _ <- indent
-      _ <- println("record.getAny(key) match {")
-      _ <- indent
-      _ <- println("case Some(xs: Seq[?]) => decode_all(xs).map(Some(_))")
-      _ <- println("case Some(xs: Array[?]) => decode_all(xs.toVector).map(Some(_))")
-      _ <- println("case Some(other) => vr.readC(other).map(x => Some(Vector(x)))")
-      _ <- println("case None => Consequence.success(None)")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("}")
+      _ <- println("private def _record_get_vector_as_c[A](record: Record, keys: List[String])(using vr: org.goldenport.convert.ValueReader[A]): Consequence[Option[Vector[A]]] =")
+      _ <- println("  _record_get_as_c[Vector[A]](record, keys)(using org.goldenport.convert.ValueReader.vector(vr, allowSingle = true))")
       _ <- println()
-      _ <- println("private def _record_get_vector_as_context_c[A](")
-      _ <- indent
-      _ <- println("record: Record,")
-      _ <- println("keys: List[String]")
-      _ <- outdent
-      _ <- println(")(using vr: org.goldenport.convert.ValueReader[A], ctx: org.goldenport.context.ExecutionContext): Consequence[Option[Vector[A]]] = {")
-      _ <- indent
-      _ <- println("def decode_all(xs: Seq[?]): Consequence[Vector[A]] =")
-      _ <- indent
-      _ <- println("xs.foldLeft(Consequence.success(Vector.empty[A])) { (z, x) =>")
-      _ <- indent
-      _ <- println("z.flatMap(zs => vr.readContextC(x).map(a => zs :+ a))")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("keys.foldLeft(Consequence.success(Option.empty[Vector[A]])) { (z, key) =>")
-      _ <- indent
-      _ <- println("z.flatMap {")
-      _ <- indent
-      _ <- println("case s @ Some(_) => Consequence.success(s)")
-      _ <- println("case None =>")
-      _ <- indent
-      _ <- println("record.getAny(key) match {")
-      _ <- indent
-      _ <- println("case Some(xs: Seq[?]) => decode_all(xs).map(Some(_))")
-      _ <- println("case Some(xs: Array[?]) => decode_all(xs.toVector).map(Some(_))")
-      _ <- println("case Some(other) => vr.readContextC(other).map(x => Some(Vector(x)))")
-      _ <- println("case None => Consequence.success(None)")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("}")
+      _ <- println("private def _record_get_vector_as_context_c[A](record: Record, keys: List[String])(using vr: org.goldenport.convert.ValueReader[A], ctx: org.goldenport.context.ExecutionContext): Consequence[Option[Vector[A]]] =")
+      _ <- println("  _record_get_as_context_c[Vector[A]](record, keys)(using org.goldenport.convert.ValueReader.vector(vr, allowSingle = true), ctx)")
       _ <- println()
-      _ <- println("private def _record_get_vector_of_record_c[A](")
-      _ <- indent
-      _ <- println("record: Record,")
-      _ <- println("keys: List[String]")
-      _ <- outdent
-      _ <- if (_has_typed_record_collection)
-        println(")(decode: Record => Consequence[A])(using classtag: scala.reflect.ClassTag[A]): Consequence[Option[Vector[A]]] = {")
-      else
-        println(")(decode: Record => Consequence[A]): Consequence[Option[Vector[A]]] = {")
-      _ <- indent
-      _ <- println("def decode_all(xs: Seq[?]): Consequence[Vector[A]] =")
-      _ <- indent
-      _ <- println("xs.foldLeft(Consequence.success(Vector.empty[A])) { (z, x) =>")
-      _ <- indent
-      _ <- println("z.flatMap { zs =>")
-      _ <- indent
-      _ <- println("x match {")
-      _ <- indent
-      _ <- println("case m: Record => decode(m).map(a => zs :+ a)")
-      _ <- if (_has_typed_record_collection)
-        println("case m if classtag.runtimeClass.isInstance(m) => Consequence.success(zs :+ m.asInstanceOf[A])")
-      else unit
-      _ <- println("case other => Consequence.valueInvalid(other, org.goldenport.schema.XString)")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("keys.foldLeft(Consequence.success(Option.empty[Vector[A]])) { (z, key) =>")
-      _ <- indent
-      _ <- println("z.flatMap {")
-      _ <- indent
-      _ <- println("case s @ Some(_) => Consequence.success(s)")
-      _ <- println("case None =>")
-      _ <- indent
-      _ <- println("record.getAny(key) match {")
-      _ <- indent
-      _ <- println("case Some(xs: Seq[?]) => decode_all(xs).map(Some(_))")
-      _ <- println("case Some(xs: Array[?]) => decode_all(xs.toVector).map(Some(_))")
-      _ <- println("case Some(other) => Consequence.valueInvalid(other, org.goldenport.schema.XString)")
-      _ <- println("case None => Consequence.success(None)")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("}")
-      _ <- outdent
-      _ <- println("}")
+      _ <- if (_has_typed_record_collection) {
+        for {
+          _ <- println("private def _record_get_vector_of_record_c[A](record: Record, keys: List[String])(decode: Record => Consequence[A])(using classtag: scala.reflect.ClassTag[A]): Consequence[Option[Vector[A]]] =")
+          _ <- println("  _record_get_as_c[Vector[A]](record, keys)(using org.goldenport.convert.ValueReader.vector(org.goldenport.convert.ValueReader.recordReader[A](decode)))")
+        } yield ()
+      } else unit
     } yield ()
 
   protected def builder_part: GenM[Unit] =
@@ -3633,16 +3437,15 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     typename match {
       case container: TypeName.Container =>
         val child = _nested_read_expression(container.containee, "item")
-        val read = s"_decode_ordered_c[${container.containee.fullName}]($value)(item => $child)"
+        val helper = if (container.isNonEmptyVector) "_decode_non_empty_ordered_c" else "_decode_ordered_c"
+        val read = s"$helper[${container.containee.fullName}]($value)(item => $child)"
         if (container.isList) read + ".map(_.toList)"
         else if (_is_seq_container(container)) read + ".map(_.toSeq)"
-        else if (container.isNonEmptyVector)
-          read + ".flatMap(values => Consequence.successOrPropertyNotFound(\"nested collection\", cats.data.NonEmptyVector.fromVector(values)))"
         else read
       case leaf if _is_record_type(leaf) =>
-        s"""($value match { case record: Record => Consequence.success(record); case _ => Consequence.valueInvalid("Expected declared Record element") })"""
+        s"summon[org.goldenport.convert.ValueReader[org.goldenport.record.Record]].readC($value)"
       case leaf if _is_record_decodable_object_type(leaf) =>
-        s"""($value match { case typed: ${leaf.fullName} => Consequence.success(typed); case record: Record => ${leaf.fullName}.createC(record); case _ => Consequence.valueInvalid("Expected declared application element") })"""
+        s"org.goldenport.convert.ValueReader.recordReader[${leaf.fullName}]((record: Record) => ${leaf.fullName}.createC(record)).readC($value)"
       case leaf =>
         s"summon[org.goldenport.convert.ValueReader[${leaf.fullName}]].readC($value)"
     }
@@ -3686,16 +3489,12 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     p: Parameter,
     container: TypeName.Container
   ): GenM[Unit] = {
-    val readexpr =
-      if (_is_record_type(container.containee))
-        s"_record_get_vector_of_record_c(record, ${input_keys_name(p.name.name)})((r: Record) => Consequence.success(r))"
-      else
-        s"_record_get_vector_as_c[${container.containee.fullName}](record, ${input_keys_name(p.name.name)})"
+    val readexpr = s"_record_get_as_c[${container.fullName}](record, ${input_keys_name(p.name.name)})"
     for {
       _ <- print(readexpr, ".flatMap {")
       _ <- println()
       _ <- indent
-      _ <- println("case Some(xs) => Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", NonEmptyVector.fromVector(xs))")
+      _ <- println("case Some(value) => Consequence.success(value)")
       _ <- println("case None => Consequence.successOrPropertyNotFound(", property_name(p.name.name), ", ", p.name.name, ")")
       _ <- outdent
       _ <- print("}")
@@ -3708,7 +3507,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   ): GenM[Unit] = {
     val lifted = _restore_vector_container(container)
     for {
-      _ <- print("_record_get_vector_of_record_c(record, ", input_keys_name(p.name.name), ")((r: Record) => Consequence.success(r))", lifted, ".flatMap {")
+      _ <- print("_record_get_as_c[scala.Vector[org.goldenport.record.Record]](record, ", input_keys_name(p.name.name), ")", lifted, ".flatMap {")
       _ <- println()
       _ <- indent
       _ <- println("case Some(s) => Consequence.success(s)")
@@ -3840,6 +3639,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         val read = _nested_collection_read(p, inner)
         print(read, ".flatMap { case Some(value) => Consequence.success(Condition.is(value)); case None => Consequence.success(",
           p.name.name, ".getOrElse(Condition.any[", inner.fullName, "])) }")
+      case inner: TypeName.Container if inner.isNonEmptyVector =>
+        print("_record_get_as_c[", inner.fullName, "](record, ", keyname,
+          ").flatMap { case Some(value) => Consequence.success(Condition.is(value)); case None => Consequence.success(",
+          p.name.name, ".getOrElse(Condition.any[", inner.fullName, "])) }")
       case m if !m.isInstanceOf[TypeName.Container] && _is_record_type(m) =>
         for {
           _ <- print("_record_get_record(record, ", keyname, ").flatMap {")
@@ -3853,7 +3656,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case inner: TypeName.Container if _is_record_type(inner.containee) &&
           (inner.isList || inner.isVector || inner.isSet || _is_seq_container(inner)) => {
         for {
-          _ <- print("_record_get_vector_of_record_c(record, ", keyname, ")((r: Record) => Consequence.success(r))", _restore_vector_container(inner), ".flatMap {")
+          _ <- print("_record_get_as_c[scala.Vector[org.goldenport.record.Record]](record, ", keyname, ")", _restore_vector_container(inner), ".flatMap {")
           _ <- println()
           _ <- indent
           _ <- println("case Some(s) => Consequence.success(Condition.is(s))")
@@ -3926,6 +3729,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         val read = _nested_collection_read(p, inner)
         print(read, ".flatMap { case Some(value) => Consequence.success(Update.set(value)); case None => Consequence.success(",
           p.name.name, ".getOrElse(Update.noop[", inner.fullName, "])) }")
+      case inner: TypeName.Container if inner.isNonEmptyVector =>
+        print("_record_get_as_c[", inner.fullName, "](record, ", keyname,
+          ").flatMap { case Some(value) => Consequence.success(Update.set(value)); case None => Consequence.success(",
+          p.name.name, ".getOrElse(Update.noop[", inner.fullName, "])) }")
       case m if !m.isInstanceOf[TypeName.Container] && _is_record_type(m) =>
         for {
           _ <- print("_record_get_record(record, ", keyname, ").flatMap {")
@@ -3939,7 +3746,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case inner: TypeName.Container if _is_record_type(inner.containee) &&
           (inner.isList || inner.isVector || _is_seq_container(inner)) => {
         for {
-          _ <- print("_record_get_vector_of_record_c(record, ", keyname, ")((r: Record) => Consequence.success(r))", _restore_vector_container(inner), ".flatMap {")
+          _ <- print("_record_get_as_c[scala.Vector[org.goldenport.record.Record]](record, ", keyname, ")", _restore_vector_container(inner), ".flatMap {")
           _ <- println()
           _ <- indent
           _ <- println("case Some(s) => Consequence.success(Update.set(s))")
@@ -4326,7 +4133,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     if (is_value) {
       for {
         _ <- println(s"given org.goldenport.convert.ValueReader[$name] with")
-        _ <- println(s"  def readC(v: Any): Consequence[$name] = v match")
+        _ <- if (is_nominal_scalar || is_powertype || _single_scalar_value_parameter.nonEmpty)
+          println(s"  def readC(v: Any): Consequence[$name] = v match")
+        else
+          println(s"  def readC(value: Any): Consequence[$name] =")
         _ <- if (is_nominal_scalar) {
           _scalar_value_reader(name)
         } else if (is_powertype) {
@@ -4341,11 +4151,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         } else if (_single_scalar_value_parameter.nonEmpty) {
           _scalar_value_reader(name)
         } else {
-          for {
-            _ <- println(s"    case m: $name => { Consequence.success(m) }")
-            _ <- println(s"    case m: Record => createC(m)")
-            _ <- println(s"    case _ => Consequence.valueInvalid(v, org.goldenport.schema.XString)")
-          } yield ()
+          println(s"    org.goldenport.convert.ValueReader.recordReader[$name]((record: Record) => createC(record)).readC(value)")
         }
       } yield ()
     } else {

@@ -13,7 +13,7 @@ import org.simplemodeling.SimpleModeler.generators.scala.Scala3EntityFamilyGener
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct. 17, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class StructuredDataGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -173,11 +173,31 @@ final class StructuredDataGenerationSpec extends AnyWordSpec with Matchers with 
         source should include("org.goldenport.schema.Multiplicity.OneMore")
         source should include("summon[org.goldenport.convert.ValueReader[io.circe.Json]].readC")
         source should include("_record_get_vector_as_c[io.circe.Json]")
-        source should include("_record_get_vector_of_record_c(record, INPUT_KEYS_EVIDENCES)")
+        source should include("_record_get_as_c[scala.Vector[org.goldenport.record.Record]](record, INPUT_KEYS_EVIDENCES)")
+        source should include("_record_get_as_c[cats.data.NonEmptyVector[org.goldenport.record.Record]](record, INPUT_KEYS_REQUIRED_EVIDENCES)")
+        source should include("_record_get_as_c[cats.data.NonEmptyVector[io.circe.Json]](record, INPUT_KEYS_REQUIRED_PAYLOADS)")
+        source should include("_record_get_as_c[Record](record, keys)")
+        source should include("org.simplemodeling.model.value.ModelValueEncoder.encodeC(v).TAKE")
+        source should not include "NonEmptyVector.fromVector"
+        source should not include "def decode_all"
+        source should not include "private def _record_get_vector_of_record_c"
+        source should not include "case other => other.toString"
         source should not include "DataType.Named(\"json\")"
         source should not include "DataType.Named(\"record\")"
         source should not include "Json.createC"
         source should not include "Json.fromRecord"
+
+        And("every ordinary family retains declared cardinality and thin collection delegates")
+        Vector("/entity/Proposal.scala", "/entity/create/Proposal.scala", "/entity/update/Proposal.scala", "/entity/query/Proposal.scala").foreach { suffix =>
+          val family = artifacts.slots.find(_.path.endsWith(suffix)).get.content
+          family should include("_record_get_as_c[cats.data.NonEmptyVector[org.goldenport.record.Record]](record, INPUT_KEYS_REQUIRED_EVIDENCES)")
+          family should include("_record_get_as_c[cats.data.NonEmptyVector[io.circe.Json]](record, INPUT_KEYS_REQUIRED_PAYLOADS)")
+          family should include("_record_get_as_c[Vector[A]](record, keys)(using org.goldenport.convert.ValueReader.vector(vr, allowSingle = true))")
+          family should include("_record_get_as_context_c[Vector[A]](record, keys)(using org.goldenport.convert.ValueReader.vector(vr, allowSingle = true), ctx)")
+          family should not include "NonEmptyVector.fromVector"
+          family should not include "case Some(xs: Seq[?])"
+          family should not include "case Some(xs: Array[?])"
+        }
       }
 
       "keep custom Json and Record class names distinct from canonical structured declarations" in {

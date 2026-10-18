@@ -114,3 +114,79 @@ inside a private typed codec without changing a custom field's datatype. The
 custom Json/Record isolation specification therefore checks actual schema and
 storage-binding expressions, alongside the exact semantic Plain types and
 Named class declarations, rather than banning the type's spelling everywhere.
+
+
+## Current reader and external projection delegation — 2026-10-18
+
+This section governs the current Phase 115 producer contract. Earlier dated
+validation evidence remains historical; its success does not establish this
+implementation or generated runtime acceptance. The earlier Record-specific
+admission description is superseded by the canonical readers specified here.
+
+The generator selects declared types, cardinality, metadata field names and
+ordered aliases. Core `ValueReader` owns generic collection reading and canonical
+structured normalization. Scalar Record admission delegates through
+`_record_get_as_c[Record]`; ordinary repeated Record admission selects the whole
+`scala.Vector[org.goldenport.record.Record]`. The canonical Record reader applies
+`XSemiStructuredData` meaning, including its nested object rules. Declared Json
+always selects `ValueReader[io.circe.Json]`, preserving raw Json shape and null
+values rather than interpreting it as a Record. Custom application classes
+named Json or Record retain their full declared identity.
+
+A declared `NonEmptyVector[A]` is read as that complete type, including Record
+and Json leaves. Core owns strict nonempty admission: present empty or malformed
+input fails; missing input alone retains the generated required-property or
+existing default branch. This policy applies to Persistent, Create, Update and
+Query without reducing their declared cardinality. The ordinary generic vector
+compatibility helper alone explicitly selects
+`ValueReader.vector(elementReader, allowSingle = true)`. Its contextual variant
+passes the identical execution context through the contextual alias getter.
+Canonical Record vectors and application-record vectors use strict collection
+readers and do not inherit scalar promotion.
+
+Application-record vectors compose Core `ValueReader.recordReader[A](decode)`
+with strict `ValueReader.vector`. ClassTag-based typed admission and Record
+callbacks belong to Core; the generator emits that thin helper only when a
+selected application collection or ContentReferenceOccurrence requires it.
+Conventional composite generated value readers likewise delegate to
+`recordReader[DeclaredClass](createC)`. Nominal, single-scalar and powertype
+constructors retain their declared-domain and database parsing branches.
+
+Explicit nested legacy declarations retain their selected child types and
+List/Seq wrapper mapping. Their emitted helpers forward callback-based element
+readers into strict Core Vector or NonEmptyVector readers. Canonical Record
+leaves select Core's Record reader, application leaves select an explicit
+`recordReader` with the concrete class's `createC`, and other leaves use their
+existing declared reader. Alias traversal remains generated metadata selection;
+shape dispatch, element traversal, null policy and nonempty construction are
+library responsibilities. Unsupported declarations remain rejected.
+
+External Record projection delegates to
+`org.simplemodeling.model.value.ModelValueEncoder.encodeC(value).TAKE`. Core
+owns recursive external projection, ordered collection semantics and raw Json
+identity; the model library adds explicit model groups, nominal unwrapping and
+typed Condition/Update projection. Unsupported values and non-String Map keys
+retain structured failures rather than arbitrary `toString` output. Existing
+public `toRecord` and `toDataStore` signatures retain their throwing projection
+surface at `TAKE`; no new public consequence-returning Record API is introduced.
+
+Storage-specific generated `toDataStore` cases, permission/media SQL encodings
+and the mapping ABI retain their existing owners. CNCF retains declared storage
+mapping, persistence stages and optional Update clear semantics; external
+projection does not introduce SQL clear or persisted-format policy.
+
+Current adoption status — 2026-10-18: the selected Modeler delegation repair
+passed 33/33 in three suites and its unchanged 1.1.26-SNAPSHOT local refresh
+succeeded. Forced model regeneration compiled actual 11 products, inspected their
+thin delegates and passed 54/54 model tests. CNCF's selected connected consumer
+runs now cover ordinary CML regeneration, generated compilation/persistence and
+actual `Query.createC`/Condition Vector application reconstruction. The runtime
+`Phase115GeneratedCollectionPolicySpec` also covers an actual generated
+ScalarCode115 DATATYPE; earlier CountryCode/PostalCode VALUE products do not
+prove nominal scalar semantics. These selected focused results do not close a
+Phase or the historical comparison finding. Independent complete protected focused
+RCP-CONSUMERS Step review passed. Local commits, all four affected repository
+full tests, the sole comprehensive Phase 115 review and final release remain
+pending; all five RCP obligations remain OPEN and Phase 115 IN_PROGRESS.
+Earlier dated pending/execution receipts retain their
+historical subjects.

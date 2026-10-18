@@ -97,7 +97,8 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
         _attribute("optionalEvidence", MBuiltinStructuredDataType.SemiStructuredData, MZeroOne),
         _attribute("payloads", MBuiltinStructuredDataType.Json, MZeroMore),
         _attribute("evidences", MBuiltinStructuredDataType.SemiStructuredData, MZeroMore),
-        _attribute("requiredPayloads", MBuiltinStructuredDataType.Json, MOneMore)))
+        _attribute("requiredPayloads", MBuiltinStructuredDataType.Json, MOneMore),
+        _attribute("requiredEvidences", MBuiltinStructuredDataType.SemiStructuredData, MOneMore)))
 
       When("the actual persistence families publish their complete logical record and declarations")
       val products = _family(entity)
@@ -105,7 +106,7 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
       Then("optional markers, Json.Null, empty Records and empty arrays stay in direct typed Field.Single rows")
       _persistent_products(products).foreach { source =>
         val logical = _logical_record(source)
-        Vector("optionalPayload", "optionalEvidence", "payloads", "evidences", "requiredPayloads").foreach { field =>
+        Vector("optionalPayload", "optionalEvidence", "payloads", "evidences", "requiredPayloads", "requiredEvidences").foreach { field =>
           logical should include(s""""$field", org.goldenport.record.Field.Value.Single($field)""")
         }
         logical should include("Record(Vector(")
@@ -117,19 +118,34 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
         _field(source, "payloads") should include("EntityStoreFieldBinding.array(EntityStoreFieldBinding.json)")
         _field(source, "evidences") should include("EntityStoreFieldBinding.array(EntityStoreFieldBinding.semiStructuredData)")
         _field(source, "requiredPayloads") should include("Multiplicity.OneMore")
+        _field(source, "requiredEvidences") should include("Multiplicity.OneMore")
+        _field(source, "requiredEvidences") should include("EntityStoreFieldBinding.array(EntityStoreFieldBinding.semiStructuredData)")
         source should include("Consequence.success(e._logical_store_record)")
       }
       Vector("/entity/update/Proposal.scala", "/entity/query/Proposal.scala").foreach { path =>
         val source = _source(products, path)
         source should include("_record_get_vector_as_c[io.circe.Json](record, INPUT_KEYS_PAYLOADS)")
         source should not include "_record_get_as_c[Vector[Json]]"
-        source should include("_record_get_vector_of_record_c(record, INPUT_KEYS_EVIDENCES)")
+        source should include("_record_get_as_c[scala.Vector[org.goldenport.record.Record]](record, INPUT_KEYS_EVIDENCES)")
       }
       _source(products, "/entity/query/Proposal.scala") should include("Condition.any[scala.collection.immutable.Vector[org.goldenport.record.Record]]")
+      products.values.foreach { source =>
+        source should include("_record_get_as_c[cats.data.NonEmptyVector[io.circe.Json]](record, INPUT_KEYS_REQUIRED_PAYLOADS)")
+        source should include("_record_get_as_c[cats.data.NonEmptyVector[org.goldenport.record.Record]](record, INPUT_KEYS_REQUIRED_EVIDENCES)")
+        source should not include "NonEmptyVector.fromVector"
+        source should not include "private def _record_get_vector_of_record_c"
+        source should include("org.simplemodeling.model.value.ModelValueEncoder.encodeC(v).TAKE")
+        val external = source.substring(source.indexOf("private def _to_external_value"), source.indexOf("private def _to_data_store_value"))
+        Vector("v match", "case m:", "Map[", "toString", ".map(").foreach { traversal =>
+          external should not include traversal
+        }
+      }
+      _source(products, "/entity/update/Proposal.scala") should include("Update.noop[cats.data.NonEmptyVector[org.goldenport.record.Record]]")
+      _source(products, "/entity/query/Proposal.scala") should include("Condition.any[cats.data.NonEmptyVector[io.circe.Json]]")
       val persistent = _source(products, "/entity/Proposal.scala")
       persistent should include("admitLogicalStoreRecord(r: Record): Consequence[Record] = { Consequence.success(r) }")
       persistent should include("decodeAdmittedLogicalStoreRecord(r: Record): Consequence[Proposal] = { createC(r) }")
-      persistent should include("_record_get_vector_of_record_c(record, INPUT_KEYS_EVIDENCES)")
+      persistent should include("_record_get_as_c[scala.Vector[org.goldenport.record.Record]](record, INPUT_KEYS_EVIDENCES)")
     }
   }
 
@@ -182,8 +198,9 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
       persistent should not include "Consequence.toBigDecimal"
       persistent should include("_record_get_as_c[org.example.proposal.value.Summary]")
       persistent should include("_record_get_vector_as_c[org.example.proposal.value.Summary]")
-      summarysource should include("case m: Summary => { Consequence.success(m) }")
-      summarysource should include("case m: Record => createC(m)")
+      summarysource should include("org.goldenport.convert.ValueReader.recordReader[Summary]((record: Record) => createC(record)).readC(value)")
+      summarysource should not include "case m: Summary =>"
+      summarysource should not include "case m: Record => createC(m)"
       _source(products, "/entity/update/Proposal.scala") should include(
         "_build_changes_(org.simplemodeling.model.directive.Update.toChangesRecord(record))")
     }
@@ -274,6 +291,11 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
         .map(t => _generate_ast(_replace_payload(ast, t), context))
       val scalar = _generate_ast(ast, context)
       val nested = _generate_ast(_replace_payload(ast, TypeName.vector(TypeName.vector(json))), context)
+      val nestednonempty = _generate_ast(_replace_payload(ast, TypeName.vector(
+        TypeName.Container(TypeName.Plain.create("cats.data", "NonEmptyVector"), json))), context)
+      val nestedrecords = _generate_ast(_replace_payload(ast, TypeName.vector(TypeName.vector(TypeName.record))), context)
+      val nestedapplications = _generate_ast(_replace_payload(ast, TypeName.vector(TypeName.vector(
+        TypeName.Plain.create("org.example.proposal.value", "Summary")))), context)
 
       Then("every failure identifies the declaration and supported controls retain explicit recursive bindings")
       (failures ++ rangefailures).foreach { failure =>
@@ -284,6 +306,7 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
       scalar should not include "private def _record_get_nested_c"
       scalar should not include "private def _to_media_store_value"
       scalar should not include "using classtag: scala.reflect.ClassTag[A]"
+      scalar should not include "private def _record_get_vector_of_record_c"
       nested should include("private def _decode_ordered_c")
       nested should include("private def _record_get_nested_c")
       ordered.foreach { source =>
@@ -293,7 +316,22 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
       ordered(2) should include(".map(_.map(_.toSeq))")
       ordered(2) should include("scala.Seq(payload)")
       ordered(2) should include("Consequence.success(payload)")
-      ordered(3) should include("NonEmptyVector.fromVector(xs)")
+      ordered(3) should include("_record_get_as_c[cats.data.NonEmptyVector[io.circe.Json]](record, INPUT_KEYS_PAYLOAD)")
+      ordered(3) should include("case Some(value) => Consequence.success(value)")
+      ordered(3) should include("case None => Consequence.successOrPropertyNotFound(")
+      ordered(3) should not include "NonEmptyVector.fromVector"
+      Vector(nested, nestednonempty, nestedrecords, nestedapplications).foreach { source =>
+        source should include("org.goldenport.convert.ValueReader.vector(reader).readC(value)")
+        source should include("def readC(value: Any): Consequence[A] = decode(value)")
+        source should not include "xs.foldLeft"
+        source should not include "case xs: Seq[?]"
+        source should not include "case xs: Array[?]"
+        source should not include "NonEmptyVector.fromVector"
+      }
+      nestednonempty should include("_decode_non_empty_ordered_c[io.circe.Json](item)")
+      nestednonempty should include("summon[org.goldenport.convert.ValueReader[cats.data.NonEmptyVector[A]]].readC(value)")
+      nestedrecords should include("summon[org.goldenport.convert.ValueReader[org.goldenport.record.Record]].readC(item)")
+      nestedapplications should include("org.goldenport.convert.ValueReader.recordReader[org.example.proposal.value.Summary]((record: Record) => org.example.proposal.value.Summary.createC(record)).readC(item)")
       _field(nested, "payload") should include("array(EntityStoreFieldBinding.array(EntityStoreFieldBinding.json))")
       nested should include("_record_get_nested_c[scala.Vector[scala.Vector[io.circe.Json]]]")
       nested should not include "_record_get_vector_as_c[scala.Vector[io.circe.Json]]"
@@ -366,7 +404,7 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
 
       Then("Record decoding and the original SetNull and Noop boundaries remain present")
       sources.foreach { source =>
-        source should include("_record_get_vector_of_record_c(record, INPUT_KEYS_EVIDENCES)((r: Record) => Consequence.success(r))")
+        source should include("_record_get_as_c[scala.Vector[org.goldenport.record.Record]](record, INPUT_KEYS_EVIDENCES)")
         source should include("Update.set(s)")
         source should include("Update.noop[")
         source should include("_record_get_update_set_null[")
@@ -385,14 +423,22 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
       When("the real entity family generates its public Record readers")
       val products = _family(entity)
 
-      Then("the generic reader uses a captured ClassTag and preserves Record decoding and invalid-element failures")
-      _persistent_products(products).foreach { source =>
+      Then("the captured ClassTag and strict Core readers own typed admission, Record decoding and invalid-element failures")
+      products.values.foreach { source =>
         source should include("using classtag: scala.reflect.ClassTag[A]")
-        source should include("case m: Record => decode(m).map(a => zs :+ a)")
-        source should include("classtag.runtimeClass.isInstance(m)")
-        source should include("Consequence.success(zs :+ m.asInstanceOf[A])")
-        source should include("case other => Consequence.valueInvalid(other, org.goldenport.schema.XString)")
+        source should include("_record_get_as_c[Vector[A]](record, keys)(using org.goldenport.convert.ValueReader.vector(org.goldenport.convert.ValueReader.recordReader[A](decode)))")
+        source should include("_record_get_vector_of_record_c(record, INPUT_KEYS_ITEMS)((r: Record) => org.example.proposal.entity.Item.createC(r))")
+        source should not include "classtag.runtimeClass"
+        source should not include "m.asInstanceOf[A]"
+        source should not include "def decode_all"
+        source should not include "decode(m).map(a => zs :+ a)"
       }
+      And("the ordinary Query receives the declared Vector application argument without legacy List restoration")
+      val query = _source(products, "/entity/query/Proposal.scala")
+      query should include("items: Condition[Vector[Item]]")
+      query should include("Condition.any[Vector[Item]]")
+      query should not include "items: Condition[List[Item]]"
+      query should not include ".map(_.map(_.toList))"
     }
   }
 
@@ -513,6 +559,11 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
       products should have size 4
       products.foreach { slot =>
         slot.content should include("_record_get_nested_c[")
+        slot.content should include("org.goldenport.convert.ValueReader.vector(reader).readC(value)")
+        slot.content should include("summon[org.goldenport.convert.ValueReader[org.goldenport.record.Record]].readC(item)")
+        slot.content should include("_record_get_nested_c[cats.data.NonEmptyVector[scala.Vector[io.circe.Json]]](record, INPUT_KEYS_NONEMPTY)")
+        slot.content should include("_decode_non_empty_ordered_c[scala.Vector[io.circe.Json]](value)")
+        slot.content should not include "NonEmptyVector.fromVector"
         slot.content should not include "_record_get_vector_as_c[scala.Vector[io.circe.Json]]"
       }
       written.foreach(path => java.nio.file.Files.isRegularFile(path) shouldBe true)

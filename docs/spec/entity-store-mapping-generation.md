@@ -346,3 +346,88 @@ unchanged to CNCF `src/test/scala` at the same relative paths. The consumer
 `Phase100GeneratedStoreSpec` compiles them and exercises actual typed admission
 and SQL persistence. Regeneration changes the semantic AST input or generator,
 never the copied generated implementation by hand.
+
+
+## Current generation-to-library responsibility — 2026-10-18
+
+Phase 115's current delegation contract supersedes earlier descriptions of
+manual generated collection conversion and external-value matching. All dated
+Phase 100 evidence, ownership and pending integration gates above remain
+retained. Current selected focused validation is recorded at the end of this
+section; it neither rewrites a historical counterexample nor accepts a Phase.
+
+The generator projects semantic declarations into types, cardinality, field
+names, ordered aliases and explicit storage bindings. Its scalar Record helper
+uses Core `ValueReader[Record]` through the existing alias getter. Ordinary
+repeated Record sites, including Condition and Update containers, request the
+complete strict `Vector[Record]` reader. Canonical Record meaning belongs to
+Core's `XSemiStructuredData`; declared Json uses its separate Json reader and
+retains raw Json, including Json.Null. Custom Json/Record classes remain isolated
+by their explicit declared types.
+
+Complete declared NonEmptyVector readers enforce nonempty cardinality for
+Record, Json and other declared leaves. Present empty or malformed input fails
+through Core; only missing input follows the existing required/default branch.
+Persistent, Create, Update and Query retain their constructor and directive
+semantics. The selected generic vector compatibility reader explicitly enables
+scalar promotion with `ValueReader.vector(reader, allowSingle = true)`; its
+contextual variant forwards the same context through the contextual alias
+getter. Strict Record, application and NonEmptyVector readers do not enable it.
+
+Application collection helpers compose Core `recordReader[A](decode)` and
+strict `vector`, allowing typed A or a Record callback under an explicit
+ClassTag. The helper is emitted only for selected application collections or
+ContentReferenceOccurrence, with concrete caller types providing ClassTags.
+Conventional composite ValueReaders use the same Core Record adapter; nominal,
+single-scalar and powertype parsing retains its type-specific branch.
+
+Explicit nested legacy List/Seq declarations retain only their intentional
+wrapper mappings. Generic nested traversal delegates to strict Core vector and
+NonEmptyVector readers around callback readers. Canonical Record leaves select
+Core's Record reader; application leaves supply the concrete `createC` callback;
+other leaves select the existing typed reader. No generated shape dispatch,
+element fold, null filtering or `NonEmptyVector.fromVector` owns these reader
+paths. Alias folds remain because they select metadata keys. Unsupported
+containers still fail generation, and an old ordinary declaration does not
+justify introducing List restoration.
+
+The external `_to_external_value` helper delegates solely to
+`ModelValueEncoder.encodeC(value).TAKE`. Core owns recursive projection, raw Json
+identity and ordered/nonempty semantics. The model library owns explicit model
+attribute groups, nominal unwrapping and typed Update/Condition projection.
+Unsupported values and invalid Map keys produce structured Consequence failures;
+existing public projection methods expose them through `TAKE`. There is no
+unknown-value string fallback or new public `toRecordC` API.
+
+The separate `_to_data_store_value` adapter, generated declared-type datastore
+cases, permission JSON, physical media text and mapping ABI retain their
+existing storage policy. CNCF continues to own strict EntityStore stages,
+persisted formats and optional Update clear behavior. The shared external
+encoder does not acquire SQL NULL, clear or persistence normalization policy.
+Logical typed rows and raw patch markers retain R3's existing route.
+
+E3 now covers complete Record/Json nonempty readers and thin external projection
+across the actual ordinary families. E4 retains native/application mapping
+witnesses and requires the composite Record adapter. E6 retains unsupported and
+explicit legacy controls while requiring strict nested delegates and typed
+leaves. E7 retains Record Update markers and only explicitly declared legacy
+wrappers. E8 requires strict application collection delegates and the ordinary
+Vector Query argument. E12 preserves native fixture emission and strengthens
+its typed delegation expectations. Source checks establish no runtime admission.
+
+Current adoption status — 2026-10-18: the selected Modeler delegation repair
+passed 33/33 in three suites, and the unchanged local 1.1.26-SNAPSHOT refresh
+succeeded. Forced model regeneration compiled actual 11 products, inspected thin
+encoder delegates and passed the overlapping 54/54 model gate. The selected CNCF
+consumer runs now exercise ordinary CML generated persistence and actual
+`Query.createC`/Condition Vector application reconstruction in
+`Phase115GeneratedCollectionPolicySpec`, including present empty/invalid values,
+order and duplicates. Its ScalarCode115 DATATYPE is the actual generated nominal
+scalar witness, separate from structured VALUE products. This is current migration
+evidence for the Phase 100-to-115 handoff; the original static List Query finding
+and prior negative source evidence remain historical. Independent complete protected
+focused RCP-CONSUMERS Step review passed. Local commits, all four affected
+repository full tests, the sole comprehensive Phase 115 review and final release
+remain pending; all five RCP obligations remain OPEN and Phase 115 IN_PROGRESS.
+Earlier dated receipts
+above remain applicable only to their original scopes.
