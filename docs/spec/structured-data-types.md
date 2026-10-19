@@ -201,3 +201,76 @@ record the four selected full gates and retained history. Closure takes effect
 through the local release commit containing `phase115-final-closure-20261018-01@1`.
 Earlier dated pending/execution receipts retain their
 historical subjects.
+
+## Ordinary domain value operation inputs — 2026-10-19
+
+An operation parameter whose actual model object is `MDomainValue` carries its
+ordinary `ValueScalaModelTransformer` plain product in Scala `Parameter.value`.
+This applies through the existing typed-object body recursion. The value's
+effective attributes retain their declared order, semantic types and
+multiplicities, including ordinary scalars, optional fields and repeated fields.
+A required Json field carries one `io.circe.Json`; the document may itself be a
+JSON array without changing the declared field multiplicity.
+
+Recursive operation schema lookup uses this actual input carrier to correlate
+metadata fields with their typed declarations and select `XJson` or
+`XSemiStructuredData`. A custom domain value named `Json` or `Record` remains
+its declared class and its String attributes remain String. Class spelling
+does not select a structured semantic type. An opaque Record reference has
+no invented attribute carrier. Existing entity-value Create, Update and other
+family transformations retain precedence and their existing behavior.
+
+Named command action projection selects the carried value's ordered leaf
+parameters only when operation metadata explicitly declares `COMMAND_VALUE`
+(trimmed and normalized with the root locale), the action wrapper has exactly
+one parameter carrying an actual value, that value explicitly has plain purpose,
+its class kind is not EntityValue, and its class name matches the selected
+metadata input type's existing action class name. The carried parameter sequence
+must be nonempty. The generated named command then uses these same declared
+fields and the existing canonical field admission paths, without a nested
+`record: <InputType>` or a self-call to `<InputType>.createC`.
+
+Unmatched metadata names or kinds, Query Values, empty carriers, entity-value
+families, opaque Record inputs and wrappers with additional explicit parameters
+retain the existing action projection. Semantic purpose and actual model
+identity govern this selection; class spelling never supplies datatype meaning.
+Operation metadata retains its existing request order, multiplicity and field
+metadata authority.
+
+[ValueInputOperationProjectionSpec](../../src/test/scala/org/simplemodeling/SimpleModeler/generator/scala/ValueInputOperationProjectionSpec.scala)
+authors actual component transformation and named command generation, carrier
+identity/order/cardinality properties and compatibility controls. It supplies
+producer evidence only after parent-owned execution. Acceptance also requires
+the Cozy parse/model/generation consumer, the original server's Scala 3
+compilation and the owning Phase release validation. All remain pending for
+this repair; no success is inferred from historical validation above.
+
+## Named command structured leaf admission — 2026-10-19
+
+Within the existing selected `COMMAND_VALUE` leaf projection, required Json and
+Record fields use keyed `Consequence.successOrRecordNotFound` with the canonical
+qualified runtime type. A named Record leaf contains only its document, excluding
+the surrounding request and sibling fields. The opaque Record action/query path
+retains its existing whole-request meaning outside that projection.
+
+Optional structured leaves use `request.toRecord.getAsC[Leaf](key)`: omission is
+`None`, present Json.Null is `Some(Json.Null)`, and an invalid present value fails.
+Json.Null is not a valid optional Record document. Zero-or-more leaves select
+`getAsC[scala.Vector[Leaf]]` and default only missing input to `Vector.empty`.
+Nonempty leaves select `successOrRecordNotFound[cats.data.NonEmptyVector[Leaf]]`.
+The existing Core readers own ordered element normalization, strict sequence
+admission and empty/nonempty checks. No reader wraps a single document or the
+whole request into a collection. A scalar Json array remains one Json document.
+
+Recognition uses actual structured semantic identity or the exact canonical
+`org.goldenport.record.Record` reference, with one declared Option, Vector or
+NonEmptyVector container. Custom classes named Json or Record keep their own
+constructor paths. Schema, field order, metadata and public AST contracts retain
+their existing owners. The internal selection context applies only when the
+existing command-value descriptor gate succeeds.
+
+The Modeler executable specification checks selected reader generation and
+compatibility controls. Actual generated Scala 3 constructor behavior is authored
+by the downstream Editing Studio test-only StructuredAdmissionFixture CML and
+StructuredCommandAdmissionSpec through normal pinned Cozy generation. That
+consumer supplies runtime admission evidence only after parent-owned execution.

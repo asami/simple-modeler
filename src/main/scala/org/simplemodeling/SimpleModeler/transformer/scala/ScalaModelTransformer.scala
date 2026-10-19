@@ -7,6 +7,7 @@ import org.goldenport.record.v2.XStateMachine
 import org.goldenport.record.v2.XString
 import org.goldenport.util.StringUtils
 import org.simplemodeling.model._
+import org.simplemodeling.model.domain.MDomainValue
 import org.simplemodeling.SimpleModeler.transformer.maker.PConstraint
 import org.simplemodeling.SimpleModeler.generator.scala.model._
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.Purpose
@@ -20,7 +21,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Apr. 19, 2026
  *  version May. 23, 2026
  *  version Jul. 15, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -372,6 +373,7 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       case MTypedObject.Slot.ObjectBody(o) => _from_object(o)
       case _ => None
     }
+    case m: MDomainValue => Some(_to_class(new ValueScalaModelTransformer()((m, Purpose.Plain))))
     case m: MValue => None
     case m: MEntity => None
     case _ => None

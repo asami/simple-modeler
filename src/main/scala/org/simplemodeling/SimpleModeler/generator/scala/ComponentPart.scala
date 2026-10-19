@@ -5,6 +5,8 @@ import model._
 import Generator.{State => GState, _}
 import org.simplemodeling.model.MComponent
 import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
+import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase.ClassKind
+import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.Purpose
 
 /*
  * @since   Feb. 12, 2026
@@ -14,7 +16,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Generator.GenM
  *  version Jun. 27, 2026
  *  version Jul. 25, 2026
  *  version Aug. 14, 2026
- * @version Oct. 18, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -2270,9 +2272,9 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
             _ <- params.zipWithIndex.traverse { case ((paramname, paramclasstype), i) =>
               val islast = i == params.length - 1
               if (islast)
-                println(s"${paramname}: ${typename_relative_name(paramclasstype)}")
+                println(s"${paramname}: ${_action_parameter_type_name(paramclasstype)}")
               else
-                println(s"${paramname}: ${typename_relative_name(paramclasstype)},")
+                println(s"${paramname}: ${_action_parameter_type_name(paramclasstype)},")
             }
           } yield ()
         }
@@ -2292,6 +2294,13 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       } yield ()
     }
 
+    private def _action_parameter_type_name(tpe: TypeName): String = tpe match {
+      case TypeName.Container(container, leaf)
+          if container.fullName == "cats.data.NonEmptyVector" && _is_named_structured_leaf(leaf) =>
+        s"cats.data.NonEmptyVector[${leaf.fullName}]"
+      case _ => typename_relative_name(tpe)
+    }
+
     private def _action_value_class_name(op: SMethod): String =
       _operation_model_definition(op).flatMap { definition =>
         Option(definition.inputValueKind).map(_.trim.toUpperCase(java.util.Locale.ROOT)) match {
@@ -2306,11 +2315,29 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
     private def _param_descriptors(op: SMethod): Vector[(String, TypeName)] =
       op.parameters.parameters.headOption match {
         case Some(s) => s.value match {
-          case Some(v) => _action_descriptors(v)
+          case Some(v) => _command_value_descriptors(op, v).getOrElse(_action_descriptors(v))
           case None => Vector((s.name.name, s.typeName))
         }
         case None => Vector(("p", TypeName.parse("Record"))) // TODO
       }
+
+    private def _command_value_descriptors(
+      op: SMethod,
+      action: SClassBase
+    ): Option[Vector[(String, TypeName)]] =
+      for {
+        definition <- _operation_model_definition(op)
+        if Option(definition.inputValueKind).exists(_.trim.toUpperCase(java.util.Locale.ROOT) == "COMMAND_VALUE")
+        parameter <- action.parameterSequence.parameters match {
+          case Vector(p) => Some(p)
+          case _ => None
+        }
+        value <- parameter.value
+        if value.directive.purpose.contains(Purpose.Plain)
+        if !value.directive.classKind.contains(ClassKind.EntityValue)
+        if value.className.name == _action_value_class_name(op)
+        if value.parameterSequence.parameters.nonEmpty
+      } yield _action_descriptors(value)
 
     private def _param_descriptor(op: SMethod): (String, TypeName) =
       _param_descriptors(op).head
@@ -2336,13 +2363,15 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       actionclassname: String,
       operationobjectname: String
     ): GenM[Unit] = {
+      val namedstructured = op.parameters.parameters.headOption.flatMap(_.value).
+        exists(value => _command_value_descriptors(op, value).isDefined)
       block(s"object $actionclassname") {
         for {
           _ <- block(s"def create(request: Request): Consequence[$actionclassname] =") {
             for {
               _ <- println(s"$operationobjectname.validateRequest(request).flatMap { _ =>")
               _ <- indent
-              _ <- _action_companion_object_create_body(params, actionclassname)
+              _ <- _action_companion_object_create_body(params, actionclassname, namedstructured)
               _ <- outdent
               _ <- println("}")
             } yield ()
@@ -2378,12 +2407,13 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
     private def _action_companion_object_create_body(
       params: Vector[(String, TypeName)],
-      actionclassname: String
+      actionclassname: String,
+      namedstructured: Boolean
     ): GenM[Unit] = params match {
       case Vector() =>
         println(s"Consequence.success($actionclassname(request))")
       case Vector((paramname, paramtype)) =>
-        block(s"${_action_companion_object_create_expr(paramname, paramtype)}.") {
+        block(s"${_action_companion_object_create_expr(paramname, paramtype, namedstructured)}.") {
           println(s"map($actionclassname(request, _))")
         }
       case xs =>
@@ -2391,7 +2421,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
           _ <- println("for {")
           _ <- indent
           _ <- xs.traverse { case (name, tpe) =>
-            println(s"$name <- ${_action_companion_object_create_expr(name, tpe)}")
+            println(s"$name <- ${_action_companion_object_create_expr(name, tpe, namedstructured)}")
           }.map(_ => ())
           _ <- outdent
           _ <- println(s"} yield $actionclassname(request, ${xs.map(_._1).mkString(", ")})")
@@ -2400,14 +2430,23 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
     private def _action_companion_object_create_expr(
       paramname: String,
-      paramtype: TypeName
+      paramtype: TypeName,
+      namedstructured: Boolean
     ): String = paramtype match {
+      case leaf if namedstructured && _is_named_structured_leaf(leaf) =>
+        s"""Consequence.successOrRecordNotFound[${leaf.fullName}]("${paramname}", request.toRecord)"""
+      case TypeName.Container(container, leaf) if namedstructured && _is_named_structured_leaf(leaf) && container.name == "Option" =>
+        s"""request.toRecord.getAsC[${leaf.fullName}]("${paramname}")"""
+      case TypeName.Container(container, leaf) if namedstructured && _is_named_structured_leaf(leaf) && container.name == "Vector" =>
+        s"""request.toRecord.getAsC[scala.Vector[${leaf.fullName}]]("${paramname}").map(_.getOrElse(Vector.empty))"""
+      case TypeName.Container(container, leaf) if namedstructured && _is_named_structured_leaf(leaf) && container.name == "NonEmptyVector" =>
+        s"""Consequence.successOrRecordNotFound[cats.data.NonEmptyVector[${leaf.fullName}]]("${paramname}", request.toRecord)"""
       case m if m.fullName == "org.goldenport.record.Record" =>
         "Consequence.success(request.toRecord)"
       case m if m.fullName.startsWith("org.goldenport.cncf.directive.Query") =>
         "Consequence.success(org.goldenport.cncf.directive.Query.fromRecord(request.toRecord))"
       case m if m.isPlatform =>
-        s"""Consequence.successOrRecordNotFound[${paramtype.name}]("${paramname}", request.toRecord)"""
+        s"""Consequence.successOrRecordNotFound[${typename_relative_name(paramtype)}]("${paramname}", request.toRecord)"""
       case m if _is_single_value_request_type(m) =>
         s"""Consequence.successOrRecordNotFound[${paramtype.name}]("${paramname}", request.toRecord)"""
       case TypeName.Container(container, containee) if container.name == "Option" && containee.isString =>
@@ -2416,7 +2455,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         case mm if mm.fullName == "org.goldenport.record.Record" =>
           s"Consequence.success(${container.name}(request.toRecord))"
         case mm if mm.isPlatform =>
-          s"""Consequence.successOrRecordNotFound[${containee.name}]("${paramname}", request.toRecord).map(x => ${container.name}(x))"""
+          s"""Consequence.successOrRecordNotFound[${typename_relative_name(containee)}]("${paramname}", request.toRecord).map(x => ${container.name}(x))"""
         case mm if _is_single_value_request_type(mm) =>
           s"""Consequence.successOrRecordNotFound[${containee.name}]("${paramname}", request.toRecord).map(x => ${container.name}(x))"""
         case _ =>
@@ -2424,6 +2463,13 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       }
       case _ =>
         s"${paramtype.fullName}.createC(request.toRecord)"
+    }
+
+    private def _is_named_structured_leaf(tpe: TypeName): Boolean = tpe match {
+      case TypeName.Structured(org.simplemodeling.model.MBuiltinStructuredDataType.Json) => true
+      case TypeName.Structured(org.simplemodeling.model.MBuiltinStructuredDataType.SemiStructuredData) => true
+      case leaf if leaf.fullName == "org.goldenport.record.Record" => true
+      case _ => false
     }
 
     private def _is_single_value_request_type(tpe: TypeName): Boolean =
