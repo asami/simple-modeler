@@ -9,7 +9,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.model.{SComponent, SMeth
  * runtime, not on handwritten provider implementation classes.
  *
  * @since   Jul. 11, 2026
- * @version Jul. 11, 2026
+ * @version Oct. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 object ComponentApiSourceGenerator {
@@ -28,7 +28,7 @@ object ComponentApiSourceGenerator {
     apiname: String
   ): String = {
     val operations = component.services.find(x => _normalize(x.serviceName) == _normalize(definition.name))
-      .map(_.methods).getOrElse(Vector.empty)
+      .map(_.methods.map(_.copy(serviceName = Some(definition.name)))).getOrElse(Vector.empty)
     val methods = operations.map(_method(component, _)).mkString("\n")
     val proxies = operations.map(_proxy(component, definition.name, _)).mkString("\n")
     val selectors = operations.map { operation =>
@@ -130,8 +130,20 @@ object ComponentApiSourceGenerator {
   private def _operation(
     component: SComponent,
     operation: SMethod
-  ): Option[SComponent.OperationDefinition] =
-    component.operationDefinitions.find(x => _normalize(x.name) == _normalize(operation.name.name))
+  ): Option[SComponent.OperationDefinition] = {
+    val candidates = component.operationDefinitions.filter(x => _normalize(x.name) == _normalize(operation.name.name))
+    val qualified = operation.serviceName.toVector.flatMap { owner =>
+      candidates.filter(_.serviceName.exists(name => _normalize(name) == _normalize(owner)))
+    }
+    val selected = if (qualified.nonEmpty) qualified else candidates.filter(_.serviceName.isEmpty)
+    selected match {
+      case Vector() => None
+      case Vector(definition) => Some(definition)
+      case _ => org.goldenport.RAISE.syntaxErrorFault(
+        s"Ambiguous operation '${operation.name.name}' for service owner '${operation.serviceName.getOrElse("<ownerless>")}': ${selected.size} matching definitions."
+      )
+    }
+  }
 
   private def _value_type(component: SComponent, name: String): String = {
     val value = name.trim

@@ -7,7 +7,7 @@ import org.simplemodeling.model._
 
 /*
  * @since   Jul. 12, 2026
- * @version Jul. 12, 2026
+ * @version Oct. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 object ComponentApiContractMetadata {
@@ -133,14 +133,26 @@ object ComponentApiContractMetadata {
     component: MComponent,
     definition: MComponent.ComponentServiceDefinition
   ): Vector[Operation] = {
-    val operationnames = component.services.find(x => _normalize(x.name) == _normalize(definition.name))
-      .map(_.operations.map(_.name).toSet).getOrElse(Set.empty)
-    _component_core(component).operationDefinitions.filter(x => operationnames.exists(_normalize(_) == _normalize(x.name))).map { operation =>
+    val operations = component.services.find(x => _normalize(x.name) == _normalize(definition.name))
+      .map(_.operations.toVector).getOrElse(Vector.empty)
+    operations.flatMap { method =>
+      val candidates = _component_core(component).operationDefinitions.filter(x => _normalize(method.name) == _normalize(x.name))
+      val qualified = candidates.filter(_.serviceName.exists(owner => _normalize(owner) == _normalize(definition.name)))
+      val selected = if (qualified.nonEmpty) qualified else candidates.filter(_.serviceName.isEmpty)
+      val operation = selected match {
+        case Vector() => None
+        case Vector(value) => Some(value)
+        case _ => org.goldenport.RAISE.syntaxErrorFault(
+          s"Ambiguous operation '${method.name}' for service owner '${definition.name}': ${selected.size} matching definitions."
+        )
+      }
+      operation.map { value =>
       Operation(
-        operation.name,
-        _generated_value_type(component, operation.inputType),
-        _generated_value_type(component, operation.outputType)
+        value.name,
+        _generated_value_type(component, value.inputType),
+        _generated_value_type(component, value.outputType)
       )
+      }
     }
   }
 

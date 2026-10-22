@@ -12,7 +12,8 @@ import org.simplemodeling.model._
  *  version May.  8, 2026
  *  version Jul. 25, 2026
  *  version Aug. 14, 2026
- * @version Sep. 18, 2026
+ *  version Sep. 18, 2026
+ * @version Oct. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 trait MComponent extends MObject {
@@ -685,7 +686,8 @@ object MComponent extends MStateMachinePredicateProgram {
     operationAuthorization: Option[OperationAuthorization] = None,
     childEntityBindings: Vector[OperationChildEntityBinding] = Vector.empty,
     associationBinding: Option[OperationAssociationBinding] = None,
-    evaluation: Option[OperationEvaluation] = None
+    evaluation: Option[OperationEvaluation] = None,
+    serviceName: Option[String] = None
   )
 
   final case class OperationAuthorization(

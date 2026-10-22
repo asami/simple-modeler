@@ -29,7 +29,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Jul. 25, 2026
  *  version Aug. 30, 2026
  *  version Sep.  2, 2026
- * @version Oct. 19, 2026
+ * @version Oct. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -817,7 +817,8 @@ case class SMethod(
   returnType: TypeName,
   body: Option[() => GenM[Unit]] = None,
   description: Option[String] = None,
-  access: Option[SComponent.OperationAccess] = None
+  access: Option[SComponent.OperationAccess] = None,
+  serviceName: Option[String] = None
 ) {
 }
 object SMethod {
@@ -1548,7 +1549,8 @@ object SComponent {
     operationAuthorization: Option[OperationAuthorization] = None,
     childEntityBindings: Vector[OperationChildEntityBinding] = Vector.empty,
     associationBinding: Option[OperationAssociationBinding] = None,
-    evaluation: Option[OperationEvaluation] = None
+    evaluation: Option[OperationEvaluation] = None,
+    serviceName: Option[String] = None
   )
 
   final case class OperationAuthorization(

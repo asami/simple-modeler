@@ -12,7 +12,8 @@ import org.simplemodeling.SimpleModeler.generator.scala.model._
  *  version Feb. 18, 2026
  *  version May. 22, 2026
  *  version Jul. 25, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Oct. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
@@ -322,6 +323,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
         SComponent.OperationDefinition(
           name = p.name,
           kind = p.kind,
+          serviceName = p.serviceName,
           summary = p.summary,
           execution = p.execution,
           commandKind = p.commandKind,
@@ -690,7 +692,7 @@ class ComponentScalaModelTransformer() extends ScalaModelTransformer() {
       SService(
         p.packageName,
         name,
-        ops,
+        ops.copy(methods = ops.methods.map(_.copy(serviceName = Some(name)))),
         actions,
         _description_text(p),
         p.serviceCore.useCases.map(_to_use_case_definition)

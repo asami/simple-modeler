@@ -16,7 +16,7 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.
  *  version Jun. 27, 2026
  *  version Jul. 25, 2026
  *  version Aug. 14, 2026
- * @version Oct. 19, 2026
+ * @version Oct. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -1994,7 +1994,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
                 }
               } yield ()
             }
-            ds <- service.methods.traverse(_operation(servicename))
+            ds <- service.methods.map(_.copy(serviceName = Some(service.serviceName))).traverse(_operation(servicename))
           } yield ds
         }
       } yield ActionCallDescriptorCollection(servicename, serviceobjectname, ds)
@@ -2553,21 +2553,15 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
 
     private def _is_echo_record_command(op: SMethod): Boolean =
       op.descriptor.kind == SMethod.Kind.Command &&
-        _component.exists(_.componentCore.operationDefinitions.exists { definition =>
-          val opname = _normalize_operation_marker(op.name.name)
-          val defname = _normalize_operation_marker(definition.name)
-          opname == defname &&
+        _operation_model_definition(op).exists { definition =>
           definition.implementation.exists(_.trim.equalsIgnoreCase("echo-record"))
-        })
+        }
 
     private def _is_sync_by_design_command(op: SMethod): Boolean =
       op.descriptor.kind == SMethod.Kind.Command &&
-        _component.exists(_.componentCore.operationDefinitions.exists { definition =>
-          val opname = _normalize_operation_marker(op.name.name)
-          val defname = _normalize_operation_marker(definition.name)
-          opname == defname &&
+        _operation_model_definition(op).exists { definition =>
           definition.execution.exists(_.trim.equalsIgnoreCase("sync"))
-        })
+        }
 
     private def _normalize_operation_marker(name: String): String =
       Option(name).getOrElse("").toLowerCase.replaceAll("[^a-z0-9]", "") match {
@@ -2576,13 +2570,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         case s => s
       }
 
-    private def _operation_access(op: SMethod): Option[SComponent.OperationAccess] = {
-      val opmarkers = Set(
-        _normalize_operation_marker(op.name.name),
-        _normalize_operation_marker(operation_name(op))
-      ).filter(_.nonEmpty)
+    private def _operation_access(op: SMethod): Option[SComponent.OperationAccess] =
       _operation_model_definition(op).flatMap(_.access)
-    }
 
     private def _operation_output_type(op: SMethod): String = {
       val runtimeoutput = op.returnType.name
@@ -2616,11 +2605,25 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
         _normalize_operation_marker(op.name.name),
         _normalize_operation_marker(operation_name(op))
       ).filter(_.nonEmpty)
-      _component.flatMap(_.componentCore.operationDefinitions.find { definition =>
+      val candidates = _component.toVector.flatMap(_.componentCore.operationDefinitions).filter { definition =>
         val defname = _normalize_operation_marker(definition.name)
         opmarkers.contains(defname)
-      })
+      }
+      val qualified = op.serviceName.toVector.flatMap { owner =>
+        candidates.filter(_.serviceName.exists(name => _normalize_service_owner(name) == _normalize_service_owner(owner)))
+      }
+      val selected = if (qualified.nonEmpty) qualified else candidates.filter(_.serviceName.isEmpty)
+      selected match {
+        case Vector() => None
+        case Vector(definition) => Some(definition)
+        case _ => org.goldenport.RAISE.syntaxErrorFault(
+          s"Ambiguous operation '${op.name.name}' for service owner '${op.serviceName.getOrElse("<ownerless>")}': ${selected.size} matching definitions."
+        )
+      }
     }
+
+    private def _normalize_service_owner(name: String): String =
+      name.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]", "")
 
     private def _action_program_entity: GenM[Unit] = {
       ???
