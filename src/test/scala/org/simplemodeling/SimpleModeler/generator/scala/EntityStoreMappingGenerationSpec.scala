@@ -9,13 +9,13 @@ import org.smartdox.Description
 import org.simplemodeling.model._
 import org.simplemodeling.model.domain.{MDomainResource, MDomainValue}
 import org.simplemodeling.SimpleModeler.generator.scala.model._
-import org.simplemodeling.SimpleModeler.generators.scala.{Scala3CaseClassGenerator, Scala3EntityFamilyGenerator, Scala3ValueFamilyGenerator}
+import org.simplemodeling.SimpleModeler.generators.scala.{Scala3CaseClassGenerator, Scala3ComponentGenerator, Scala3EntityFamilyGenerator, Scala3ValueFamilyGenerator}
 import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer
 import org.simplemodeling.SimpleModeler.transformers.scala.{EntityValueReadScalaModelTransformer, EntityValueCreateScalaModelTransformer, EntityValueUpdateScalaModelTransformer, EntityValueScalaModelTransformer, EntityValueQueryScalaModelTransformer}
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct. 19, 2026
+ * @version Oct. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -768,6 +768,66 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
     }
   }
 
+  "E17 Required shared expiry" should {
+    "compile generated families and preserve exact historical expiry through reopen and patch admission" in {
+      Given("a required Instant refinement of SimpleEntity resource expiry and the selected CNCF runtime")
+      val products = GeneratedRuntimeSpecification.expiryProducts
+      val required = java.lang.Boolean.getBoolean("textus.sm.generated-runtime.required")
+      if (!GeneratedRuntimeSpecification.isConfigured && !required) cancel("Generated runtime classpaths were not selected")
+
+      When("the actual emitted Scala 3 families are compiled and their public persistence APIs execute")
+      val probe = GeneratedRuntimeSpecification.compile(products, GeneratedRuntimeSpecification.expiryProbe, "GeneratedExpiryProbe")
+      try {
+        Then("nanosecond instants roundtrip through the single declared expiry and requiredness rejects invalid representations")
+        val seed = java.util.concurrent.ThreadLocalRandom.current().nextLong()
+        // Each sample opens real providers; shrinking must not replay its storage effects.
+        val property = org.scalacheck.Prop.forAllNoShrink(org.scalacheck.Gen.choose(1893456000L, 4102444800L), org.scalacheck.Gen.choose(0, 999999999)) { (seconds, nanos) =>
+          val samplecontext = s"E17 seed=$seed seconds=$seconds nanos=$nanos: "
+          try {
+            val facts = probe.invoke("check", Array(java.lang.Long.TYPE, java.lang.Integer.TYPE), Array(Long.box(seconds), Int.box(nanos)))
+              .asInstanceOf[java.util.Map[String, java.lang.Boolean]]
+            withClue(samplecontext) {
+              facts.keySet should contain allOf ("runtime", "roundtrip", "reopen", "single", "missing", "malformed", "aliases", "nested", "create", "query", "update", "clear", "sqlite", "mutators", "groupAliases", "groupClear", "revision")
+              import scala.collection.JavaConverters._
+              facts.asScala.foreach { case (name, passed) => withClue(s"fact=$name: ") { passed.booleanValue shouldBe true } }
+            }
+            true
+          } catch {
+            case scala.util.control.NonFatal(error) =>
+              val cause = error match {
+                case invocation: java.lang.reflect.InvocationTargetException if invocation.getCause != null => invocation.getCause
+                case other => other
+              }
+              throw new java.lang.AssertionError(samplecontext + GeneratedRuntimeSpecification.describeFailure(cause), cause)
+          }
+        }
+        val result = org.scalacheck.Test.check(org.scalacheck.Test.Parameters.default
+          .withInitialSeed(org.scalacheck.rng.Seed(seed)).withMinSuccessfulTests(20), property)
+        result.status match {
+          case failure: org.scalacheck.Test.PropException =>
+            fail(s"E17 seed=$seed status=${result.status} succeeded=${result.succeeded}: ${failure.e.getMessage}", failure.e)
+          case _ =>
+            withClue(s"E17 seed=$seed status=${result.status} succeeded=${result.succeeded}: ") { result.passed shouldBe true }
+        }
+        result.succeeded should be >= 20
+      } finally probe.close()
+    }
+
+    "retain rejection of unrelated and non-refining framework collisions" in {
+      Given("ordinary fields trying to reuse a framework key without the exact required Instant refinement")
+      val candidates = Vector(
+        _attribute("expiresAt", MDataType.string, MOne),
+        _attribute("expiresAt", MObjectAttributeType(MObjectRef.create("java.time.Instant")), MZeroOne),
+        _attribute("activatedAt", MObjectAttributeType(MObjectRef.create("java.time.Instant")), MOne))
+      When("ordinary generation attempts each declaration")
+      val failures = candidates.map { attribute =>
+        intercept[Exception] { _family(_entity(List(attribute)).copy(base = Some(MObjectRef.create("org.simplemodeling.model.SimpleEntity")))) }
+      }
+      Then("the existing framework collision boundary rejects each declaration")
+      failures.foreach(_.getMessage should include("colliding framework field"))
+    }
+  }
+
   private def _preparation_state(kinds: List[MPowertypeKind]): MPowertype = {
     MPowertype(Description.name("ProposalPreparationState"), MPackageRef("org.example.proposal"), kinds)
   }
@@ -786,4 +846,219 @@ final class EntityStoreMappingGenerationSpec extends AnyWordSpec with Matchers w
       None, Nil, Nil, List(_attribute("caption", MDataType.string, MOne),
         _attribute("rank", MAttributeType.create("int"), MOne)), Nil)
   }
+}
+
+/** Compiles ordinary emitted sources in a Scala 3 loader isolated from the Scala 2 producer. */
+private[scala] object GeneratedRuntimeSpecification {
+  def isConfigured: Boolean =
+    sys.props.contains("textus.sm.cncf.runtime-classpath-file") &&
+      sys.props.contains("textus.sm.scala3.compiler-classpath-file")
+
+  def describeFailure(failure: Throwable): String = {
+    val seen = new java.util.IdentityHashMap[Throwable, java.lang.Boolean]()
+    val messages = scala.collection.mutable.ArrayBuffer.empty[String]
+    var current = failure
+    var depth = 0
+    while (current != null && !seen.containsKey(current) && depth < 32) {
+      seen.put(current, java.lang.Boolean.TRUE)
+      val message = Option(current.getMessage).getOrElse("<no message>").replace('\n', ' ').replace('\r', ' ')
+      val location = current.getStackTrace.take(3).mkString(" | ")
+      messages += s"$depth:${current.getClass.getName}: $message [$location]"
+      current = Option(current.getCause).orElse(current match {
+        case initializer: ExceptionInInitializerError => Option(initializer.getException)
+        case _ => None
+      }).orNull
+      depth += 1
+    }
+    if (current != null) messages += (if (seen.containsKey(current)) "<cause cycle>" else "<cause chain exceeds 32 levels>")
+    messages.mkString(" caused by ")
+  }
+
+  def expiryProducts: Map[String, String] = {
+    // Same semantic projection as Cozy ModelTypeProjector's CML instant branch.
+    val attribute = MAttribute(Designation("expiresAt"), MObjectAttributeType(MObjectRef.create("java.time.Instant")), MOne, Nil, None)
+    val entity = MDomainResource(Description.name("Proposal"), MPackageRef("org.example.proposal"), Nil,
+      Some(MObjectRef.create("org.simplemodeling.model.SimpleEntity")), Nil, Nil, List(attribute), Nil, Nil, Nil)
+    val context = ScalaModel.Context.fromObjects(Vector(entity))
+    val entities = new Scala3EntityFamilyGenerator(context).generate(entity).take.slots.map(slot => slot.path -> slot.content).toMap
+    val component = SComponent(
+      core = ClassCore(packageName = PackageName("org.example.proposal"), declaration = ClassDeclaration.Control,
+        className = ClassName("ExpiryComponent"), parentClass = Some(TypeName.Plain.create("org.goldenport.cncf.component", "Component"))),
+      componentCore = SComponent.ComponentCore(componentName = "org.example.proposal.Expiry", services = Nil,
+        entityRuntimeDescriptors = Vector(SComponent.EntityRuntimeDescriptor("Proposal", PackageName("org.example.proposal.entity"),
+          revisionModelKind = Some("simple-entity"), revisionRepresentation = Some("embedded")))))
+    val components = new Scala3ComponentGenerator(context).generate(component).take.slots.map(slot => slot.path -> slot.content).toMap
+    entities ++ components
+  }
+
+  final class CompiledProbe private[GeneratedRuntimeSpecification](loader: java.net.URLClassLoader, probe: Class[_]) extends AutoCloseable {
+    def invoke(name: String, parameterTypes: Array[Class[_]], arguments: Array[AnyRef]): AnyRef = {
+      val thread = Thread.currentThread()
+      val previous = thread.getContextClassLoader
+      thread.setContextClassLoader(loader)
+      try probe.getMethod(name, parameterTypes: _*).invoke(null, arguments: _*)
+      finally thread.setContextClassLoader(previous)
+    }
+    def close(): Unit = loader.close()
+  }
+
+  def compile(products: Map[String, String], probeSource: String, probeClass: String): CompiledProbe = {
+    import java.nio.file.{Files, Paths}
+    import scala.collection.JavaConverters._
+    def _classpath_(property: String): Vector[java.nio.file.Path] = {
+      val file = Paths.get(sys.props.getOrElse(property, throw new IllegalStateException("Required generated-runtime input missing: " + property)))
+      val paths = Files.readAllLines(file).asScala.filter(_.trim.nonEmpty).map(line => Paths.get(line.trim)).toVector
+      require(paths.nonEmpty && paths.forall(path => Files.isRegularFile(path)), "Runtime/compiler classpath must contain existing artifacts")
+      paths
+    }
+    val runtime = _classpath_("textus.sm.cncf.runtime-classpath-file")
+    val compiler = _classpath_("textus.sm.scala3.compiler-classpath-file")
+    val directory = Files.createTempDirectory(Paths.get("target"), "generated-runtime-")
+    val output = Files.createDirectory(directory.resolve("classes"))
+    val sources = products.toVector.filter(_._1.endsWith(".scala")).map { case (path, content) =>
+      val relative = path.stripPrefix("/")
+      require(!relative.split('/').contains(".."), "Generated source must stay in fixture directory")
+      val file = directory.resolve("sources").resolve(relative)
+      Files.createDirectories(file.getParent)
+      Files.write(file, content.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+      file.toString
+    }
+    val probefile = directory.resolve(probeClass + ".scala")
+    Files.write(probefile, probeSource.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+    // Dotty's implementation uses the selected Scala 3/2.13 runtime libraries as well.
+    // The platform parent keeps the Scala 2.12 producer outside this loader.
+    val compilerclasspath = (compiler ++ runtime).distinct
+    val compilerloader = new java.net.URLClassLoader(compilerclasspath.map(_.toUri.toURL).toArray, ClassLoader.getPlatformClassLoader)
+    val thread = Thread.currentThread()
+    val previous = thread.getContextClassLoader
+    try {
+      thread.setContextClassLoader(compilerloader)
+      val main = compilerloader.loadClass("dotty.tools.dotc.Main")
+      val arguments = Array("-classpath", runtime.mkString(java.io.File.pathSeparator), "-d", output.toString) ++ sources ++ Array(probefile.toString)
+      val reporter = main.getMethod("process", classOf[Array[String]]).invoke(null, arguments.asInstanceOf[AnyRef])
+      val errors = reporter.getClass.getMethod("hasErrors").invoke(reporter).asInstanceOf[java.lang.Boolean]
+      require(!errors.booleanValue, "Generated Scala 3 compilation failed; diagnostics above, retained source: " + directory)
+    } finally {
+      thread.setContextClassLoader(previous)
+      compilerloader.close()
+    }
+    val loader = new java.net.URLClassLoader((Vector(output) ++ runtime).map(_.toUri.toURL).toArray, ClassLoader.getPlatformClassLoader)
+    try new CompiledProbe(loader, loader.loadClass(probeClass))
+    catch { case error: Throwable => loader.close(); throw error }
+  }
+
+  val expiryProbe: String = """
+import java.time.Instant
+import org.goldenport.record.Record
+import org.goldenport.cncf.entity.{EntityPersistent, EntityPersistentCreate, EntityPersistentUpdate}
+import org.simplemodeling.model.datatype.EntityId
+import org.example.proposal.entity.Proposal
+object GeneratedExpiryProbe {
+  def check(epochSecond: Long, nano: Int): java.util.Map[String, java.lang.Boolean] = {
+    val expiry = Instant.ofEpochSecond(epochSecond, nano)
+    val id = EntityId.restore("test", "runtime", Proposal.collectionId, Instant.EPOCH, "expiry").TAKE
+    val row = Record.dataAuto("id" -> id, "expiresAt" -> expiry)
+    val persistent = summon[EntityPersistent[Proposal]]
+    val entity = Proposal.createC(row).TAKE
+    val encoded = persistent.toStoreRecordC(Proposal.collectionId, entity).TAKE
+    val reopened = persistent.fromStoreRecordC(Proposal.collectionId, encoded).TAKE
+    // A fresh Record containing the historical physical spelling is admitted independently.
+    val historical = Record.createFull(encoded.fields.map(field => field.key -> field.value).map {
+      case ("expires_at", _) => "expires_at" -> expiry.toString
+      case (key, org.goldenport.record.Field.Value.Single(value)) => key -> value
+    })
+    val old = persistent.fromStoreRecordC(Proposal.collectionId, historical).TAKE
+    val created = org.example.proposal.entity.create.Proposal.createC(Record.dataAuto("expires_at" -> expiry)).TAKE
+    val query = org.example.proposal.entity.query.Proposal.createC(Record.dataAuto("expires_at" -> expiry)).TAKE
+    val patch = org.example.proposal.entity.update.Proposal.createC(Record.dataAuto("expires_at" -> expiry)).TAKE
+    val update = summon[EntityPersistentUpdate[org.example.proposal.entity.update.Proposal]]
+    val changes = update.toStoreChangesRecordC(Proposal.collectionId, patch).TAKE
+    val moved = entity.withExpiresAt(expiry.plusNanos(1))
+    val resource = moved.resourceAttributes.copy(expiresAt = Some(expiry.plusSeconds(1).atZone(java.time.ZoneOffset.ofHours(9))))
+    val regrouped = moved.withResourceAttributes(resource)
+    val movedcreate = created.withResourceAttributes(resource).withExpiresAt(expiry.plusNanos(2))
+    val movedpatch = patch.withResourceAttributes(patch.resourceAttributes.copy(
+      expiresAt = org.simplemodeling.model.directive.Update.set(expiry.plusSeconds(2).atZone(java.time.ZoneOffset.ofHours(9)))))
+      .withExpiresAt(org.simplemodeling.model.directive.Update.set(expiry.plusNanos(3)))
+    val equalgroups = Proposal.createC(row ++ Record.dataAuto(
+      "resourceAttributes" -> org.simplemodeling.model.value.ResourceAttributes(expiresAt = Some(expiry.atZone(java.time.ZoneOffset.UTC))),
+      "resource_attributes" -> org.simplemodeling.model.value.ResourceAttributes(expiresAt = Some(expiry.atZone(java.time.ZoneOffset.ofHours(9))))))
+    val database = java.nio.file.Files.createTempDirectory(java.nio.file.Path.of("target"), "expiry-sql-").toAbsolutePath.resolve("application.db")
+    val writer = org.goldenport.cncf.datastore.sql.SqlDataStore.jdbc("jdbc:sqlite:" + database)
+    locally {
+      given org.goldenport.cncf.context.ExecutionContext = _context(writer)
+      try {
+        val store = org.goldenport.cncf.entity.EntityStore.standard()
+        _take("sqlite create", store.create(org.example.proposal.entity.create.Proposal.createC(row).TAKE,
+          org.goldenport.cncf.entity.EntityCreateOptions(Set("publication"))))
+        val saved = _take("sqlite load before save", store.load[Proposal](id)).get
+        _take("sqlite revision-bearing save", store.save(saved, saved.revision))
+      } finally writer.closeC().TAKE
+    }
+    val reader = org.goldenport.cncf.datastore.sql.SqlDataStore.jdbc("jdbc:sqlite:" + database)
+    val durable = locally {
+      given org.goldenport.cncf.context.ExecutionContext = _context(reader)
+      try {
+        val restored = _take("sqlite reopened load", org.goldenport.cncf.entity.EntityStore.standard().load[Proposal](id)).get
+        (restored.expiresAt == expiry && restored.resourceAttributes.expiresAt.exists(_.toInstant == expiry),
+          restored.revision.value == 2L)
+      } finally reader.closeC().TAKE
+    }
+    val facts = new java.util.LinkedHashMap[String, java.lang.Boolean]()
+    facts.put("mutators", moved.expiresAt.compareTo(expiry.plusNanos(1)) == 0 &&
+      moved.resourceAttributes.expiresAt.exists(_.toInstant.compareTo(moved.expiresAt) == 0) &&
+      regrouped.expiresAt.compareTo(expiry.plusSeconds(1)) == 0 &&
+      regrouped.resourceAttributes.expiresAt.exists(_.toInstant.compareTo(regrouped.expiresAt) == 0) &&
+      movedcreate.expiresAt.compareTo(expiry.plusNanos(2)) == 0 &&
+      movedcreate.resourceAttributes.expiresAt.exists(_.toInstant.compareTo(movedcreate.expiresAt) == 0) &&
+      movedpatch.expiresAt.fold(false, _.compareTo(expiry.plusNanos(3)) == 0, false) &&
+      movedpatch.resourceAttributes.expiresAt.fold(false, _.toInstant.compareTo(expiry.plusNanos(3)) == 0, false))
+    facts.put("groupAliases", equalgroups.isSuccess && equalgroups.TAKE.expiresAt.compareTo(expiry) == 0)
+    facts.put("groupClear", scala.util.Try(entity.withResourceAttributes(entity.resourceAttributes.copy(expiresAt = None))).isFailure &&
+      scala.util.Try(patch.withResourceAttributes(patch.resourceAttributes.copy(expiresAt = org.simplemodeling.model.directive.Update.setNull[java.time.ZonedDateTime]))).isFailure)
+    facts.put("sqlite", durable._1)
+    facts.put("revision", durable._2)
+    facts.put("runtime", org.goldenport.cncf.CncfVersion.current == "0.5.3-SNAPSHOT")
+    facts.put("roundtrip", reopened.expiresAt == expiry && reopened.resourceAttributes.expiresAt.exists(_.toInstant == expiry))
+    facts.put("reopen", old.expiresAt == expiry && old.id == id)
+    facts.put("single", encoded.fields.count(field => field.key == "expires_at" || field.key == "expiresAt") == 1)
+    facts.put("missing", !Proposal.createC(Record.dataAuto("id" -> id)).isSuccess)
+    facts.put("malformed", !Proposal.createC(Record.dataAuto("id" -> id, "expiresAt" -> "not-an-instant")).isSuccess)
+    facts.put("aliases", !Proposal.createC(row ++ Record.dataAuto("expires_at" -> expiry.plusNanos(1))).isSuccess)
+    facts.put("nested", !Proposal.createC(row ++ Record.dataAuto("resourceAttributes" -> org.simplemodeling.model.value.ResourceAttributes(expiresAt = Some(expiry.plusSeconds(1).atZone(java.time.ZoneOffset.UTC))))).isSuccess)
+    facts.put("create", created.expiresAt == expiry && created.resourceAttributes.expiresAt.exists(_.toInstant == expiry))
+    facts.put("query", query.expiresAt == org.simplemodeling.model.directive.Condition.is(expiry) &&
+      !org.example.proposal.entity.query.Proposal.createC(Record.dataAuto("expires_at" -> "bad-instant")).isSuccess)
+    facts.put("update", patch.resourceAttributes.expiresAt.fold(false, _.toInstant == expiry, false) && changes.getAny("expires_at").nonEmpty)
+    facts.put("clear", !org.example.proposal.entity.update.Proposal.createC(Record.dataAuto("expiresAt" -> org.simplemodeling.model.directive.Update.setNull[Instant])).isSuccess)
+    facts
+  }
+
+  private def _context(provider: org.goldenport.cncf.datastore.DataStore): org.goldenport.cncf.context.ExecutionContext = {
+    val subsystem = org.goldenport.cncf.subsystem.Subsystem(name = "expiry-generated-runtime",
+      configuration = org.goldenport.configuration.ResolvedConfiguration(
+        org.goldenport.configuration.Configuration.empty, org.goldenport.configuration.ConfigurationTrace.empty))
+    val component = _take("generated component factory", new org.example.proposal.ExpiryComponent.Factory().createPrimaryC(
+      org.goldenport.cncf.component.ComponentCreate(subsystem, org.goldenport.cncf.component.ComponentOrigin.Main)))
+    val bootstrapped = _take("generated component bootstrap", new org.goldenport.cncf.component.ComponentFactory().bootstrapC(component))
+    val collection = bootstrapped.entitySpace.entityOption(Proposal.collectionId).get
+    val context = org.goldenport.cncf.context.ExecutionContext.create()
+    context.dataStoreSpace.useDataStore(provider)
+    context.entitySpace.registerEntity(collection.descriptor.plan.entityName, collection)
+    context
+  }
+
+  private def _take[A](stage: String, result: => org.goldenport.Consequence[A]): A = {
+    val evaluated = try result catch {
+      case error: ExceptionInInitializerError => throw new IllegalStateException(stage, error)
+      case scala.util.control.NonFatal(error) => throw new IllegalStateException(stage, error)
+    }
+    evaluated match {
+      case org.goldenport.Consequence.Success(value) => value
+      case org.goldenport.Consequence.Failure(conclusion) =>
+        throw new IllegalStateException(stage + ": " + (conclusion.show +: conclusion.causes.map(_.display)).mkString(" | "), conclusion.getException.orNull)
+    }
+  }
+}
+"""
 }

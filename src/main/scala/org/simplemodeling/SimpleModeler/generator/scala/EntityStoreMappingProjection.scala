@@ -9,7 +9,7 @@ import model._
  * Explicit declaration projection into the accepted CNCF persistence ABI.
  *
  * @since   Oct.  5, 2026
- * @version Oct. 19, 2026
+ * @version Oct. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 object EntityStoreMappingProjection {
@@ -49,6 +49,11 @@ object EntityStoreMappingProjection {
         datatype, _multiplicity(attribute, declaredtype), binding)
     }
   }
+
+  def refineSharedExpiry(attribute: Attribute): Attribute =
+    if (attribute.isRequiredSharedExpiry)
+      attribute.copy(dbColumnName = Some(attribute.dbColumnName.getOrElse("expires_at")))
+    else attribute
 
   def stringLiteral(value: String): String = {
     "\"" + value.flatMap {

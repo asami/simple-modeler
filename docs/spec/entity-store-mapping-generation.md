@@ -509,3 +509,19 @@ standalone omission and invalid explicit declarations. These are authored source
 specifications; this amendment records no execution result. Cozy's separately
 coordinated nested persisted-value validation and actual compiled generated
 Workbench SQL write/read/reopen integration remain acceptance obligations.
+
+## Required framework lifetime refinement — 2026-10-31
+
+The typed required canonical `expiresAt: java.time.Instant` declaration may refine
+SimpleEntity's existing resource lifetime under the
+[UserAccount runtime compatibility contract](user-account-runtime-compatibility-generation.md).
+It is the sole declared logical/storage expiry, keeps Multiplicity.One and the
+existing required Update clear rejection, and derives the framework resource
+expiry without loss of instant precision. Default storage is `expires_at`;
+explicit canonical `expiresAt`/`expires_at` declarations remain authoritative.
+No other framework field or optional/mistyped expiry acquires this exception.
+R4's unrelated collision rejection, strict mappings, security, revision and SQL
+constraints remain in force. E17 adds real generated Scala 3 compilation and
+public runtime persistence/admission specifications, including historical-row
+re-admission and conflicting representations. This amendment records authored
+behavior and no validation or downstream acceptance result.

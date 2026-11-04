@@ -29,7 +29,7 @@ import org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorBase
  *  version Jul. 25, 2026
  *  version Aug. 30, 2026
  *  version Sep.  2, 2026
- * @version Oct. 21, 2026
+ * @version Oct. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 case class ScalaModel(
@@ -706,6 +706,14 @@ case class Attribute(
   storeDeclaration: Option[EntityStoreDeclaration] = None
 ) {
   def isDerived: Boolean = derived.nonEmpty
+
+  // A refinement of the framework lifetime, never a second ordinary lifetime.
+  def isRequiredSharedExpiry: Boolean = {
+    val declaration = storeDeclaration.map(_.typeName).getOrElse(typeName)
+    name.name == "expiresAt" && declaration.fullName == "java.time.Instant" &&
+      storeDeclaration.forall(_.multiplicity == org.simplemodeling.model.MOne) &&
+      dbColumnName.forall(x => x == "expiresAt" || x == "expires_at") && !isDerived
+  }
 }
 
 case class WebAttribute(

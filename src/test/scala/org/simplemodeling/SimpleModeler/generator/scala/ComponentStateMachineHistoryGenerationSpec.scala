@@ -13,7 +13,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala.ComponentScalaModelTr
 
 /*
  * @since Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct. 31, 2026
  * @author ASAMI, Tomoharu
  */
 final class ComponentStateMachineHistoryGenerationSpec
@@ -184,6 +184,122 @@ final class ComponentStateMachineHistoryGenerationSpec
       absentresult.conclusion.message should include("StateMachine normalization missing for lifecycle")
     }
   }
+
+  "Current CNCF generated account transition linkage" should {
+    "compile all five edges and execute native structural selection with their exact bindings" in {
+      Given("the five existing UserAccount lifecycle edges and current generated persistence families")
+      if (!GeneratedRuntimeSpecification.isConfigured && !java.lang.Boolean.getBoolean("textus.sm.generated-runtime.required"))
+        cancel("Generated runtime classpaths were not selected")
+      val machine = MComponent.StateMachineIdentity("status")
+      val edges = Vector(("provisional", "promoteToFormalRegistration", "formal"),
+        ("provisional", "suspend", "suspended"), ("registered", "suspend", "suspended"),
+        ("formal", "suspend", "suspended"), ("suspended", "restore", "registered"))
+      val rules = edges.zipWithIndex.map { case ((source, event, target), order) =>
+        val binding = MComponent.StateMachineTransitionBinding(
+          entityName = "Proposal", machine = machine, version = 1,
+          transition = MComponent.StateMachineTransitionIdentity(machine, order),
+          source = _state(machine, source),
+          target = MComponent.StateMachineTransitionTarget.State(_state(machine, target)),
+          trigger = MComponent.StateMachineTriggerIdentity(machine, event),
+          operation = Some(MComponent.StateMachineOperationIdentity("account", event)))
+        SComponent.StateMachineTransitionRule(collectionName = "proposal", trigger = SComponent.TransitionTrigger.Operation,
+          eventName = event, machineName = Some("status"), stateFieldName = Some("status"),
+          fromState = Some(source), toState = Some(target), declarationOrder = order, binding = Some(binding))
+      }
+      val component = _component.copy(core = _component.core.copy(
+        parentClass = Some(TypeName.Plain.create("org.goldenport.cncf.component", "CollaboratorComponent"))),
+        componentCore = _component.componentCore.copy(
+          entityRuntimeDescriptors = Vector(SComponent.EntityRuntimeDescriptor("Proposal", PackageName("org.example.proposal.entity"))),
+          stateMachineTransitionRules = rules, stateMachineDefinitions = Vector.empty))
+      val context = ScalaModel.Context.Default(componentNamespace = Some("org.simplemodeling.textus"), componentLocalId = Some("UserAccount"))
+      val products = new Scala3ComponentGenerator(context).generate(component).take.slots.map(slot => slot.path -> slot.content).toMap
+
+      When("ordinary generated component and entity sources compile and the runtime planner selects each edge")
+      val probe = GeneratedRuntimeSpecification.compile(GeneratedRuntimeSpecification.expiryProducts ++ products, _account_probe, "GeneratedAccountProbe")
+      try {
+        val facts = probe.invoke("check", Array.empty[Class[_]], Array.empty[AnyRef]).asInstanceOf[java.util.Map[String, java.lang.Boolean]]
+        Then("every selected plan retains its canonical transition identity and rejects an invalid target")
+        import scala.collection.JavaConverters._
+        facts.size shouldBe 8
+        facts.asScala.foreach { case (name, passed) => withClue(name + ": ") { passed.booleanValue shouldBe true } }
+      } finally probe.close()
+    }
+
+    "compile and execute a declared action through the current program ABI without a successful placeholder" in {
+      Given("a generated transition action with no installed script binding")
+      if (!GeneratedRuntimeSpecification.isConfigured && !java.lang.Boolean.getBoolean("textus.sm.generated-runtime.required"))
+        cancel("Generated runtime classpaths were not selected")
+      val base = _component_with_rule(SComponent.TransitionTrigger.Update, None)
+      val rule = base.componentCore.stateMachineTransitionRules.head.copy(plan = SComponent.RulePlan(
+        transition = Some(SComponent.RuleAction("requires-binding"))))
+      val component = base.copy(core = base.core.copy(
+        parentClass = Some(TypeName.Plain.create("org.goldenport.cncf.component", "CollaboratorComponent"))),
+        componentCore = base.componentCore.copy(entityRuntimeDescriptors = Vector.empty,
+          stateMachineTransitionRules = Vector(rule), stateMachineDefinitions = Vector.empty))
+      val products = new Scala3ComponentGenerator(ScalaModel.Context.default).generate(component).take.slots.map(slot => slot.path -> slot.content).toMap
+      When("the emitted action program is evaluated using the public CNCF program interpreter interface")
+      val probe = GeneratedRuntimeSpecification.compile(products, _action_probe, "GeneratedActionProbe")
+      try {
+        Then("the singleton transition vector links and its unbound action fails closed")
+        probe.invoke("check", Array.empty[Class[_]], Array.empty[AnyRef]) shouldBe java.lang.Boolean.TRUE
+      } finally probe.close()
+    }
+  }
+
+  private val _account_probe = """
+import org.goldenport.Consequence
+import org.goldenport.record.Record
+import org.goldenport.cncf.statemachine.*
+object GeneratedAccountProbe {
+  def check(): java.util.Map[String, java.lang.Boolean] = {
+    val component = new example.ExampleComponent()
+    val rules = component.stateMachineTransitionRules
+    val planner = new CollectionStateMachinePlanner[Any](rules.map(rule => TransitionRule[Any](
+      eventName = rule.eventName, priority = rule.priority, declarationOrder = rule.declarationOrder,
+      guard = rule.guard, plan = rule.plan, machineName = rule.machineName, stateFieldName = rule.stateFieldName,
+      fromState = rule.fromState, toState = rule.toState, binding = rule.binding, trigger = rule.trigger)))
+    val facts = new java.util.LinkedHashMap[String, java.lang.Boolean]()
+    facts.put("graph", rules.map(rule => (rule.fromState.get, rule.eventName, rule.toState.get)).toSet == Set(
+      ("provisional", "promoteToFormalRegistration", "formal"), ("provisional", "suspend", "suspended"),
+      ("registered", "suspend", "suspended"), ("formal", "suspend", "suspended"), ("suspended", "restore", "registered")))
+    rules.zipWithIndex.foreach { (rule, index) =>
+      val event = TransitionEvent(rule.eventName, None,
+        currentRecord = Some(Record.dataAuto("status" -> rule.fromState.get)),
+        proposedRecord = Some(Record.dataAuto("status" -> rule.toState.get)),
+        invocation = Some(org.goldenport.cncf.context.ExecutionInvocationIdentity("generated-edge", 1L,
+          "org.simplemodeling.textus.UserAccount.account." + rule.eventName, explicit = true)))
+      val plan = planner.plan((), event).TAKE.get
+      facts.put("edge" + index, plan.selectedTransitionBinding == rule.binding &&
+        plan.exitActions.isEmpty && plan.transitionActions.isEmpty && plan.entryActions.isEmpty &&
+        rule.binding.exists(binding => binding.componentId.name == "org.simplemodeling.textus.UserAccount"))
+    }
+    val invalid = TransitionEvent("suspend", None, currentRecord = Some(Record.dataAuto("status" -> "formal")),
+      proposedRecord = Some(Record.dataAuto("status" -> "registered")),
+      invocation = Some(org.goldenport.cncf.context.ExecutionInvocationIdentity("invalid-edge", 1L,
+        "org.simplemodeling.textus.UserAccount.account.suspend", explicit = true)))
+    facts.put("invalid", !planner.plan((), invalid).isSuccess)
+    facts.put("invocation", !planner.plan((), invalid.copy(invocation = None)).isSuccess)
+    facts
+  }
+}
+"""
+
+  private val _action_probe = """
+import org.goldenport.Consequence
+import org.goldenport.cncf.statemachine.*
+import org.goldenport.cncf.unitofwork.UnitOfWorkOp
+object GeneratedActionProbe {
+  def check(): Boolean = {
+    val rule = new example.ExampleComponent().stateMachineTransitionRules.head
+    val action = rule.plan.transitionActions.head
+    val interpreter = new cats.~>[UnitOfWorkOp, Consequence] {
+      def apply[A](operation: UnitOfWorkOp[A]): Consequence[A] = Consequence.notImplemented("Unexpected effect")
+    }
+    val outcome = action.program((), TransitionEvent("update", None)).value.foldMap(interpreter).flatMap(identity)
+    rule.plan.transitionActions.size == 1 && !outcome.isSuccess
+  }
+}
+"""
 
   private def _generated_source(component: MDomainComponent): String = {
     val scalacontext = ScalaModel.Context.fromObjects(Vector(component))

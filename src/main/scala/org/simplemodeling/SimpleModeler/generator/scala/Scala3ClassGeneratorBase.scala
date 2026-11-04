@@ -24,7 +24,7 @@ import Generator.{State => GState, _}
  *  version May. 26, 2026
  *  version Jun. 27, 2026
  *  version Jul. 28, 2026
- * @version Oct. 19, 2026
+ * @version Oct. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class Scala3ClassGeneratorBase[T <: SClassBase](
@@ -351,6 +351,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   protected def section_variables: GenM[Unit] =
     for {
       _ <- _simple_object_attribute_alias_definitions
+      _ <- _shared_expiry_definitions
       _ <- _simple_entity_projection_attribute_definitions
       _ <- _derived_attribute_methods
     } yield ()
@@ -413,8 +414,24 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     val rtype = TypeName.create(clazz)
     val m = SMethod.query(name, rtype, param) {
       val paramname = p.name.name
-      val targetname = _class_constructor_parameter_name(paramname)
-      println(s"copy($targetname = $paramname)")
+      if (_has_required_shared_expiry && paramname == "resourceAttributes") {
+        if (is_update)
+          for {
+            _ <- println("val expiry = resourceAttributes.expiresAt.fold(this.expiresAt, value => Update.set(value.toInstant), Consequence.valueInvalid[Update[java.time.Instant]](\"Required expiresAt cannot be cleared\").RAISE)")
+            _ <- println("copy(resourceAttributesInput = resourceAttributes, expiresAt = expiry)")
+          } yield ()
+        else
+          for {
+            _ <- println("val expiry = Consequence.successOrPropertyNotFound(\"expiresAt\", resourceAttributes.expiresAt).TAKE.toInstant")
+            _ <- println("copy(resourceAttributesInput = resourceAttributes, expiresAt = expiry)")
+          } yield ()
+      } else if (_has_required_shared_expiry && paramname == "expiresAt") {
+        val emptyexpiry = if (is_update) "Update.noop[java.time.ZonedDateTime]" else "None"
+        println(s"copy(resourceAttributesInput = this.resourceAttributes.copy(expiresAt = $emptyexpiry), expiresAt = expiresAt)")
+      } else {
+        val targetname = _class_constructor_parameter_name(paramname)
+        println(s"copy($targetname = $paramname)")
+      }
     }
     define_method(m)
   }
@@ -1101,7 +1118,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     _select_attribute_name(names, "resourceAttributes", "resource_Attributes").foreach { attr =>
       b += "activatedAt" -> s"$attr.activatedAt"
       b += "deactivatedAt" -> s"$attr.deactivatedAt"
-      b += "expiresAt" -> s"$attr.expiresAt"
+      if (!_has_required_shared_expiry) b += "expiresAt" -> s"$attr.expiresAt"
       b += "activationStatus" -> s"$attr.activationStatus"
     }
     _select_attribute_name(names, "mediaAttributes", "media_Attributes").foreach { attr =>
@@ -1164,7 +1181,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   private def _logical_store_framework_properties: Vector[(String, String, String)] = {
     if (_is_simple_entity_parent) {
-      _to_data_store_simple_entity_properties
+      _to_data_store_simple_entity_properties.filterNot(x => _has_required_shared_expiry && x._1 == "expiresAt")
     } else {
       Vector.empty
     }
@@ -1218,6 +1235,75 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
   }
 
+  private def _has_shared_expiry_declaration: Boolean =
+    (_is_simple_entity_parent || clazz.parentClass.exists {
+      case TypeName.Plain(pkg, "SimpleEntityQuery", _) => pkg.name == "org.simplemodeling.model"
+      case _ => false
+    }) && attributes_vector.exists(_.isRequiredSharedExpiry)
+
+  private def _has_required_shared_expiry: Boolean =
+    _is_simple_entity_parent && attributes_vector.exists(_.isRequiredSharedExpiry)
+
+  private def _shared_expiry_definitions: GenM[Unit] =
+    if (!_has_required_shared_expiry) unit
+    else if (is_update)
+      for {
+        _ <- println("override val resourceAttributes: org.simplemodeling.model.value.ResourceAttributesUpdate = {")
+        _ <- println("  val shared = expiresAt.fold(Update.noop[java.time.ZonedDateTime], value => Update.set(value.atZone(java.time.ZoneOffset.UTC)), Update.setNull[java.time.ZonedDateTime])")
+        _ <- println("  if (!resourceAttributesInput.expiresAt.isNoop && !resourceAttributesInput.expiresAt.fold(shared.isNoop, value => shared.fold(false, _.toInstant.compareTo(value.toInstant) == 0, false), shared.isSetNull)) Consequence.valueInvalid[Unit](\"Conflicting shared expiry update\").RAISE")
+        _ <- println("  if (expiresAt.isSetNull) Consequence.valueInvalid[Unit](\"Required expiresAt cannot be cleared\").RAISE")
+        _ <- println("  resourceAttributesInput.copy(expiresAt = shared)")
+        _ <- println("}")
+      } yield ()
+    else
+      for {
+        _ <- println("override val resourceAttributes: org.simplemodeling.model.value.ResourceAttributes = {")
+        _ <- println("  if (expiresAt == null || resourceAttributesInput.expiresAt.exists(_.toInstant.compareTo(expiresAt) != 0)) Consequence.valueInvalid[Unit](\"Conflicting or missing required shared expiry\").RAISE")
+        _ <- println("  resourceAttributesInput.copy(expiresAt = Some(expiresAt.atZone(java.time.ZoneOffset.UTC)))")
+        _ <- println("}")
+      } yield ()
+
+  private def _shared_expiry_readers: GenM[Unit] =
+    if (!_has_shared_expiry_declaration) unit
+    else for {
+      _ <- println("private def _same_resource_attributes(left: org.simplemodeling.model.value.ResourceAttributes, right: org.simplemodeling.model.value.ResourceAttributes): Boolean = {")
+      _ <- println("  def _same_instant_(left: Option[java.time.ZonedDateTime], right: Option[java.time.ZonedDateTime]): Boolean =")
+      _ <- println("    left.fold(right.isEmpty)(value => right.exists(_.toInstant.compareTo(value.toInstant) == 0))")
+      _ <- println("  _same_instant_(left.activatedAt, right.activatedAt) && _same_instant_(left.deactivatedAt, right.deactivatedAt) &&")
+      _ <- println("    _same_instant_(left.expiresAt, right.expiresAt) && left.activationStatus.dbValue == right.activationStatus.dbValue")
+      _ <- println("}")
+      _ <- println("private def _shared_resource_c(record: Record): Consequence[Option[org.simplemodeling.model.value.ResourceAttributes]] = {")
+      _ <- println("  val values = Vector(\"resourceAttributes\", \"resource_attributes\").flatMap(record.getAny)")
+      _ <- println("  values.foldLeft(Consequence.success(Option.empty[org.simplemodeling.model.value.ResourceAttributes])) { (result, value) =>")
+      _ <- println("    val admitted = value match {")
+      _ <- println("      case nested: Record => _shared_expiry_c(nested).flatMap(expiry => summon[org.goldenport.convert.ValueReader[org.simplemodeling.model.value.ResourceAttributes]].readC(nested).map(_.copy(expiresAt = expiry.map(_.atZone(java.time.ZoneOffset.UTC)))))")
+      _ <- println("      case other => summon[org.goldenport.convert.ValueReader[org.simplemodeling.model.value.ResourceAttributes]].readC(other)")
+      _ <- println("    }")
+      _ <- println("    result.flatMap(previous => admitted.flatMap { current =>")
+      _ <- println("      if (previous.exists(value => !_same_resource_attributes(value, current))) Consequence.valueInvalid(\"Conflicting resource attributes\") else Consequence.success(Some(current))")
+      _ <- println("    })")
+      _ <- println("  }")
+      _ <- println("}")
+      _ <- println("private def _shared_expiry_c(record: Record): Consequence[Option[java.time.Instant]] = {")
+      _ <- println("  val values = Vector(\"expiresAt\", \"expires_at\").flatMap(record.getAny)")
+      _ <- println("  val flat = values.foldLeft(Consequence.success(Option.empty[java.time.Instant])) { (result, value) =>")
+      _ <- println("    val admitted = value match {")
+      _ <- println("      case zoned: java.time.ZonedDateTime => Consequence.success(zoned.toInstant)")
+      _ <- println("      case offset: java.time.OffsetDateTime => Consequence.success(offset.toInstant)")
+      _ <- println("      case other => summon[org.goldenport.convert.ValueReader[java.time.Instant]].readC(other)")
+      _ <- println("    }")
+      _ <- println("    result.flatMap(previous => admitted.flatMap { current =>")
+      _ <- println("      if (previous.exists(_.compareTo(current) != 0)) Consequence.valueInvalid(\"Conflicting expiresAt aliases\") else Consequence.success(Some(current))")
+      _ <- println("    })")
+      _ <- println("  }")
+      _ <- println("  for { direct <- flat; resource <- _shared_resource_c(record); expiry <- {")
+      _ <- println("    val nested = resource.flatMap(_.expiresAt).map(_.toInstant)")
+      _ <- println("    if (direct.exists(value => nested.exists(_.compareTo(value) != 0))) Consequence.valueInvalid(\"Conflicting shared expiry representations\")")
+      _ <- println("    else Consequence.success(direct.orElse(nested))")
+      _ <- println("  } } yield expiry")
+      _ <- println("}")
+    } yield ()
+
   private def _declared_store_mapping: GenM[Unit] = {
     val frameworkarrays = _logical_store_framework_arrays.map { case (key, classname) =>
       val literal = EntityStoreMappingProjection.stringLiteral _
@@ -1228,7 +1314,8 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
         s"EntityStoreFieldBinding.array(EntityStoreFieldBinding.application[$classname](${literal("framework:" + classname)})$captures)")
     }
     val plans = EntityStoreMappingProjection.project(
-      _logical_store_attributes, is_entity_value_create, is_update, schema_datatype_expr, scala_context
+      (if (_has_required_shared_expiry) _logical_store_attributes.map(EntityStoreMappingProjection.refineSharedExpiry) else _logical_store_attributes),
+      is_entity_value_create, is_update, schema_datatype_expr, scala_context
     ) ++ frameworkarrays
     val frameworkkeys = _logical_store_framework_properties.map(_._1).filterNot(key => frameworkarrays.exists(_.logicalName == key))
     if (frameworkkeys.distinct.size != frameworkkeys.size || plans.exists { plan =>
@@ -1246,6 +1333,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       .map(EntityStoreMappingProjection.stringLiteral).mkString("Set(", ", ", ")")
 
     for {
+      _ <- _shared_expiry_readers
       _ <- println("import io.circe.generic.auto.*")
       _ <- println("private given _declared_record_json_codec: io.circe.Codec[org.goldenport.record.Record] = io.circe.Codec.from(")
       _ <- indent
@@ -1355,7 +1443,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     _select_attribute_name(names, "resourceAttributes", "resource_Attributes").foreach { attr =>
       b += (("activatedAt", s"$attr.activatedAt", valuefn))
       b += (("deactivatedAt", s"$attr.deactivatedAt", valuefn))
-      b += (("expiresAt", s"$attr.expiresAt", valuefn))
+      if (!_has_required_shared_expiry) b += (("expiresAt", s"$attr.expiresAt", valuefn))
       b += (("activationStatus", s"$attr.activationStatus", valuefn))
     }
     _select_attribute_name(names, "mediaAttributes", "media_Attributes").foreach { attr =>
@@ -3084,7 +3172,19 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _build_param_or_var_raw(p: Parameter)(param: => GenM[Unit]): GenM[Unit] =
-    if (_is_name_attributes_raw_parameter(p))
+    if (_has_required_shared_expiry && p.name.name == "expiresAt")
+      for {
+        _ <- print("_shared_expiry_c(record).flatMap {")
+        _ <- println()
+        _ <- indent
+        _ <- println("case Some(s) => Consequence.success(s)")
+        _ <- _build_param_or_var_raw_default(p)
+        _ <- outdent
+        _ <- print("}")
+      } yield ()
+    else if (_has_required_shared_expiry && !is_update && p.name.name == "resourceAttributes")
+      print("_shared_resource_c(record).map(_.getOrElse(resourceAttributes.getOrElse(org.simplemodeling.model.value.ResourceAttributes())))")
+    else if (_is_name_attributes_raw_parameter(p))
       _build_param_or_var_name_attributes(p)
     else if (_is_name_attributes_update_raw_parameter(p))
       _build_param_or_var_name_attributes_update(p)
@@ -3402,11 +3502,15 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     p: Parameter,
     container: TypeName.Container
   )(param: => GenM[Unit]): GenM[Unit] = {
-    if (container.isOption) {
+    if (_has_required_shared_expiry && p.name.name == "expiresAt" && is_update_type(container)) {
+      print("_shared_expiry_c(record).map(_.map(Update.set).getOrElse(expiresAt.getOrElse(Update.noop[java.time.Instant])))")
+    } else if (container.isOption) {
       for {
         _ <- param
         _ <- print(".map(_  orElse ", p.name.name, ")")
       } yield ()
+    } else if (_has_shared_expiry_declaration && p.name.name == "expiresAt" && is_condition_type(container)) {
+      print("_shared_expiry_c(record).map(_.map(Condition.is).getOrElse(expiresAt.getOrElse(Condition.any[java.time.Instant])))")
     } else if (is_condition_type(container)) {
       _build_param_or_var_condition(p, container)
     } else if (is_update_type(container)) {
@@ -4227,6 +4331,7 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
   private def _entity(name: String): GenM[Unit] = {
     if (is_query) {
       for {
+        _ <- _shared_expiry_readers
         _ <- println(s"""val collectionId: EntityCollectionId = EntityCollectionId("major", "minor", "${StringUtils.camelToUnderscore(name)}")""") // TODO major, minor
         _ <- println(s"given EntityPersistentQuery[$name] = EntityPersistentQuery.derived(createC, collectionId)")
       } yield ()
@@ -4404,9 +4509,11 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
 
   protected def class_parameter_item(p: Parameter): String = {
     val n = p.name.name
-    val constructorname = _class_constructor_parameter_name(n)
+    val constructorname = if (_has_required_shared_expiry && n == "resourceAttributes") "resourceAttributesInput" else _class_constructor_parameter_name(n)
     val prefix =
-      if (_is_override_parameter_for_parent(n))
+      if (_has_required_shared_expiry && n == "resourceAttributes")
+        "private val "
+      else if (_is_override_parameter_for_parent(n))
         "override val "
       else
         ""

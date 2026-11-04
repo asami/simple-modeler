@@ -21,7 +21,7 @@ import org.simplemodeling.SimpleModeler.transformers.scala._
  *  version Apr. 19, 2026
  *  version May. 23, 2026
  *  version Jul. 15, 2026
- * @version Oct. 19, 2026
+ * @version Oct. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaModelTransformer.Purpose), Consequence[Vector[SClassBase]]] {
@@ -253,7 +253,8 @@ abstract class ScalaModelTransformer() extends PartialFunction[(MObject, ScalaMo
       to_web_attribute(p),
       to_constraints(p.constraints),
       p.confidentiality,
-      to_constraints(p.typeConstraints)
+      to_constraints(p.typeConstraints),
+      Some(EntityStoreDeclaration(typename, p.multiplicity))
     )
   }
 

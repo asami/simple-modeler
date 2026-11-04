@@ -16,7 +16,7 @@ import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.
  *  version Jun. 27, 2026
  *  version Jul. 25, 2026
  *  version Aug. 14, 2026
- * @version Oct. 21, 2026
+ * @version Oct. 31, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
@@ -1356,18 +1356,7 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
   private def _transition_action_expr(
     p: Option[SComponent.RuleAction]
   ): GenM[Unit] =
-    p match {
-      case Some(s) =>
-        for {
-          _ <- println("transition = Some(")
-          _ <- indent
-          _ <- _action_expr(s)
-          _ <- outdent
-          _ <- println("),")
-        } yield ()
-      case None =>
-        println("transition = None,")
-    }
+    _action_vector_expr("transitionActions", p.toVector)
 
   private def _action_expr(
     p: SComponent.RuleAction
@@ -1377,8 +1366,8 @@ trait ComponentPart[T <: SClassBase] { self: Scala3ClassGeneratorExecutor[T] =>
       _ <- println("StateMachineRuleBuilder.action[Any] { (state, event) =>")
       _ <- indent
       _ <- println("val _ = (state, event)")
-      _ <- println(s"val _script = ${script}")
-      _ <- println("Consequence.unit")
+      _ <- println(s"val script = ${script}")
+      _ <- println("org.goldenport.ConsequenceT.fromConsequence[[X] =>> org.goldenport.cncf.Program[org.goldenport.cncf.unitofwork.UnitOfWorkOp, X], org.goldenport.cncf.workflow.ActionExecution](Consequence.notImplemented(s\"Unbound state machine action: ${script}\"))")
       _ <- outdent
       _ <- println("}")
     } yield ()
