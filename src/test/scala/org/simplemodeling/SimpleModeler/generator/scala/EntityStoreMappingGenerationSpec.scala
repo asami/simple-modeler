@@ -881,10 +881,16 @@ private[scala] object GeneratedRuntimeSpecification {
       Some(MObjectRef.create("org.simplemodeling.model.SimpleEntity")), Nil, Nil, List(attribute), Nil, Nil, Nil)
     val context = ScalaModel.Context.fromObjects(Vector(entity))
     val entities = new Scala3EntityFamilyGenerator(context).generate(entity).take.slots.map(slot => slot.path -> slot.content).toMap
+    // Native bootstrap selects descriptors through the component's registered services.
+    // Include an ordinary operation so the producer emits the Proposal service protocol.
+    val service = SService("org.example.proposal", "Proposal", MethodCompartment(Vector(
+      SMethod(MethodName("inspect"), SMethod.Descriptor.query,
+        ParameterSequence(Vector(Parameter(ParameterName("key"), TypeName.Primitive.string))), TypeName.Primitive.string))),
+      Vector.empty)
     val component = SComponent(
       core = ClassCore(packageName = PackageName("org.example.proposal"), declaration = ClassDeclaration.Control,
         className = ClassName("ExpiryComponent"), parentClass = Some(TypeName.Plain.create("org.goldenport.cncf.component", "Component"))),
-      componentCore = SComponent.ComponentCore(componentName = "org.example.proposal.Expiry", services = Nil,
+      componentCore = SComponent.ComponentCore(componentName = "org.example.proposal.Expiry", services = List(service),
         entityRuntimeDescriptors = Vector(SComponent.EntityRuntimeDescriptor("Proposal", PackageName("org.example.proposal.entity"),
           revisionModelKind = Some("simple-entity"), revisionRepresentation = Some("embedded")))))
     val components = new Scala3ComponentGenerator(context).generate(component).take.slots.map(slot => slot.path -> slot.content).toMap

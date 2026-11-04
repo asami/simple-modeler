@@ -94,7 +94,11 @@ through StandardEntityStore's public revision-bearing save API and SQLite.
 Each provider context registers the collection bootstrapped from the fixture's
 ordinary generated component descriptor with namespace-qualified identity
 `org.example.proposal.Expiry`, including SimpleEntity's Embedded
-revision metadata. Native create therefore initializes managed revision, and
+revision metadata. The fixture includes an ordinary generated Proposal service
+with an operation, so the generated factory registers its service protocol and
+native bootstrap selects the Proposal runtime descriptor by that service name.
+Descriptor presence alone does not establish collection registration.
+Native create therefore initializes managed revision, and
 revision-bearing save must advance it to two; a bare unregistered context does
 not substitute for that runtime model binding. Then a closed provider is reopened and
 a new store loads the exact expiry. No storage/security/revision guard is disabled. Because each property sample
