@@ -8,6 +8,9 @@ import org.goldenport.util.StringUtils
 import org.goldenport.scalaz.FoldTraverseUtil
 import org.simplemodeling.SimpleModeler.generator.SourceArtifacts
 import org.simplemodeling.model.{MBuiltinStructuredDataType, MDataType, MValue}
+import org.simplemodeling.model.domain.MDomainValue
+import org.simplemodeling.SimpleModeler.transformer.scala.ScalaModelTransformer.Purpose
+import org.simplemodeling.SimpleModeler.transformers.scala.ValueScalaModelTransformer
 import model._
 import Generator.{State => GState, _}
 
@@ -281,14 +284,39 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
     }
 
   private def _is_codec_derives_supported: Boolean =
-    !clazz.parameterSequence.parameters.exists(p =>
-        _is_simple_object_attribute_type(p.typeName) ||
-        _contains_record_type(p.typeName) ||
-        _contains_generated_model_type(p.typeName) ||
-        _contains_model_entity_type(p.typeName) ||
-        _contains_shared_model_value_type(p.typeName) ||
-        _contains_external_runtime_type(p.typeName)
-    )
+    _codec_parameters_supported(clazz.parameterSequence.parameters.map(_.typeName),
+      Set(TypeName.Plain(clazz.packageName, clazz.className.name).fullName))
+
+  private def _codec_parameters_supported(types: Seq[TypeName], visited: Set[String]): Boolean =
+    types.forall { datatype =>
+      !_is_simple_object_attribute_type(datatype) &&
+      !_contains_record_type(datatype) &&
+      !_contains_model_entity_type(datatype) &&
+      !_contains_shared_model_value_type(datatype) &&
+      !_contains_external_runtime_type(datatype) &&
+      (!_contains_generated_model_type(datatype) || classkind == ClassKind.Value) &&
+      _generated_codec_supported(datatype, visited)
+    }
+
+  private def _generated_codec_supported(datatype: TypeName, visited: Set[String]): Boolean =
+    datatype match {
+      case container: TypeName.Container if _contains_generated_model_type(container) =>
+        (container.isOption || container.isVector || container.isNonEmptyVector) &&
+          _generated_codec_supported(container.containee, visited)
+      case plain: TypeName.Plain if _is_generated_model_package(plain) =>
+        if (visited.contains(plain.fullName) ||
+            _generated_model_package_base_for(plain.packageName.name) != _generated_model_package_base) false
+        else context.resolveDeclaredType(plain.fullName, plain.packageName.name) match {
+          case Some(value: MDomainValue) if value.qualifiedName == plain.fullName =>
+            val transformed = ScalaModel.Context.withContext(context) {
+              new ValueScalaModelTransformer().apply((value, Purpose.Plain)).take
+            }
+            transformed.size == 1 && _codec_parameters_supported(
+              transformed.head.parameterSequence.parameters.map(_.typeName), visited + plain.fullName)
+          case _ => false
+        }
+      case _ => true
+    }
 
   private def _contains_shared_model_value_type(p: TypeName): Boolean =
     p match {
@@ -3661,8 +3689,10 @@ class Scala3ClassGeneratorExecutor[T <: SClassBase](
       case _ => false
     }
 
-  private def _generated_model_package_base: String = {
-    val name = clazz.packageName.name
+  private def _generated_model_package_base: String =
+    _generated_model_package_base_for(clazz.packageName.name)
+
+  private def _generated_model_package_base_for(name: String): String = {
     Vector(".entity", ".value", ".domain", ".service", ".component", ".subsystem")
       .flatMap(suffix => _substring_before(name, suffix))
       .headOption

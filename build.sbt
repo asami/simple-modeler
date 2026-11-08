@@ -4,7 +4,7 @@ name := "simplemodeler"
 
 organization := "org.simplemodeling"
 
-version := "1.1.27-SNAPSHOT"
+version := "1.1.28-SNAPSHOT"
 
 scalaVersion := "2.12.18"
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
@@ -150,3 +150,36 @@ lazy val root = (project in file(".")).
     ),
     buildInfoPackage := "org.goldenport.kaleidox"
   )
+
+// Compile and exercise actual emitted Scala 3 products inside this build.
+lazy val nestedValueCodecs = (project in file("src/test/fixtures/nested-value-codecs"))
+  .settings(
+    scalaVersion := "3.3.8",
+    resolvers ++= Seq(
+      "SimpleModeling.org" at "https://www.simplemodeling.org/repository/maven",
+      "Local Maven Repository" at ("file://" + Path.userHome.absolutePath + "/.m2/repository")
+    ),
+    publish / skip := true,
+    publishLocal / skip := true,
+    libraryDependencies ++= Seq(
+      "io.circe" %% "circe-core" % "0.14.3",
+      "io.circe" %% "circe-generic" % "0.14.3",
+      "io.circe" %% "circe-parser" % "0.14.3",
+      "org.goldenport" %% "goldenport-cncf" % "0.5.3-SNAPSHOT",
+      "org.simplemodeling" %% "simplemodeling-model" % "0.1.7-SNAPSHOT",
+      "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+      "org.scalacheck" %% "scalacheck" % "1.19.0" % Test
+    ),
+    Test / sourceGenerators += Def.task {
+      val output = (Test / sourceManaged).value / "nested-values"
+      IO.delete(output)
+      IO.createDirectory(output)
+      val classpath = (root / Test / fullClasspath).value.files
+      val testrunner = (root / Test / runner).value
+      testrunner.run("org.simplemodeling.SimpleModeler.generator.scala.NestedValueCodecFixtureGenerator",
+        classpath, Seq(output.getAbsolutePath), streams.value.log).get
+      (output ** "*.scala").get
+    }.taskValue
+  )
+
+root / Test / test := ((root / Test / test) dependsOn (nestedValueCodecs / Test / test)).value
